@@ -6,6 +6,8 @@ import base64
 from pathlib import Path
 import httpx
 import socket
+import os
+from anthropic import Anthropic
 socket.setdefaulttimeout(30)
 
 INPUT_FOLDER  = r"C:\Users\Family1\Desktop\trabajo de tanti\factura"
