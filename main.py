@@ -23,13 +23,17 @@ def home():
 @app.post("/procesar")
 async def procesar(factura: UploadFile = File(...)):
     try:
+        # Leer bytes
         img_bytes = await factura.read()
         b64 = base64.b64encode(img_bytes).decode("utf-8")
         
         # Llamada al motor de IA
         resultado = interpretacion.extraer_datos_factura([b64])
         
-        # Mapeo de compatibilidad para App.js
+        # DIAGNÓSTICO: Imprimir lo que la IA devuelve a la consola de Render
+        print("DEBUG - IA devolvió:", json.dumps(resultado, indent=2))
+        
+        # Mapeo de compatibilidad
         if "items" in resultado and isinstance(resultado["items"], list):
             for item in resultado["items"]:
                 if "codigoBarras" in item:
@@ -39,6 +43,7 @@ async def procesar(factura: UploadFile = File(...)):
                     
         return resultado
     except Exception as e:
+        print("DEBUG - ERROR crítico:", str(e))
         return {"error": str(e)}
 
 @app.post("/guardar-compartido")
@@ -55,7 +60,6 @@ async def guardar(datos: dict):
     except Exception as e:
         return {"error": str(e)}
 
-# Bloque de ejecución optimizado para Render
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 10000))
