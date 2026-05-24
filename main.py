@@ -65,8 +65,5 @@ async def guardar(datos: dict):
 
 if __name__ == '__main__':
     import os
-    # Render nos asigna un puerto automáticamente en esta variable de entorno
     puerto = int(os.environ.get("PORT", 5000))
-    
-    # Corremos la app en el host 0.0.0.0 y el puerto dinámico
-    app.run(host='0.0.0.0', port=puerto)
+    uvicorn.run(app, host='0.0.0.0', port=puerto)
