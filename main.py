@@ -39,7 +39,7 @@ async def procesar(factura: UploadFile = File(...)):
                     item["codigo_barras"] = item["codigoBarras"]
                 if "precioUnitario" in item:
                     item["precio_unitario"] = item["precioUnitario"]
-                   print("RESPUESTA DEL SERVIDOR:", respuesta)  # Cambiá 'respuesta' por la variable que uses 
+                   print("RESPUESTA DEL SERVIDOR:", resultado)  # Cambiá 'respuesta' por la variable que uses 
         return resultado
     except Exception as e:
         return {"error": str(e)}
