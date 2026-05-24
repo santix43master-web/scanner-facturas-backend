@@ -82,7 +82,8 @@ IMPORTANTE: El valor bajo COD. es siempre el CÓDIGO, NUNCA la cantidad.
 
 PASO 2 — EXTRAER ENCABEZADO FISCAL:
 Extraé con precisión:
-- RUC del VENDEDOR/PROVEEDOR (no del cliente comprador)
+- RUC del VENDEDOR/PROVEEDOR 
+- RUC del Comprador/Cliente
 - Número de factura formato XXX-XXX-XXXXXXX
 - Timbrado
 - Fecha de emisión DD/MM/YYYY
@@ -171,6 +172,7 @@ PASO 5 — RESPONDÉ SOLO con JSON válido sin texto adicional ni markdown:
   "fechaEmision": "string DD/MM/YYYY o null",
   "nombreVendedor": "string o null",
   "rucVendedor": "string o null (RUC del PROVEEDOR)",
+  "rucComprador": "string o null (RUC del Comprador o sea mio)",
   "timbrado": "string o null",
   "totalGeneral": number o null,
   "exenta": number o null,
