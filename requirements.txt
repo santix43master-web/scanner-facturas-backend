@@ -4,3 +4,4 @@ anthropic
 gunicorn
 fastapi
 uvicorn
+python-multipart
