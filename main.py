@@ -1,10 +1,9 @@
 import base64
 import os
+import json
+from datetime import datetime
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-
-# 🚀 IMPORTAMOS TU CÓDIGO DIRECTO
 import interpretacion 
 
 app = FastAPI()
@@ -19,22 +18,19 @@ app.add_middleware(
 
 @app.get("/")
 def home():
-    return {"status": "Servidor Activo "}
+    return {"status": "Servidor Activo"}
 
 @app.post("/procesar")
 async def procesar(factura: UploadFile = File(...)):
     try:
-        # 1. Leemos la foto de la cámara del cel
         img_bytes = await factura.read()
-        
-        # 2. La convertimos a Base64 en memoria
         b64 = base64.b64encode(img_bytes).decode("utf-8")
         
-        # 3. LLAMAMOS DIRECTAMENTE A TU FUNCIÓN ORIGINAL de interpretacion.py
+        # Llamada al motor de IA
         resultado = interpretacion.extraer_datos_factura([b64])
         
-        # 4. Compatibilidad para que tu App.js dibuje las tarjetas celestes
-        if "items" in resultado:
+        # Mapeo de compatibilidad para App.js
+        if "items" in resultado and isinstance(resultado["items"], list):
             for item in resultado["items"]:
                 if "codigoBarras" in item:
                     item["codigo_barras"] = item["codigoBarras"]
@@ -48,9 +44,6 @@ async def procesar(factura: UploadFile = File(...)):
 @app.post("/guardar-compartido")
 async def guardar(datos: dict):
     try:
-        import json
-        from datetime import datetime
-        
         os.makedirs(interpretacion.OUTPUT_FOLDER, exist_ok=True)
         nombre = f"factura_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         ruta_completa = os.path.join(interpretacion.OUTPUT_FOLDER, nombre)
@@ -62,5 +55,8 @@ async def guardar(datos: dict):
     except Exception as e:
         return {"error": str(e)}
 
-# 🌍 EJECUCIÓN IN CONDICIONAL PARA RENDER (Sin niveles extra de indentación)
-puerto = int(os.environ.get("PORT", 10000))
+# Bloque de ejecución optimizado para Render
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
