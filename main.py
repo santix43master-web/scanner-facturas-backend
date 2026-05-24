@@ -1,9 +1,10 @@
 import base64
+import os
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# 🚀 IMPORTAMOS TU CÓDIGO DIRECTO (Sin copiar nada de lógica acá)
+# 🚀 IMPORTAMOS TU CÓDIGO DIRECTO
 import interpretacion 
 
 app = FastAPI()
@@ -39,7 +40,7 @@ async def procesar(factura: UploadFile = File(...)):
                     item["codigo_barras"] = item["codigoBarras"]
                 if "precioUnitario" in item:
                     item["precio_unitario"] = item["precioUnitario"]
-                   print("RESPUESTA DEL SERVIDOR:", resultado)  # Cambiá 'respuesta' por la variable que uses 
+                    
         return resultado
     except Exception as e:
         return {"error": str(e)}
@@ -47,10 +48,8 @@ async def procesar(factura: UploadFile = File(...)):
 @app.post("/guardar-compartido")
 async def guardar(datos: dict):
     try:
-        # Usamos la misma carpeta de red que definiste en tu archivo original
-        import os
-        from datetime import datetime
         import json
+        from datetime import datetime
         
         os.makedirs(interpretacion.OUTPUT_FOLDER, exist_ok=True)
         nombre = f"factura_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -63,7 +62,5 @@ async def guardar(datos: dict):
     except Exception as e:
         return {"error": str(e)}
 
-if __name__ == '__main__':
-    import os
-    puerto = int(os.environ.get("PORT", 5000))
-    uvicorn.run(app, host='0.0.0.0', port=puerto)
+# 🌍 EJECUCIÓN IN CONDICIONAL PARA RENDER (Sin niveles extra de indentación)
+puerto = int(os.environ.get("PORT", 10000))
