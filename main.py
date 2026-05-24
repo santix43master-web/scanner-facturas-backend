@@ -6,13 +6,13 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# Importamos con manejo de error
+# Importar interpretacion con manejo de error
 try:
     import interpretacion
-    print("✅ interpretacion.py cargado correctamente")
-    print(f"OUTPUT_FOLDER configurado en: {interpretacion.OUTPUT_FOLDER}")
+    print("✅ Módulo interpretacion cargado correctamente")
+    print(f"OUTPUT_FOLDER: {interpretacion.OUTPUT_FOLDER}")
 except Exception as e:
-    print(f"❌ ERROR al importar interpretacion: {e}")
+    print(f"❌ Error al cargar interpretacion: {e}")
     interpretacion = None
 
 app = FastAPI()
@@ -29,23 +29,23 @@ app.add_middleware(
 def home():
     return {
         "status": "Servidor Activo",
-        "message": "API Scanner R21",
-        "interpretacion_cargado": interpretacion is not None
+        "message": "Scanner R21 Backend",
+        "interpretacion": "Cargado" if interpretacion else "No cargado"
     }
 
 @app.get("/status")
 def status():
     return {
         "status": "ok",
-        "output_folder": getattr(interpretacion, 'OUTPUT_FOLDER', 'No cargado'),
-        "api_key_configurado": bool(os.environ.get("API_KEY"))
+        "output_folder": getattr(interpretacion, 'OUTPUT_FOLDER', 'No configurado'),
+        "api_key": "Configurado" if os.environ.get("API_KEY") else "No configurado"
     }
 
 # 1. PROCESAR IMAGEN
 @app.post("/procesar")
 async def procesar(factura: UploadFile = File(...)):
     if not interpretacion:
-        return {"error": "Módulo interpretacion no cargado"}
+        return {"error": "Módulo de interpretación no cargado"}
     try:
         img_bytes = await factura.read()
         b64 = base64.b64encode(img_bytes).decode("utf-8")
@@ -66,10 +66,10 @@ async def procesar(factura: UploadFile = File(...)):
 @app.post("/guardar-compartido")
 async def guardar(datos: dict):
     if not interpretacion:
-        return {"status": "error", "message": "Módulo interpretacion no cargado"}
+        return {"status": "error", "message": "Módulo no cargado"}
     try:
         sucursal = datos.get("sucursal", "General").strip()
-        sucursal_limpia = sucursal.replace(" ", "_").replace("/", "_")
+        sucursal_limpia = sucursal.replace(" ", "_").replace("/", "_").replace("\\", "_")
         
         ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal_limpia)
         os.makedirs(ruta_sucursal, exist_ok=True)
@@ -83,22 +83,59 @@ async def guardar(datos: dict):
         return {
             "status": "ok", 
             "sucursal": sucursal_limpia, 
-            "archivo": nombre
+            "archivo": nombre,
+            "mensaje": f"Guardado en {sucursal_limpia}"
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# 3. LISTAR
+# 3. LISTAR ARCHIVOS
 @app.get("/listar/{sucursal}")
 async def listar(sucursal: str):
     if not interpretacion:
-        return {"archivos": [], "error": "Módulo no cargado"}
+        return {"archivos": []}
     try:
         ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal)
         if not os.path.exists(ruta_sucursal):
             return {"archivos": []}
+        
         archivos = [f for f in os.listdir(ruta_sucursal) if f.endswith('.json')]
         return {"archivos": archivos}
+    except Exception as e:
+        return {"error": str(e)}
+
+# 4. DESCARGAR Y BORRAR (VERSIÓN MEJORADA)
+@app.get("/descargar/{sucursal}/{nombre_archivo}")
+async def descargar(sucursal: str, nombre_archivo: str):
+    if not interpretacion:
+        return {"error": "Módulo no cargado"}
+    try:
+        # Intentamos varias formas del nombre de sucursal
+        posibles_nombres = [
+            sucursal,
+            sucursal.replace("_", " "),
+            "Minimarket_LF",
+            "Minimarket LF",
+            "Local_1",
+            "Local 1"
+        ]
+        
+        for nombre in posibles_nombres:
+            ruta_archivo = os.path.join(interpretacion.OUTPUT_FOLDER, nombre, nombre_archivo)
+            if os.path.exists(ruta_archivo):
+                with open(ruta_archivo, 'r', encoding='utf-8') as f:
+                    datos = json.load(f)
+                
+                # Borramos el archivo después de leerlo
+                os.remove(ruta_archivo)
+                return datos
+        
+        return {
+            "error": "Archivo no encontrado",
+            "sucursal_intentada": sucursal,
+            "archivo": nombre_archivo,
+            "mensaje": "Prueba con Minimarket_LF o Local_1"
+        }
     except Exception as e:
         return {"error": str(e)}
 
