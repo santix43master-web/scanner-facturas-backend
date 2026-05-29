@@ -64,7 +64,7 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
     if not imagenes_b64: return {"error": "Sin imagen"}
     try:
         message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model="claude-opus-4-7",
             max_tokens=4000,
             system="""Eres un experto en lectura de facturas y tickets de venta paraguayos. Tu trabajo requiere precisión absoluta — un error en un código puede causar problemas graves de inventario.
 
