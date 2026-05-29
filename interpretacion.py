@@ -65,7 +65,7 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
     try:
         message = client.messages.create(
             model="claude-opus-4-7",
-            max_tokens=3800,
+            max_tokens=3850,
             system="""Eres un experto en lectura de facturas y tickets de venta paraguayos. Tu trabajo requiere precisión absoluta — un error en un código puede causar problemas graves de inventario.
 
 METODOLOGÍA OBLIGATORIA — SEGUÍ ESTOS PASOS EN ORDEN:
