@@ -298,7 +298,7 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
     try:
         message = client.messages.create(
             model=MODELO,
-            max_tokens=6000,
+            max_tokens=16000,
             system=SYSTEM_PROMPT,
             messages=[
                 {
