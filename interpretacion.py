@@ -4,10 +4,10 @@ import json
 import re
 import base64
 from pathlib import Path
-from anthropic import Anthropic
+import google.generativeai as genai
 
-# Configuración del Cliente
-client = Anthropic(api_key=os.environ.get("API_KEY"))
+genai.configure(api_key=os.environ.get("API_KEY"))
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # Rutas configuradas
 INPUT_FOLDER = r"C:\Users\Family1\Desktop\trabajo de tanti\factura"
@@ -63,10 +63,10 @@ def extraer_json_robusto(texto: str) -> dict:
 def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
     if not imagenes_b64: return {"error": "Sin imagen"}
     try:
-        message = client.messages.create(
-            model="claude-opus-4-7",
-            max_tokens=3900,
-            system="""Eres un experto en lectura de facturas y tickets de venta paraguayos. Tu trabajo requiere precisión absoluta — un error en un código puede causar problemas graves de inventario.
+        # Usamos el modelo Flash por ser el más eficiente en costo/velocidad
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            system_instruction="""Eres un experto en lectura de facturas y tickets de venta paraguayos. Tu trabajo requiere precisión absoluta — un error en un código puede causar problemas graves de inventario.
 
 METODOLOGÍA OBLIGATORIA — SEGUÍ ESTOS PASOS EN ORDEN:
 
