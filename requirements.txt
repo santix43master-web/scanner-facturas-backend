@@ -1,7 +1,5 @@
-flask
-flask-cors
-google-generativeai>=0.7.0
-gunicorn
 fastapi
 uvicorn
+openai
 python-multipart
+gunicorn
