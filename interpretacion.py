@@ -7,11 +7,12 @@ from pathlib import Path
 import google.generativeai as genai
 
 # --- CONFIGURACIÓN DE LA API DE GEMINI ---
+os.environ["GOOGLE_API_VERSION"] = "v1" 
 genai.configure(api_key=os.environ.get("API_KEY"))
 
-# Inicialización del Modelo con tu Prompt Exacto
+# Inicialización del Modelo con tu Prompt Exacto usando el string limpio
 model = genai.GenerativeModel(
-    model_name='gemini-1.5-flash',  # Usamos el nombre estándar limpio
+    model_name='gemini-1.5-flash',
     system_instruction="""Eres un experto en lectura de facturas y tickets de venta paraguayos. Tu trabajo requiere precisión absoluta — un error en un código puede causar problemas graves de inventario.
 
 METODOLOGÍA OBLIGATORIA — SEGUÍ ESTOS PASOS EN ORDEN:
