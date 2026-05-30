@@ -6,10 +6,10 @@ import base64
 from pathlib import Path
 import google.generativeai as genai
 
-# --- CONFIGURACIÓN DE LA API DE GEMINI (Limpia y estándar) ---
+# --- CONFIGURACIÓN DE LA API DE GEMINI ---
 genai.configure(api_key=os.environ.get("API_KEY"))
 
-# Inicialización del Modelo
+# Inicialización del Modelo con tu Prompt
 model = genai.GenerativeModel(
     model_name='gemini-1.5-flash',
     system_instruction="""Eres un experto en lectura de facturas y tickets de venta paraguayos. Tu trabajo requiere precisión absoluta — un error en un código puede causar problemas graves de inventario.
@@ -148,6 +148,18 @@ else:
 
 os.makedirs(INPUT_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+EXTENSIONES_VALIDAS = {".jpg", ".jpeg", ".png", ".webp"}
+
+# --- LÓGICA DE CORRECCIÓN (Tu mapa está acá) ---
+CONFUSIONES_VISUALES = [
+    ("0", "8"), ("8", "0"), ("3", "0"), ("0", "3"), ("1", "7"), ("7", "1"),
+    ("5", "6"), ("6", "5"), ("5", "9"), ("9", "5"), ("6", "8"), ("8", "6"),
+    ("3", "8"), ("8", "3"), ("1", "4"), ("4", "1"), ("2", "7"), ("7", "2"),
+    ("6", "9"), ("9", "6"), ("0", "6"), ("6", "0"), ("5", "8"), ("8", "5"),
+    ("1", "l"), ("l", "1"), ("0", "O"), ("O", "0"), ("0", "7"), ("7", "0"),
+    ("9", "4"), ("4", "9"), ("5", "2"), ("2", "5"), ("1", "8"), ("8", "1"),
+    ("3", "7"), ("7", "3")
+]
 
 _CHAR_MAP = {"l": "1", "I": "1", "O": "0", "o": "0", "S": "5", "s": "5", "B": "8", "G": "6", "g": "9", "Z": "2", "z": "2"}
 
@@ -189,7 +201,7 @@ def extraer_json_robusto(texto: str) -> dict:
             except: pass
         return {"items": [], "error": "JSON no válido"}
 
-# --- FUNCIÓN PRINCIPAL DE EXTRACCIÓN ---
+# --- FUNCIÓN PRINCIPAL DE EXTRACCIÓN (Corregido con X) ---
 def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
     if not imagenes_b64: 
         return {"error": "Sin imagen"}
@@ -211,3 +223,6 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
         
     except Exception as e:
         return {"error": str(e)}
+
+if __name__ == "__main__":
+    print("Módulo de interpretación cargado correctamente.")
