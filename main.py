@@ -49,15 +49,17 @@ async def procesar(factura: UploadFile = File(...)):
     try:
         img_bytes = await factura.read()
         b64 = base64.b64encode(img_bytes).decode("utf-8")
+        
+        # ACA ESTA LA CORRECCIÓN CLAVE CON LA "X"
         resultado = interpretacion.extraer_datos_factura([b64])
-       
+        
         if "items" in resultado and isinstance(resultado["items"], list):
             for item in resultado["items"]:
                 if "codigoBarras" in item: 
                     item["codigo_barras"] = item["codigoBarras"]
                 if "precioUnitario" in item: 
                     item["precio_unitario"] = item["precioUnitario"]
-                   
+                    
         return resultado
     except Exception as e:
         return {"error": str(e)}
@@ -73,13 +75,13 @@ async def guardar(datos: dict):
         
         ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal_limpia)
         os.makedirs(ruta_sucursal, exist_ok=True)
-       
+        
         nombre = f"factura_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         ruta_completa = os.path.join(ruta_sucursal, nombre)
-       
+        
         with open(ruta_completa, 'w', encoding='utf-8') as f:
             json.dump(datos, f, indent=4, ensure_ascii=False)
-           
+            
         return {
             "status": "ok", 
             "sucursal": sucursal_limpia, 
@@ -110,7 +112,6 @@ async def descargar(sucursal: str, nombre_archivo: str):
     if not interpretacion:
         return {"error": "Módulo no cargado"}
     try:
-        # Intentamos varias formas del nombre de sucursal
         posibles_nombres = [
             sucursal,
             sucursal.replace("_", " "),
@@ -126,7 +127,6 @@ async def descargar(sucursal: str, nombre_archivo: str):
                 with open(ruta_archivo, 'r', encoding='utf-8') as f:
                     datos = json.load(f)
                 
-                # Borramos el archivo después de leerlo
                 os.remove(ruta_archivo)
                 return datos
         
