@@ -4,16 +4,15 @@ import json
 import re
 import base64
 from pathlib import Path
-from openai import OpenAI
+from anthropic import Anthropic
 
 # ── Configuración ──────────────────────────────────────────────
-# Cambiá acá el modelo si querés: "gpt-4o" o "gpt-4o-mini"
-MODELO = os.environ.get("OPENAI_MODEL", "gpt-4o")
+MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
 INPUT_FOLDER  = r"C:\Users\Family1\Desktop\trabajo de tanti\factura"
 OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", r"\\192.168.100.16\Users\public\JSON")
 
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+client = Anthropic(api_key=os.environ.get("API_KEY"))
 
 EXTENSIONES_VALIDAS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -269,7 +268,7 @@ def extraer_json_robusto(texto: str) -> dict:
             print("   ⚠️ No se pudo parsear el JSON")
             return {
                 "items": [],
-                "observaciones": ["ERROR: OpenAI no devolvió JSON válido"]
+                "observaciones": ["ERROR: Sonnet no devolvió JSON válido"]
             }
 
 # ===================== EXTRACCIÓN =====================
@@ -277,15 +276,17 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
     if not imagenes_b64:
         return {"error": "Sin imagen"}
 
-    image_content = []
-    for b64 in imagenes_b64:
-        image_content.append({
-            "type": "image_url",
-            "image_url": {
-                "url": f"data:image/jpeg;base64,{b64}",
-                "detail": "high"
-            }
-        })
+    image_content = [
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": b64,
+            },
+        }
+        for b64 in imagenes_b64
+    ]
 
     user_text = (
         f"Estas {len(imagenes_b64)} imágenes son partes de UNA SOLA factura paraguaya.\n"
@@ -295,17 +296,19 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
     )
 
     try:
-        response = client.chat.completions.create(
+        message = client.messages.create(
             model=MODELO,
             max_tokens=6000,
-            temperature=0.0,
+            system=SYSTEM_PROMPT,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": [*image_content, {"type": "text", "text": user_text}]},
-            ]
+                {
+                    "role": "user",
+                    "content": [*image_content, {"type": "text", "text": user_text}],
+                }
+            ],
         )
 
-        content = response.choices[0].message.content.strip()
+        content = message.content[0].text.strip()
         result = extraer_json_robusto(content)
 
         if result.get("items"):
@@ -346,6 +349,6 @@ def procesar_carpeta():
 
 
 if __name__ == "__main__":
-    if not os.environ.get("OPENAI_API_KEY"):
-        raise SystemExit("Falta OPENAI_API_KEY")
+    if not os.environ.get("API_KEY"):
+        raise SystemExit("Falta API_KEY")
     procesar_carpeta()
