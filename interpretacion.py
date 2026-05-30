@@ -6,14 +6,10 @@ import base64
 from pathlib import Path
 import google.generativeai as genai
 
-# --- CONFIGURACIÓN DE API ESTABLE V1 (Inyección directa) ---
-# Esto obliga a Gemini a usar el canal 'v1' y soluciona el error 404 de Render
-genai.configure(
-    api_key=os.environ.get("API_KEY"),
-    client_options={"api_version": "v1"}
-)
+# --- CONFIGURACIÓN DE LA API DE GEMINI (Limpia y estándar) ---
+genai.configure(api_key=os.environ.get("API_KEY"))
 
-# Inicialización del Modelo con tu Prompt Exacto
+# Inicialización del Modelo
 model = genai.GenerativeModel(
     model_name='gemini-1.5-flash',
     system_instruction="""Eres un experto en lectura de facturas y tickets de venta paraguayos. Tu trabajo requiere precisión absoluta — un error en un código puede causar problemas graves de inventario.
@@ -84,7 +80,7 @@ En ese caso revisá cada dígito individualmente prestando atención a las confu
 REGLAS PARA TIPOS DE CÓDIGO:
 - Cod. Artículo interno (corto, numérico o alfanumérico): 1816, 58, yog350
 - EAN-13 (exactamente 13 dígitos numéricos con dígito verificador válido)
-Si hay ambos extraelos SEPARADOS en "codigo" and "codigoBarras"
+Si hay ambos extraelos SEPARADOS en "codigo" y "codigoBarras"
 Si solo hay uno: 13 dígitos → "codigoBarras", resto → "codigo"
 
 DETECCIÓN DE CÓDIGOS EN COLUMNA DESCRIPCIÓN:
@@ -152,18 +148,6 @@ else:
 
 os.makedirs(INPUT_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-EXTENSIONES_VALIDAS = {".jpg", ".jpeg", ".png", ".webp"}
-
-# --- LÓGICA DE CORRECCIÓN ---
-CONFUSIONES_VISUALES = [
-    ("0", "8"), ("8", "0"), ("3", "0"), ("0", "3"), ("1", "7"), ("7", "1"),
-    ("5", "6"), ("6", "5"), ("5", "9"), ("9", "5"), ("6", "8"), ("8", "6"),
-    ("3", "8"), ("8", "3"), ("1", "4"), ("4", "1"), ("2", "7"), ("7", "2"),
-    ("6", "9"), ("9", "6"), ("0", "6"), ("6", "0"), ("5", "8"), ("8", "5"),
-    ("1", "l"), ("l", "1"), ("0", "O"), ("O", "0"), ("0", "7"), ("7", "0"),
-    ("9", "4"), ("4", "9"), ("5", "2"), ("2", "5"), ("1", "8"), ("8", "1"),
-    ("3", "7"), ("7", "3")
-]
 
 _CHAR_MAP = {"l": "1", "I": "1", "O": "0", "o": "0", "S": "5", "s": "5", "B": "8", "G": "6", "g": "9", "Z": "2", "z": "2"}
 
@@ -175,58 +159,4 @@ def _digito_verificador(primeros_12: str) -> int | None:
 
 def _es_valido(codigo: str) -> bool:
     if len(codigo) != 13 or not codigo.isdigit(): return False
-    dv = _digito_verificador(codigo[:12])
-    return dv is not None and dv == int(codigo[12])
-
-def _normalizar(codigo: str) -> str:
-    res = ""
-    for c in str(codigo):
-        if c.isdigit(): res += c
-        elif c in _CHAR_MAP: res += _CHAR_MAP[c]
-    return res
-
-def corregir_codigos_ean(items: list[dict]) -> list[dict]:
-    for item in items:
-        raw = item.get("codigoBarras")
-        if not raw: continue
-        codigo = _normalizar(str(raw))
-        if len(codigo) == 13 and _es_valido(codigo):
-            item["codigoBarras"] = codigo
-    return items
-
-def extraer_json_robusto(texto: str) -> dict:
-    texto = texto.strip().replace("```json", "").replace("```", "")
-    try: 
-        return json.loads(texto)
-    except:
-        match = re.search(r'\{.*\}', texto, re.DOTALL)
-        if match:
-            try: return json.loads(match.group(0))
-            except: pass
-        return {"items": [], "error": "JSON no válido"}
-
-# --- FUNCIÓN PRINCIPAL DE EXTRACCIÓN ---
-def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
-    if not imagenes_b64: 
-        return {"error": "Sin imagen"}
-    try:
-        imagen_parte = {
-            "mime_type": "image/jpeg",
-            "data": imagenes_b64[0]
-        }
-        
-        response = model.generate_content([
-            "Procesa esta factura.", 
-            imagen_parte
-        ])
-        
-        resultado = extraer_json_robusto(response.text)
-        if resultado.get("items"):
-            resultado["items"] = corregir_codigos_ean(resultado["items"])
-        return resultado
-        
-    except Exception as e:
-        return {"error": str(e)}
-
-if __name__ == "__main__":
-    print("Módulo de interpretación cargado correctamente.")
+    dv = _digito_
