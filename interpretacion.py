@@ -60,9 +60,6 @@ def extraer_json_robusto(texto: str) -> dict:
     try: return json.loads(texto)
     except: return {"items": [], "error": "JSON no válido"}
 
-def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
-    if not imagenes_b64: return {"error": "Sin imagen"}
-    try:
         # Usamos el modelo Flash por ser el más eficiente en costo/velocidad
         model = genai.GenerativeModel(
             model_name='gemini-1.5-flash',
@@ -192,6 +189,29 @@ PASO 5 — RESPONDÉ SOLO con JSON válido sin texto adicional ni markdown:
 }"""
 
 ,
+            def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
+    if not imagenes_b64: return {"error": "Sin imagen"}
+    try:
+        # 2. Preparamos la imagen
+        imagen_parte = {
+            "mime_type": "image/jpeg",
+            "data": imagenes_b64[0]
+        }
+        
+        # 3. Llamada directa al modelo ya configurado
+        response = model.generate_content([
+            "Procesa esta factura.", 
+            imagen_parte
+        ])
+        
+        # 4. Procesamos la respuesta
+        resultado = extraer_json_robusto(response.text)
+        
+        if resultado.get("items"):
+            resultado["items"] = corregir_codigos_ean(resultado["items"])
+        return resultado
+    except Exception as e:
+        return {"error": str(e)}
             messages=[{
                 "role": "user",
                 "content": [
