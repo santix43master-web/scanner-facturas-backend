@@ -159,4 +159,55 @@ def _digito_verificador(primeros_12: str) -> int | None:
 
 def _es_valido(codigo: str) -> bool:
     if len(codigo) != 13 or not codigo.isdigit(): return False
-    dv = _digito_
+    dv = _digito_verificador(codigo[:12])
+    return dv is not None and dv == int(codigo[12])
+
+def _normalizar(codigo: str) -> str:
+    res = ""
+    for c in str(codigo):
+        if c.isdigit(): res += c
+        elif c in _CHAR_MAP: res += _CHAR_MAP[c]
+    return res
+
+def corregir_codigos_ean(items: list[dict]) -> list[dict]:
+    for item in items:
+        raw = item.get("codigoBarras")
+        if not raw: continue
+        codigo = _normalizar(str(raw))
+        if len(codigo) == 13 and _es_valido(codigo):
+            item["codigoBarras"] = codigo
+    return items
+
+def extraer_json_robusto(texto: str) -> dict:
+    texto = texto.strip().replace("```json", "").replace("```", "")
+    try: 
+        return json.loads(texto)
+    except:
+        match = re.search(r'\{.*\}', texto, re.DOTALL)
+        if match:
+            try: return json.loads(match.group(0))
+            except: pass
+        return {"items": [], "error": "JSON no válido"}
+
+# --- FUNCIÓN PRINCIPAL DE EXTRACCIÓN ---
+def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
+    if not imagenes_b64: 
+        return {"error": "Sin imagen"}
+    try:
+        imagen_parte = {
+            "mime_type": "image/jpeg",
+            "data": imagenes_b64[0]
+        }
+        
+        response = model.generate_content([
+            "Procesa esta factura.", 
+            imagen_parte
+        ])
+        
+        resultado = extraer_json_robusto(response.text)
+        if resultado.get("items"):
+            resultado["items"] = corregir_codigos_ean(resultado["items"])
+        return resultado
+        
+    except Exception as e:
+        return {"error": str(e)}
