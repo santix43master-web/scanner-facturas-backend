@@ -6,14 +6,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-# Importar interpretacion con manejo de error
-try:
-    import interpretacion
-    print("✅ Módulo interpretacion cargado correctamente")
-    print(f"OUTPUT_FOLDER: {interpretacion.OUTPUT_FOLDER}")
-except Exception as e:
-    print(f"❌ Error al cargar interpretacion: {e}")
-    interpretacion = None
+import interpretacion
 
 app = FastAPI()
 
@@ -29,88 +22,73 @@ app.add_middleware(
 def home():
     return {
         "status": "Servidor Activo",
-        "message": "Scanner R21 Backend",
-        "interpretacion": "Cargado" if interpretacion else "No cargado"
+        "modelo": interpretacion.MODELO,
     }
 
 @app.get("/status")
 def status():
     return {
         "status": "ok",
-        "output_folder": getattr(interpretacion, 'OUTPUT_FOLDER', 'No configurado'),
-        "api_key": "Configurado" if os.environ.get("API_KEY") else "No configurado"
+        "modelo": interpretacion.MODELO,
+        "output_folder": interpretacion.OUTPUT_FOLDER,
+        "api_key": "Configurado" if os.environ.get("OPENAI_API_KEY") else "No configurado",
     }
 
-# 1. PROCESAR IMAGEN
 @app.post("/procesar")
 async def procesar(factura: UploadFile = File(...)):
-    if not interpretacion:
-        return {"error": "Módulo de interpretación no cargado"}
     try:
         img_bytes = await factura.read()
         b64 = base64.b64encode(img_bytes).decode("utf-8")
-        
-        # ACA ESTA LA CORRECCIÓN CLAVE CON LA "X"
         resultado = interpretacion.extraer_datos_factura([b64])
-        
+
         if "items" in resultado and isinstance(resultado["items"], list):
             for item in resultado["items"]:
-                if "codigoBarras" in item: 
+                if "codigoBarras" in item:
                     item["codigo_barras"] = item["codigoBarras"]
-                if "precioUnitario" in item: 
+                if "precioUnitario" in item:
                     item["precio_unitario"] = item["precioUnitario"]
-                    
+
         return resultado
     except Exception as e:
         return {"error": str(e)}
 
-# 2. GUARDAR EN BUZÓN
 @app.post("/guardar-compartido")
 async def guardar(datos: dict):
-    if not interpretacion:
-        return {"status": "error", "message": "Módulo no cargado"}
     try:
         sucursal = datos.get("sucursal", "General").strip()
         sucursal_limpia = sucursal.replace(" ", "_").replace("/", "_").replace("\\", "_")
-        
+
         ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal_limpia)
         os.makedirs(ruta_sucursal, exist_ok=True)
-        
+
         nombre = f"factura_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         ruta_completa = os.path.join(ruta_sucursal, nombre)
-        
+
         with open(ruta_completa, 'w', encoding='utf-8') as f:
             json.dump(datos, f, indent=4, ensure_ascii=False)
-            
+
         return {
-            "status": "ok", 
-            "sucursal": sucursal_limpia, 
+            "status": "ok",
+            "sucursal": sucursal_limpia,
             "archivo": nombre,
-            "mensaje": f"Guardado en {sucursal_limpia}"
+            "mensaje": f"Guardado en {sucursal_limpia}",
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# 3. LISTAR ARCHIVOS
 @app.get("/listar/{sucursal}")
 async def listar(sucursal: str):
-    if not interpretacion:
-        return {"archivos": []}
     try:
         ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal)
         if not os.path.exists(ruta_sucursal):
             return {"archivos": []}
-        
         archivos = [f for f in os.listdir(ruta_sucursal) if f.endswith('.json')]
         return {"archivos": archivos}
     except Exception as e:
         return {"error": str(e)}
 
-# 4. DESCARGAR Y BORRAR (VERSIÓN MEJORADA)
 @app.get("/descargar/{sucursal}/{nombre_archivo}")
 async def descargar(sucursal: str, nombre_archivo: str):
-    if not interpretacion:
-        return {"error": "Módulo no cargado"}
     try:
         posibles_nombres = [
             sucursal,
@@ -118,23 +96,21 @@ async def descargar(sucursal: str, nombre_archivo: str):
             "Minimarket_LF",
             "Minimarket LF",
             "Local_1",
-            "Local 1"
+            "Local 1",
         ]
-        
+
         for nombre in posibles_nombres:
             ruta_archivo = os.path.join(interpretacion.OUTPUT_FOLDER, nombre, nombre_archivo)
             if os.path.exists(ruta_archivo):
                 with open(ruta_archivo, 'r', encoding='utf-8') as f:
                     datos = json.load(f)
-                
                 os.remove(ruta_archivo)
                 return datos
-        
+
         return {
             "error": "Archivo no encontrado",
             "sucursal_intentada": sucursal,
             "archivo": nombre_archivo,
-            "mensaje": "Prueba con Minimarket_LF o Local_1"
         }
     except Exception as e:
         return {"error": str(e)}
