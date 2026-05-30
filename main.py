@@ -31,7 +31,7 @@ def status():
         "status": "ok",
         "modelo": interpretacion.MODELO,
         "output_folder": interpretacion.OUTPUT_FOLDER,
-        "api_key": "Configurado" if os.environ.get("OPENAI_API_KEY") else "No configurado",
+        "api_key": "Configurado" if os.environ.get("API_KEY") else "No configurado",
     }
 
 @app.post("/procesar")
