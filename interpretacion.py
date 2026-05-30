@@ -7,7 +7,7 @@ from pathlib import Path
 from anthropic import Anthropic
 
 # ── Configuración ──────────────────────────────────────────────
-MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
 
 INPUT_FOLDER  = r"C:\Users\Family1\Desktop\trabajo de tanti\factura"
 OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", r"\\192.168.100.16\Users\public\JSON")
