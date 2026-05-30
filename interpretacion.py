@@ -5,10 +5,12 @@ import re
 import base64
 from pathlib import Path
 import google.generativeai as genai
+from google.api_core import client_options
 
-# --- FORZAR API ESTABLE (Evita error 404 en Render) ---
-os.environ["GOOGLE_API_VERSION"] = "v1" 
-genai.configure(api_key=os.environ.get("API_KEY"))
+# --- FORZAR CONFIGURACIÓN DE API V1 DESDE EL CÓDIGO ---
+# Esto ignora por completo lo que haga Render y le exige a Google usar la versión estable
+opciones_cliente = client_options.ClientOptions(api_version="v1")
+genai.configure(api_key=os.environ.get("API_KEY"), client_options=opciones_cliente)
 
 # Inicialización del Modelo con tu Prompt Exacto
 model = genai.GenerativeModel(
@@ -207,19 +209,17 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
     if not imagenes_b64: 
         return {"error": "Sin imagen"}
     try:
-        # Preparamos la imagen de forma limpia
         imagen_parte = {
             "mime_type": "image/jpeg",
             "data": imagenes_b64[0]
         }
         
-        # Llamada directa a Gemini (Ya forzado a v1 arriba)
+        # Llamada directa a Gemini (Ya viaja por canal v1 de forma forzada)
         response = model.generate_content([
             "Procesa esta factura.", 
             imagen_parte
         ])
         
-        # Procesamos la respuesta
         resultado = extraer_json_robusto(response.text)
         if resultado.get("items"):
             resultado["items"] = corregir_codigos_ean(resultado["items"])
