@@ -5,12 +5,13 @@ import re
 import base64
 from pathlib import Path
 import google.generativeai as genai
-from google.api_core import client_options
 
-# --- FORZAR CONFIGURACIÓN DE API V1 DESDE EL CÓDIGO ---
-# Esto ignora por completo lo que haga Render y le exige a Google usar la versión estable
-opciones_cliente = client_options.ClientOptions(api_version="v1")
-genai.configure(api_key=os.environ.get("API_KEY"), client_options=opciones_cliente)
+# --- CONFIGURACIÓN DE API ESTABLE V1 (Inyección directa) ---
+# Esto obliga a Gemini a usar el canal 'v1' y soluciona el error 404 de Render
+genai.configure(
+    api_key=os.environ.get("API_KEY"),
+    client_options={"api_version": "v1"}
+)
 
 # Inicialización del Modelo con tu Prompt Exacto
 model = genai.GenerativeModel(
@@ -83,7 +84,7 @@ En ese caso revisá cada dígito individualmente prestando atención a las confu
 REGLAS PARA TIPOS DE CÓDIGO:
 - Cod. Artículo interno (corto, numérico o alfanumérico): 1816, 58, yog350
 - EAN-13 (exactamente 13 dígitos numéricos con dígito verificador válido)
-Si hay ambos extraelos SEPARADOS en "codigo" y "codigoBarras"
+Si hay ambos extraelos SEPARADOS en "codigo" and "codigoBarras"
 Si solo hay uno: 13 dígitos → "codigoBarras", resto → "codigo"
 
 DETECCIÓN DE CÓDIGOS EN COLUMNA DESCRIPCIÓN:
@@ -214,7 +215,6 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
             "data": imagenes_b64[0]
         }
         
-        # Llamada directa a Gemini (Ya viaja por canal v1 de forma forzada)
         response = model.generate_content([
             "Procesa esta factura.", 
             imagen_parte
@@ -229,4 +229,4 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    print("Módulo de interpretación cargado.")
+    print("Módulo de interpretación cargado correctamente.")
