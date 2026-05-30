@@ -6,11 +6,11 @@ import base64
 from pathlib import Path
 import google.generativeai as genai
 
-# --- CONFIGURACIÓN DE LA API DE GEMINI ---
+# --- FORZAR API ESTABLE (Evita error 404 en Render) ---
 os.environ["GOOGLE_API_VERSION"] = "v1" 
 genai.configure(api_key=os.environ.get("API_KEY"))
 
-# Inicialización del Modelo con tu Prompt Exacto usando el string limpio
+# Inicialización del Modelo con tu Prompt Exacto
 model = genai.GenerativeModel(
     model_name='gemini-1.5-flash',
     system_instruction="""Eres un experto en lectura de facturas y tickets de venta paraguayos. Tu trabajo requiere precisión absoluta — un error en un código puede causar problemas graves de inventario.
@@ -139,10 +139,10 @@ PASO 5 — RESPONDÉ SOLO con JSON válido sin texto adicional ni markdown:
 }"""
 )
 
-# --- RUTAS DINÁMICAS INTELIGENTES (Para Linux en Render y Windows en Casa) ---
+# --- ENTORNO ADAPTATIVO (Nube Linux / PC Windows) ---
 if os.environ.get("HOME") and not os.name == "nt":
     INPUT_FOLDER = "/tmp/facturas_input"
-    OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", "/tmp")  # Usa el /tmp de tu captura de Render
+    OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", "/tmp")
 else:
     INPUT_FOLDER = r"C:\Users\Family1\Desktop\trabajo de tanti\factura"
     OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", r"\\192.168.100.16\Users\public\JSON")
@@ -151,7 +151,7 @@ os.makedirs(INPUT_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 EXTENSIONES_VALIDAS = {".jpg", ".jpeg", ".png", ".webp"}
 
-# --- LÓGICA DE CORRECCIÓN (Mantenida intacta) ---
+# --- LÓGICA DE CORRECCIÓN ---
 CONFUSIONES_VISUALES = [
     ("0", "8"), ("8", "0"), ("3", "0"), ("0", "3"), ("1", "7"), ("7", "1"),
     ("5", "6"), ("6", "5"), ("5", "9"), ("9", "5"), ("6", "8"), ("8", "6"),
@@ -191,7 +191,6 @@ def corregir_codigos_ean(items: list[dict]) -> list[dict]:
             item["codigoBarras"] = codigo
     return items
 
-# --- PROCESAMIENTO CON IA ---
 def extraer_json_robusto(texto: str) -> dict:
     texto = texto.strip().replace("```json", "").replace("```", "")
     try: 
@@ -203,33 +202,24 @@ def extraer_json_robusto(texto: str) -> dict:
             except: pass
         return {"items": [], "error": "JSON no válido"}
 
+# --- FUNCIÓN PRINCIPAL DE EXTRACCIÓN ---
 def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
-    if not imagenes_b64: return {"error": "Sin imagen"}
+    if not imagenes_b64: 
+        return {"error": "Sin imagen"}
     try:
-        # Preparamos la imagen para Gemini
+        # Preparamos la imagen de forma limpia
         imagen_parte = {
             "mime_type": "image/jpeg",
             "data": imagenes_b64[0]
         }
         
-        # Llamamos a la API intentando el canal por defecto o el prefijo si falla
-        try:
-            response = model.generate_content([
-                "Procesa esta factura.", 
-                imagen_parte
-            ])
-        except Exception as api_err:
-            # Si da error 404 por la versión de la librería, probamos forzando la ruta interna del modelo
-            if "404" in str(api_err) or "not found" in str(api_err).lower():
-                model.model_name = 'models/gemini-1.5-flash'
-                response = model.generate_content([
-                    "Procesa esta factura.", 
-                    imagen_parte
-                ])
-            else:
-                raise api_err
+        # Llamada directa a Gemini (Ya forzado a v1 arriba)
+        response = model.generate_content([
+            "Procesa esta factura.", 
+            imagen_parte
+        ])
         
-        # Procesamos la respuesta usando tus mismas funciones
+        # Procesamos la respuesta
         resultado = extraer_json_robusto(response.text)
         if resultado.get("items"):
             resultado["items"] = corregir_codigos_ean(resultado["items"])
