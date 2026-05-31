@@ -400,45 +400,6 @@ def _descargar_xml_sifen(cdc: str) -> str | None:
         except Exception as ex:
             print(f"[QR] Error API XML GET: {ex}")
 
-        # 2b) Intentar POST /docs/documento-electronico con los parámetros QR completos
-        url_doc_elec = f"https://ekuatia.set.gov.py/docs/documento-electronico"
-        try:
-            from urllib.parse import urlparse, parse_qs
-            params = {}
-            if qr_content.replace("DEMO\n", "").strip().startswith("http"):
-                qparams = parse_qs(urlparse(qr_content.replace("DEMO\n", "").strip()).query)
-                # Enviar TODOS los parámetros tal cual los tiene el QR
-                params = {k: v[0] for k, v in qparams.items()}
-            if not params.get("Id"):
-                params["Id"] = cdc_clean
-            with httpx.Client() as s:
-                s.get("https://ekuatia.set.gov.py/consultas/", headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-                resp = s.post(url_doc_elec, json=params, headers=headers_api, timeout=20)
-            print(f"[QR] API POST docs-echo: Status {resp.status_code}, Tamaño: {len(resp.text)}")
-            if resp.status_code == 200 and resp.text.strip():
-                print(f"[QR] Inicio respuesta: {resp.text[:300]}")
-                try:
-                    data = resp.json()
-                    if data.get("DE"):
-                        print("[QR] ✅ DE obtenido via POST docs-echo")
-                        # Intentar extraer XML del DE
-                        if data["DE"].get("xml"):
-                            return data["DE"]["xml"]
-                        # Si no tiene xml directo, devolver los datos como JSON y parsearlos nosotros
-                        if isinstance(data["DE"], dict):
-                            import xmltodict as xt
-                            # Convertir DE dict a XML string
-                            de_xml = ""
-                            de_fields = {}
-                            for k, v in data["DE"].items():
-                                if isinstance(v, str) or isinstance(v, (int, float)):
-                                    de_fields[k] = v
-                            print(f"[QR] DE fields: {list(data['DE'].keys())[:10]}")
-                except:
-                    pass
-        except Exception as ex:
-            print(f"[QR] Error API POST: {ex}")
-
         # 3) URLs legacy como fallback
         headers_legacy = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
