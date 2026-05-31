@@ -348,33 +348,77 @@ def _extraer_cdc_de_qr(qr_content: str) -> str | None:
     return None
 
 def _descargar_xml_sifen(cdc: str) -> str | None:
-    import httpx, re
+    import httpx, re, json
     try:
-        headers = {
+        headers_api = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json, application/xml, text/xml, */*",
+            "Authorization": "afsdafasf9408539lfsasfas",
+            "Content-type": "application/json",
+        }
+        # 1) Intentar API interna de SIFEN (devuelve JSON con el DE)
+        cdc_clean = cdc.replace("DEMO\n", "").strip()
+        url_json = f"https://ekuatia.set.gov.py/docs/documento-electronico"
+        try:
+            print(f"[QR] Intentando API JSON: POST {url_json}")
+            resp = httpx.post(url_json, json={"cdc": cdc_clean}, headers=headers_api, timeout=20, follow_redirects=True)
+            print(f"[QR] API JSON Status: {resp.status_code}, Tamaño: {len(resp.text)}")
+            if resp.status_code == 200 and resp.text.strip():
+                try:
+                    data = resp.json()
+                    if data.get("DE") and data["DE"].get("xml"):
+                        xml_str = data["DE"]["xml"]
+                        print(f"[QR] ✅ XML extraído de API JSON ({len(xml_str)} chars)")
+                        return xml_str
+                except:
+                    pass
+        except Exception as ex:
+            print(f"[QR] Error API JSON: {ex}")
+
+        # 2) Intentar GET docs/documento-electronico-xml/{cdc}
+        url_get_xml = f"https://ekuatia.set.gov.py/docs/documento-electronico-xml/{cdc_clean}"
+        try:
+            print(f"[QR] Intentando API XML: GET {url_get_xml[:80]}...")
+            resp = httpx.get(url_get_xml, headers=headers_api, timeout=20, follow_redirects=True)
+            print(f"[QR] API XML Status: {resp.status_code}, Tamaño: {len(resp.text)}")
+            if resp.status_code == 200 and resp.text.strip():
+                texto = resp.text.strip()
+                print(f"[QR] Inicio respuesta: {texto[:200]}")
+                es_xml = texto.startswith("<?xml") or texto.startswith("<rDE") or texto.startswith("<DE")
+                if es_xml:
+                    print("[QR] ✅ Es XML")
+                    return texto
+                else:
+                    print("[QR] ⚠️ No es XML (intentar parsear como JSON)")
+                    try:
+                        data = json.loads(texto)
+                        if isinstance(data, dict) and data.get("xml"):
+                            print("[QR] ✅ XML dentro de JSON")
+                            return data["xml"]
+                    except:
+                        pass
+        except Exception as ex:
+            print(f"[QR] Error API XML GET: {ex}")
+
+        # 3) URLs legacy como fallback
+        headers_legacy = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Accept": "application/xml, text/xml, */*",
         }
         urls = [
-            f"https://ekuatia.set.gov.py/consultas/descargar-xml?cdc={cdc}",
-            f"https://ekuatia.set.gov.py/sifen/descargar-xml?cdc={cdc}",
-            f"https://ekuatia.set.gov.py/consultas/descargar-kude?Id={cdc}",
+            f"https://ekuatia.set.gov.py/consultas/descargar-xml?cdc={cdc_clean}",
+            f"https://ekuatia.set.gov.py/sifen/descargar-xml?cdc={cdc_clean}",
         ]
         for url in urls:
             try:
-                print(f"[QR] Intentando: {url[:80]}...")
-                resp = httpx.get(url, headers=headers, timeout=15, follow_redirects=True)
-                print(f"[QR] Status: {resp.status_code}, Tamaño: {len(resp.text)}")
+                print(f"[QR] Intentando legacy: {url[:80]}...")
+                resp = httpx.get(url, headers=headers_legacy, timeout=15, follow_redirects=True)
                 if resp.status_code == 200 and resp.text.strip():
                     texto = resp.text.strip()
-                    print(f"[QR] Inicio respuesta: {texto[:200]}")
-                    es_xml = texto.startswith("<?xml") or texto.startswith("<rDE") or texto.startswith("<DE")
-                    if es_xml:
-                        print("[QR] ✅ Es XML")
+                    if texto.startswith("<?xml") or texto.startswith("<rDE") or texto.startswith("<DE"):
+                        print("[QR] ✅ Es XML (legacy)")
                         return texto
-                    else:
-                        print("[QR] ⚠️ No es XML (es HTML u otro)")
-            except Exception as ex:
-                print(f"[QR] Error en URL {url[:60]}: {ex}")
+            except Exception:
                 continue
     except Exception as ex:
         print(f"[QR] Error general: {ex}")
@@ -515,53 +559,20 @@ def procesar_qr(qr_content: str) -> dict:
     cdc = _extraer_cdc_de_qr(qr_content)
     xml_str = None
 
-    # 2) Probar múltiples URLs para descargar XML
+    # 2) Descargar XML/JSON desde las APIs de SIFEN/KUDE
     if cdc:
         xml_str = _descargar_xml_sifen(cdc)
 
-    # 3) Si no, probar con la URL del QR directamente (cambiando /qr por /kude o /de)
-    if not xml_str and cdc:
-        from urllib.parse import urlparse, parse_qs
-        import httpx
-        base_url = "https://ekuatia.set.gov.py/consultas"
-        cdc_clean = cdc.replace("DEMO\n", "").strip()
-        urls_xml = [
-            f"{base_url}/kude?Id={cdc_clean}",
-            f"{base_url}/kude?nVersion=150&Id={cdc_clean}",
-            f"{base_url}/de?Id={cdc_clean}",
-            f"{base_url}/de?cdc={cdc_clean}",
-        ]
-        headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/xml, text/xml, */*"}
-        for url_try in urls_xml:
-            try:
-                resp = httpx.get(url_try, headers=headers, timeout=15, follow_redirects=True)
-                if resp.status_code == 200 and resp.text.strip():
-                    txt = resp.text.strip()
-                    if txt.startswith("<?xml") or txt.startswith("<rDE") or txt.startswith("<DE"):
-                        xml_str = txt
-                        break
-            except Exception:
-                continue
-
-    # 4) Si no funciona, descargar HTML de consulta y buscar CDC
+    # 3) Fallback: raspar HTML de la página de consulta
     if not xml_str:
-        html = _descargar_html_consulta(qr_content)
-        if html:
-            cdc_html = _extraer_cdc_de_html(html)
-            if cdc_html:
-                xml_str = _descargar_xml_sifen(cdc_html)
-
-    if not xml_str:
-        # 5) Intentar raspar HTML de la consulta
         html = _descargar_html_consulta(qr_content)
         if html:
             resultado_html = _parsear_html_kude(html)
             if resultado_html:
                 return resultado_html
 
-    if not xml_str:
-        # 6) Último recurso: extraer datos básicos del QR mismo (sin items)
-        if qr_content.startswith("http"):
+    # 4) Último recurso: extraer datos básicos del QR mismo (sin items)
+    if not xml_str and qr_content.startswith("http"):
             params = parse_qs(urlparse(qr_content.replace("DEMO\n", "").replace("DEMO ", "").strip()).query)
             total = float(params.get("dTotGralOpe", [0])[0]) if params.get("dTotGralOpe") else None
             fecha_hex = params.get("dFeEmiDE", [None])[0]
