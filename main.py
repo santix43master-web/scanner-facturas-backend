@@ -56,6 +56,26 @@ async def procesar(factura: List[UploadFile] = File(...)):
     except Exception as e:
         return {"error": str(e)}
 
+@app.post("/procesar-qr")
+async def procesar_qr(data: dict):
+    try:
+        qr_content = data.get("qr", "")
+        if not qr_content:
+            return {"error": "QR vacío", "items": []}
+        resultado = interpretacion.procesar_qr(qr_content)
+
+        if "items" in resultado and isinstance(resultado["items"], list):
+            for item in resultado["items"]:
+                if "codigoBarras" in item:
+                    item["codigo_barras"] = item["codigoBarras"]
+                if "precioUnitario" in item:
+                    item["precio_unitario"] = item["precioUnitario"]
+
+        return resultado
+    except Exception as e:
+        return {"error": str(e), "items": []}
+
+
 @app.post("/guardar-compartido")
 async def guardar(datos: dict):
     try:
