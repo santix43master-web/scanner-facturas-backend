@@ -83,7 +83,7 @@ async def procesar_html_completo(data: dict):
         url = data.get("url", "")
         qr_params = data.get("qr_params", {})
 
-        if not html:
+        if not html and not data.get("de_data"):
             return {"error": "HTML vacío", "items": []}
 
         resultado = interpretacion.parsear_html_completo_de(
