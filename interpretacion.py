@@ -807,6 +807,7 @@ def procesar_qr(qr_content: str) -> dict:
         return {"error": "No se pudo obtener datos del QR", "qr_content": qr_content[:200], "items": []}
 
     # Tiene XML → parsear
+    print(f"[QR] Parseando XML ({len(xml_str)} chars)")
     xml_clean = re.sub(r'\s+xmlns[^=]*="[^"]*"', "", xml_str, count=0)
     if not xml_clean.strip().startswith("<"):
         return {"error": f"No es XML. Respuesta: {xml_str[:300]}", "items": []}
@@ -815,10 +816,14 @@ def procesar_qr(qr_content: str) -> dict:
     except Exception as e:
         return {"error": f"Error parseando XML: {e}", "inicio": xml_str[:300], "items": []}
 
+    keys_raw = list(raw.keys())
+    print(f"[QR] Keys raw: {keys_raw}")
     rde_key = next((k for k in raw if k.endswith("rDE") or k.endswith("DE")), None)
     if not rde_key:
         return {"error": f"No se encontró rDE en XML. Keys: {list(raw.keys())}", "xml_inicio": xml_str[:300], "items": []}
     rde = raw[rde_key]
+    rde_keys = list(rde.keys())
+    print(f"[QR] rDE keys: {rde_keys}")
     gdat = rde.get("gDatGralOpe", {}) or {}
     gdat_rec = gdat.get("gDatRec", {}) or {}
     gemis = rde.get("gEmis", {}) or {}
