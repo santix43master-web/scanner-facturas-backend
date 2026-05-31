@@ -574,10 +574,12 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
                     subkeys = list(v.keys())[:10]
                     print(f"[HTML] DE.{k} es dict con keys={subkeys}")
         items = de_data.get("items", [])
-        gcam = de_data.get("gCamItem") or (de_data.get("DE", {})).get("gCamItem")
-        if not items and isinstance(gcam, list):
-            print(f"[HTML] gCamItem tiene {len(gcam)} items")
-            for it in gcam:
+        gcam_raw = (de_data.get("gCamItem") or 
+                    de_data.get("DE", {}).get("gCamItem") or
+                    de_data.get("DE", {}).get("gDtipDE", {}).get("gCamItem"))
+        if isinstance(gcam_raw, list):
+            print(f"[HTML] gCamItem lista tiene {len(gcam_raw)} items")
+            for it in gcam_raw:
                 items.append({
                     "codigo": it.get("dCodInt"),
                     "codigoBarras": it.get("dCodBar"),
@@ -586,6 +588,21 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
                     "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
                     "subtotal": float(it.get("dSubTot", 0) or 0),
                 })
+        if not items and isinstance(gcam_raw, dict):
+            gitem = gcam_raw.get("gItem", []) or []
+            if isinstance(gitem, dict):
+                gitem = [gitem]
+            if gitem and isinstance(gitem[0], dict):
+                print(f"[HTML] gCamItem.gItem tiene {len(gitem)} items")
+                for it in gitem:
+                    items.append({
+                        "codigo": it.get("dCodInt"),
+                        "codigoBarras": it.get("dCodBar"),
+                        "descripcion": it.get("dDesProSer", ""),
+                        "cantidad": float(it.get("dCamCant", 1) or 1),
+                        "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
+                        "subtotal": float(it.get("dSubTot", 0) or 0),
+                    })
         if not items:
             de_inner = de_data.get("DE", {})
             for key in de_inner:
@@ -602,6 +619,20 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
                             "subtotal": float(it.get("dSubTot", 0) or 0),
                         })
                     break
+                if isinstance(val, dict):
+                    for k2, v2 in val.items():
+                        if isinstance(v2, list) and len(v2) > 0 and isinstance(v2[0], dict) and any(k in v2[0] for k in ("dDesProSer", "dSubTot", "dCamCant")):
+                            print(f"[HTML] Items encontrados en DE.{key}.{k2} ({len(v2)} items)")
+                            for it in v2:
+                                items.append({
+                                    "codigo": it.get("dCodInt"),
+                                    "codigoBarras": it.get("dCodBar"),
+                                    "descripcion": it.get("dDesProSer", ""),
+                                    "cantidad": float(it.get("dCamCant", 1) or 1),
+                                    "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
+                                    "subtotal": float(it.get("dSubTot", 0) or 0),
+                                })
+                            break
         de = de_data.get("DE", de_data)
         return {
             "numeroFactura": de.get("dNumDoc") or qr_params.get("i") or qr_params.get("dNumDoc"),
