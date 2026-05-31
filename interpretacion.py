@@ -561,8 +561,9 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
     # Caso 1: Ya tenemos datos parseados desde Angular scope
     if de_data:
         items = de_data.get("items", [])
-        if not items and isinstance(de_data.get("gCamItem"), list):
-            for it in de_data["gCamItem"]:
+        gcam = de_data.get("gCamItem") or (de_data.get("DE", {})).get("gCamItem")
+        if not items and isinstance(gcam, list):
+            for it in gcam:
                 items.append({
                     "codigo": it.get("dCodInt"),
                     "codigoBarras": it.get("dCodBar"),
