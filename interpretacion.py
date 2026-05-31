@@ -573,67 +573,15 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
                 elif isinstance(v, dict):
                     subkeys = list(v.keys())[:10]
                     print(f"[HTML] DE.{k} es dict con keys={subkeys}")
-        items = de_data.get("items", [])
-        gcam_raw = (de_data.get("gCamItem") or 
-                    de_data.get("DE", {}).get("gCamItem") or
-                    de_data.get("DE", {}).get("gDtipDE", {}).get("gCamItem"))
-        if isinstance(gcam_raw, list):
-            print(f"[HTML] gCamItem lista tiene {len(gcam_raw)} items")
-            for it in gcam_raw:
-                items.append({
-                    "codigo": it.get("dCodInt"),
-                    "codigoBarras": it.get("dCodBar"),
-                    "descripcion": it.get("dDesProSer", ""),
-                    "cantidad": float(it.get("dCamCant", 1) or 1),
-                    "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
-                    "subtotal": float(it.get("dSubTot", 0) or 0),
-                })
-        if not items and isinstance(gcam_raw, dict):
-            gitem = gcam_raw.get("gItem", []) or []
-            if isinstance(gitem, dict):
-                gitem = [gitem]
-            if gitem and isinstance(gitem[0], dict):
-                print(f"[HTML] gCamItem.gItem tiene {len(gitem)} items")
-                for it in gitem:
-                    items.append({
-                        "codigo": it.get("dCodInt"),
-                        "codigoBarras": it.get("dCodBar"),
-                        "descripcion": it.get("dDesProSer", ""),
-                        "cantidad": float(it.get("dCamCant", 1) or 1),
-                        "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
-                        "subtotal": float(it.get("dSubTot", 0) or 0),
-                    })
-        if not items:
-            de_inner = de_data.get("DE", {})
-            for key in de_inner:
-                val = de_inner[key]
-                if isinstance(val, list) and len(val) > 0 and isinstance(val[0], dict) and any(k in val[0] for k in ("dDesProSer", "dSubTot", "dCamCant")):
-                    print(f"[HTML] Items encontrados en DE.{key} ({len(val)} items)")
-                    for it in val:
-                        items.append({
-                            "codigo": it.get("dCodInt"),
-                            "codigoBarras": it.get("dCodBar"),
-                            "descripcion": it.get("dDesProSer", ""),
-                            "cantidad": float(it.get("dCamCant", 1) or 1),
-                            "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
-                            "subtotal": float(it.get("dSubTot", 0) or 0),
-                        })
-                    break
-                if isinstance(val, dict):
-                    for k2, v2 in val.items():
-                        if isinstance(v2, list) and len(v2) > 0 and isinstance(v2[0], dict) and any(k in v2[0] for k in ("dDesProSer", "dSubTot", "dCamCant")):
-                            print(f"[HTML] Items encontrados en DE.{key}.{k2} ({len(v2)} items)")
-                            for it in v2:
-                                items.append({
-                                    "codigo": it.get("dCodInt"),
-                                    "codigoBarras": it.get("dCodBar"),
-                                    "descripcion": it.get("dDesProSer", ""),
-                                    "cantidad": float(it.get("dCamCant", 1) or 1),
-                                    "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
-                                    "subtotal": float(it.get("dSubTot", 0) or 0),
-                                })
-                            break
+        gitems = _extraer_gcamitems(de_data.get("DE", de_data))
+        if not gitems:
+            gitems = _extraer_gcamitems(de_data)
+        print(f"[HTML] Items encontrados via _extraer_gcamitems: {len(gitems)}")
+        items = _extraer_items_de_lista(gitems) if gitems else de_data.get("items", [])
         de = de_data.get("DE", de_data)
+        gtot = de_data.get("gTotSub", de.get("gTotSub", {}))
+        if not isinstance(gtot, dict):
+            gtot = {}
         return {
             "numeroFactura": de.get("dNumDoc") or qr_params.get("i") or qr_params.get("dNumDoc"),
             "fechaEmision": de.get("dFecEmi", "").replace("-", "/")[:10] if de.get("dFecEmi") else None,
@@ -641,10 +589,10 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
             "rucVendedor": de.get("dRucEm") or de_data.get("gEmis", {}).get("dRucEm"),
             "rucComprador": qr_params.get("dRucRec"),
             "timbrado": de.get("dTimb"),
-            "totalGeneral": float(de.get("dTotGralOpe", 0) or 0) or float(de_data.get("gTotSub", {}).get("dTotGralOpe", 0) or 0),
-            "exenta": float(de_data.get("gTotSub", {}).get("dTotGralOpeExe", 0) or 0) if de_data.get("gTotSub") else None,
-            "gravada5": float(de_data.get("gTotSub", {}).get("dTotGralOpeIva5", 0) or 0) if de_data.get("gTotSub") else None,
-            "gravada10": float(de_data.get("gTotSub", {}).get("dTotGralOpeIva10", 0) or 0) if de_data.get("gTotSub") else None,
+            "totalGeneral": float(de.get("dTotGralOpe", 0) or 0) or float(gtot.get("dTotGralOpe", 0) or 0),
+            "exenta": float(gtot.get("dSubExe", 0) or 0) or None,
+            "gravada5": float(gtot.get("dSub5", 0) or 0) or None,
+            "gravada10": float(gtot.get("dSub10", 0) or 0) or None,
             "observaciones": [f"Datos extraídos de SIFEN vía WebView ({len(items)} items)"],
             "items": items,
             "fuente": "SIFEN/KUDE completa (WebView captcha)",
@@ -783,6 +731,68 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
     }
 
 
+def _extraer_items_de_lista(items_raw: list) -> list:
+    """Normalize items from any SIFEN XML item variant."""
+    salida = []
+    for it in items_raw:
+        if not isinstance(it, dict):
+            continue
+        valor = it.get("gValorItem")
+        if not isinstance(valor, dict):
+            valor = {}
+        resta = valor.get("gValorRestaItem")
+        if not isinstance(resta, dict):
+            resta = {}
+        precio = valor.get("dPUniProSer") or it.get("gPaDePrecio", {}).get("dPrcUnit") or it.get("dPUniProSer") or 0
+        subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or valor.get("dTotBruItem") or it.get("dSubTot") or 0
+        salida.append({
+            "codigo": it.get("dCodInt"),
+            "codigoBarras": it.get("dGtin") or it.get("dCodBar") or it.get("dCodInt"),
+            "descripcion": it.get("dDesProSer", ""),
+            "cantidad": float(it.get("dCantProSer", 1) or 1),
+            "precioUnitario": float(precio or 0),
+            "subtotal": float(subtotal or 0),
+        })
+    return salida
+
+def _extraer_gcamitems(de_node: dict) -> list:
+    """Extract item list from DE node, trying all possible paths."""
+    candidates = []
+    direct = de_node.get("gCamItem")
+    if direct is not None:
+        candidates.append(direct)
+    gdtip = de_node.get("gDtipDE")
+    if isinstance(gdtip, dict):
+        gcam = gdtip.get("gCamItem")
+        if gcam is not None:
+            candidates.append(gcam)
+    gdeta = de_node.get("gDeta")
+    if isinstance(gdeta, dict):
+        gitem = gdeta.get("gItem")
+        if gitem is not None:
+            candidates.append(gitem)
+    gdetapa = de_node.get("gDetaPaCol")
+    if isinstance(gdetapa, dict):
+        gpart = gdetapa.get("gPaDeRT")
+        if gpart is not None:
+            candidates.append(gpart)
+    for cand in candidates:
+        if isinstance(cand, list) and len(cand) > 0:
+            return cand
+        if isinstance(cand, dict):
+            sub = cand.get("gItem") or cand.get("gPaDeRT") or cand.get("gCamItem")
+            if isinstance(sub, list) and len(sub) > 0:
+                return sub
+            if isinstance(sub, dict):
+                return [sub]
+            for v in cand.values():
+                if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict):
+                    return v
+            # Single gCamItem is a dict -> wrap in list
+            if any(k in cand for k in ("dCodInt", "dDesProSer", "dCantProSer")):
+                return [cand]
+    return []
+
 def procesar_qr(qr_content: str) -> dict:
     from urllib.parse import urlparse, parse_qs
     import xmltodict, re
@@ -865,16 +875,6 @@ def procesar_qr(qr_content: str) -> dict:
         gdat_rec = {}
         gemis = {}
     gtot = de_node.get("gTotSub", {}) or {}
-    gcam_parts = [de_node.get("gCamItem", {})]
-    gdtip = de_node.get("gDtipDE", {})
-    if isinstance(gdtip, dict):
-        gcam_parts.append(gdtip.get("gCamItem", {}))
-    gcam = {}
-    for gc in gcam_parts:
-        if isinstance(gc, dict):
-            gcam = gc
-            break
-
     ruc_v = gemis.get("dRucEm", "")
     nom_v = gemis.get("dNomEm", "")
     gtimb = de_node.get("gTimb", {}) or {}
@@ -887,24 +887,13 @@ def procesar_qr(qr_content: str) -> dict:
     fecha = gdat_rec.get("dFecEmi", "") or gdat.get("dFeEmiDE", "")
 
     total = float(gtot.get("dTotGralOpe", 0) or 0)
-    exenta = float(gtot.get("dTotGralOpeExe", 0) or 0)
-    grav5 = float(gtot.get("dTotGralOpeIva5", 0) or 0)
-    grav10 = float(gtot.get("dTotGralOpeIva10", 0) or 0)
+    exenta = float(gtot.get("dSubExe", 0) or 0)
+    grav5 = float(gtot.get("dSub5", 0) or 0)
+    grav10 = float(gtot.get("dSub10", 0) or 0)
 
-    gitems = gcam.get("gItem", []) or []
-    if isinstance(gitems, dict):
-        gitems = [gitems]
-
-    items = []
-    for it in gitems:
-        items.append({
-            "codigo": it.get("dCodInt", None),
-            "codigoBarras": it.get("dCodBar", None),
-            "descripcion": it.get("dDesProSer", ""),
-            "cantidad": float(it.get("dCamCant", 1) or 1),
-            "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
-            "subtotal": float(it.get("dSubTot", 0) or 0),
-        })
+    gitems = _extraer_gcamitems(de_node)
+    print(f"[QR] Items encontrados: {len(gitems)}")
+    items = _extraer_items_de_lista(gitems) if gitems else []
 
     return {
         "numeroFactura": num_factura or None,
