@@ -858,16 +858,33 @@ def procesar_qr(qr_content: str) -> dict:
     de_node = rde.get("DE", rde) or rde
     print(f"[QR] DE node keys: {list(de_node.keys())[:20]}")
     gdat = de_node.get("gDatGralOpe", {}) or {}
-    gdat_rec = gdat.get("gDatRec", {}) or {}
-    gemis = de_node.get("gEmis", {}) or {}
+    if isinstance(gdat, dict):
+        gdat_rec = gdat.get("gDatRec", {}) or {}
+        gemis = gdat.get("gEmis", {}) or {}
+    else:
+        gdat_rec = {}
+        gemis = {}
     gtot = de_node.get("gTotSub", {}) or {}
-    gcam = de_node.get("gCamItem", {}) or de_node.get("gDtipDE", {}).get("gCamItem", {}) or {}
+    gcam_parts = [de_node.get("gCamItem", {})]
+    gdtip = de_node.get("gDtipDE", {})
+    if isinstance(gdtip, dict):
+        gcam_parts.append(gdtip.get("gCamItem", {}))
+    gcam = {}
+    for gc in gcam_parts:
+        if isinstance(gc, dict):
+            gcam = gc
+            break
 
     ruc_v = gemis.get("dRucEm", "")
     nom_v = gemis.get("dNomEm", "")
-    num_factura = gdat.get("dNumDoc", "")
-    fecha = gdat_rec.get("dFecEmi", "") or gdat.get("dFecEmi", "")
-    timbrado_raw = gdat.get("dTimb", "")
+    gtimb = de_node.get("gTimb", {}) or {}
+    if isinstance(gtimb, dict):
+        num_factura = gtimb.get("dNumDoc", "")
+        timbrado_raw = gtimb.get("dNumTim", "")
+    else:
+        num_factura = gdat.get("dNumDoc", "")
+        timbrado_raw = gdat.get("dTimb", "")
+    fecha = gdat_rec.get("dFecEmi", "") or gdat.get("dFeEmiDE", "")
 
     total = float(gtot.get("dTotGralOpe", 0) or 0)
     exenta = float(gtot.get("dTotGralOpeExe", 0) or 0)
