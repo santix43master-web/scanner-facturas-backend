@@ -76,6 +76,25 @@ async def procesar_qr(data: dict):
         return {"error": str(e), "items": []}
 
 
+@app.post("/procesar-html-completo")
+async def procesar_html_completo(data: dict):
+    try:
+        html = data.get("html", "")
+        url = data.get("url", "")
+        qr_params = data.get("qr_params", {})
+
+        if not html:
+            return {"error": "HTML vacío", "items": []}
+
+        resultado = interpretacion.parsear_html_completo_de(
+            html=html, url=url, qr_params=qr_params,
+            de_data=data.get("de_data"),
+        )
+        return resultado
+    except Exception as e:
+        return {"error": str(e), "items": []}
+
+
 @app.post("/guardar-compartido")
 async def guardar(datos: dict):
     try:
