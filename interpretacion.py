@@ -560,9 +560,12 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
 
     # Caso 1: Ya tenemos datos parseados desde Angular scope
     if de_data:
+        import json as _json
+        print(f"[HTML] de_data type={type(de_data).__name__}, keys={list(de_data.keys())[:15]}")
         items = de_data.get("items", [])
         gcam = de_data.get("gCamItem") or (de_data.get("DE", {})).get("gCamItem")
         if not items and isinstance(gcam, list):
+            print(f"[HTML] gCamItem tiene {len(gcam)} items")
             for it in gcam:
                 items.append({
                     "codigo": it.get("dCodInt"),
@@ -572,6 +575,22 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
                     "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
                     "subtotal": float(it.get("dSubTot", 0) or 0),
                 })
+        if not items:
+            de_inner = de_data.get("DE", {})
+            for key in de_inner:
+                val = de_inner[key]
+                if isinstance(val, list) and len(val) > 0 and isinstance(val[0], dict) and any(k in val[0] for k in ("dDesProSer", "dSubTot", "dCamCant")):
+                    print(f"[HTML] Items encontrados en DE.{key} ({len(val)} items)")
+                    for it in val:
+                        items.append({
+                            "codigo": it.get("dCodInt"),
+                            "codigoBarras": it.get("dCodBar"),
+                            "descripcion": it.get("dDesProSer", ""),
+                            "cantidad": float(it.get("dCamCant", 1) or 1),
+                            "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
+                            "subtotal": float(it.get("dSubTot", 0) or 0),
+                        })
+                    break
         de = de_data.get("DE", de_data)
         return {
             "numeroFactura": de.get("dNumDoc") or qr_params.get("i") or qr_params.get("dNumDoc"),
