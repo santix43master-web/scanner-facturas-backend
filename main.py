@@ -57,7 +57,7 @@ async def procesar(factura: List[UploadFile] = File(...)):
         return {"error": str(e)}
 
 @app.post("/procesar-qr")
-async def procesar_qr(data: dict):
+def procesar_qr(data: dict):
     try:
         qr_content = data.get("qr", "")
         if not qr_content:
@@ -77,7 +77,7 @@ async def procesar_qr(data: dict):
 
 
 @app.post("/procesar-html-completo")
-async def procesar_html_completo(data: dict):
+def procesar_html_completo(data: dict):
     try:
         html = data.get("html", "")
         url = data.get("url", "")
