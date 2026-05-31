@@ -288,11 +288,11 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
         for b64 in imagenes_b64
     ]
 
-      user_text = (
+          user_text = (
         f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya (ej: mitad superior + mitad inferior).\n"
         "Combiná toda la información de todas las imágenes. NO dupliques items.\n"
         "Seguí los 5 pasos. Verificá el dígito verificador de cada EAN-13.\n"
-         "Usá el totalGeneral como árbitro."
+        "Usá el totalGeneral como árbitro."
     )
 
     try:
@@ -309,7 +309,7 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
             messages=[
                 {
                     "role": "user",
-                    "content": [*image_content, {"type": "text", "text": user_text, "cache_control": {"type": "ephemeral"}}],
+                    "content": [*image_content, {"type": "text", "text": user_text}],
                 }
             ],
         )
