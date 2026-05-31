@@ -2,6 +2,7 @@ import os
 import json
 import base64
 from datetime import datetime
+from typing import List
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -35,11 +36,14 @@ def status():
     }
 
 @app.post("/procesar")
-async def procesar(factura: UploadFile = File(...)):
+async def procesar(factura: List[UploadFile] = File(...)):
     try:
-        img_bytes = await factura.read()
-        b64 = base64.b64encode(img_bytes).decode("utf-8")
-        resultado = interpretacion.extraer_datos_factura([b64])
+        imagenes_b64 = []
+        for f in factura:
+            img_bytes = await f.read()
+            b64 = base64.b64encode(img_bytes).decode("utf-8")
+            imagenes_b64.append(b64)
+        resultado = interpretacion.extraer_datos_factura(imagenes_b64)
 
         if "items" in resultado and isinstance(resultado["items"], list):
             for item in resultado["items"]:
