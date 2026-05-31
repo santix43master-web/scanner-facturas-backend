@@ -327,6 +327,125 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
         return {"error": str(e), "items": []}
 
 
+# ===================== QR / SIFEN =====================
+def _extraer_cdc_de_qr(qr_content: str) -> str | None:
+    from urllib.parse import urlparse, parse_qs
+    if qr_content.startswith("http"):
+        params = parse_qs(urlparse(qr_content).query)
+        for key in ("m", "cdc", "CDC"):
+            val = params.get(key, [None])[0]
+            if val:
+                return val
+    return None
+
+def _descargar_xml_sifen(cdc: str) -> str | None:
+    import httpx
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/xml, text/xml, */*",
+        }
+        url = f"https://ekuatia.set.gov.py/consultas/descargar-xml?cdc={cdc}"
+        resp = httpx.get(url, headers=headers, timeout=15, follow_redirects=True)
+        if resp.status_code == 200 and resp.text.strip():
+            return resp.text
+        url2 = f"https://ekuatia.set.gov.py/sifen/descargar-xml?cdc={cdc}"
+        resp2 = httpx.get(url2, headers=headers, timeout=15, follow_redirects=True)
+        if resp2.status_code == 200 and resp2.text.strip():
+            return resp2.text
+    except Exception:
+        return None
+    return None
+
+def _parsear_xml_sifen(xml_str: str) -> dict | None:
+    import xmltodict, re
+    try:
+        xml_clean = re.sub(r'\s+xmlns[^=]*="[^"]*"', "", xml_str, count=1)
+        data = xmltodict.parse(xml_clean)
+        rde = {k.replace("ns0:", "").replace("rDE", ""): v for k, v in (data.get(list(data)[0]) or {}).items()}
+        return rde
+    except Exception:
+        return None
+
+def procesar_qr(qr_content: str) -> dict:
+    from urllib.parse import urlparse, parse_qs
+    import xmltodict, re
+
+    # 1) Extraer CDC del QR
+    cdc = _extraer_cdc_de_qr(qr_content)
+    if not cdc:
+        params = parse_qs(urlparse(qr_content).query) if qr_content.startswith("http") else {}
+        return {
+            "error": "CDC no encontrado en el QR",
+            "qr_content": qr_content[:200],
+            "params": {k: v[0][:50] for k, v in params.items()} if params else {},
+            "items": [],
+        }
+
+    # 2) Descargar XML
+    xml_str = _descargar_xml_sifen(cdc)
+    if not xml_str:
+        return {"error": f"No se pudo descargar XML para CDC: {cdc}", "items": []}
+
+    # 3) Parsear XML
+    xml_clean = re.sub(r'\s+xmlns[^=]*="[^"]*"', "", xml_str, count=1)
+    try:
+        raw = xmltodict.parse(xml_clean)
+    except Exception as e:
+        return {"error": f"Error parseando XML: {e}", "items": []}
+
+    rde_key = next(k for k in raw if k.endswith("rDE"))
+    rde = raw[rde_key]
+    gdat = rde.get("gDatGralOpe", {}) or {}
+    gdat_rec = gdat.get("gDatRec", {}) or {}
+    gemis = gdat.get("gEmis", {}) or {}
+    gtot = rde.get("gTotSub", {}) or {}
+    gcam = rde.get("gCamItem", {}) or {}
+
+    ruc_v = gemis.get("dRucEm", "")
+    nom_v = gemis.get("dNomEm", "")
+    num_factura = gdat.get("dNumDoc", "")
+    fecha = gdat_rec.get("dFecEmi", "") or gdat.get("dFecEmi", "")
+    timbrado_raw = gdat.get("dTimb", "")
+
+    total = float(gtot.get("dTotGralOpe", 0) or 0)
+    exenta = float(gtot.get("dTotGralOpeExe", 0) or 0)
+    grav5 = float(gtot.get("dTotGralOpeIva5", 0) or 0)
+    grav10 = float(gtot.get("dTotGralOpeIva10", 0) or 0)
+
+    # Items
+    gitems = gcam.get("gItem", []) or []
+    if isinstance(gitems, dict):
+        gitems = [gitems]
+
+    items = []
+    for it in gitems:
+        items.append({
+            "codigo": it.get("dCodInt", None),
+            "codigoBarras": it.get("dCodBar", None),
+            "descripcion": it.get("dDesProSer", ""),
+            "cantidad": float(it.get("dCamCant", 1) or 1),
+            "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
+            "subtotal": float(it.get("dSubTot", 0) or 0),
+        })
+
+    return {
+        "numeroFactura": num_factura or None,
+        "fechaEmision": fecha or None,
+        "nombreVendedor": nom_v or None,
+        "rucVendedor": ruc_v or None,
+        "rucComprador": None,
+        "timbrado": timbrado_raw or None,
+        "totalGeneral": total,
+        "exenta": exenta,
+        "gravada5": grav5,
+        "gravada10": grav10,
+        "observaciones": ["Extraído desde SIFEN QR (sin IA)"],
+        "items": items,
+        "fuente": "SIFEN QR",
+    }
+
+
 def imagen_a_base64(ruta: Path) -> str:
     with open(ruta, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
