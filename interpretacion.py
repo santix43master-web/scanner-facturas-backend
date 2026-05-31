@@ -572,7 +572,8 @@ def procesar_qr(qr_content: str) -> dict:
                 return resultado_html
 
     # 4) Último recurso: extraer datos básicos del QR mismo (sin items)
-    if not xml_str and qr_content.startswith("http"):
+    if not xml_str:
+        if qr_content.startswith("http"):
             params = parse_qs(urlparse(qr_content.replace("DEMO\n", "").replace("DEMO ", "").strip()).query)
             total = float(params.get("dTotGralOpe", [0])[0]) if params.get("dTotGralOpe") else None
             fecha_hex = params.get("dFeEmiDE", [None])[0]
