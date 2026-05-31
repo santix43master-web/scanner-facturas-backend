@@ -342,20 +342,26 @@ def _extraer_cdc_de_qr(qr_content: str) -> str | None:
     return None
 
 def _descargar_xml_sifen(cdc: str) -> str | None:
-    import httpx
+    import httpx, re
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Accept": "application/xml, text/xml, */*",
         }
-        url = f"https://ekuatia.set.gov.py/consultas/descargar-xml?cdc={cdc}"
-        resp = httpx.get(url, headers=headers, timeout=15, follow_redirects=True)
-        if resp.status_code == 200 and resp.text.strip():
-            return resp.text
-        url2 = f"https://ekuatia.set.gov.py/sifen/descargar-xml?cdc={cdc}"
-        resp2 = httpx.get(url2, headers=headers, timeout=15, follow_redirects=True)
-        if resp2.status_code == 200 and resp2.text.strip():
-            return resp2.text
+        urls = [
+            f"https://ekuatia.set.gov.py/consultas/descargar-xml?cdc={cdc}",
+            f"https://ekuatia.set.gov.py/sifen/descargar-xml?cdc={cdc}",
+            f"https://ekuatia.set.gov.py/consultas/descargar-kude?Id={cdc}",
+        ]
+        for url in urls:
+            try:
+                resp = httpx.get(url, headers=headers, timeout=15, follow_redirects=True)
+                if resp.status_code == 200 and resp.text.strip():
+                    texto = resp.text.strip()
+                    if texto.startswith("<?xml") or texto.startswith("<"):
+                        return texto
+            except Exception:
+                continue
     except Exception:
         return None
     return None
@@ -447,12 +453,14 @@ def procesar_qr(qr_content: str) -> dict:
 
         return {"error": "No se pudo obtener el XML de SIFEN/KUDE", "qr_content": qr_content[:200], "items": []}
 
-    # 4) Parsear XML
+    # 4) Verificar que sea XML válido antes de parsear
     xml_clean = re.sub(r'\s+xmlns[^=]*="[^"]*"', "", xml_str, count=1)
+    if not xml_clean.strip().startswith("<"):
+        return {"error": f"No es XML. Respuesta: {xml_str[:300]}", "items": []}
     try:
         raw = xmltodict.parse(xml_clean)
     except Exception as e:
-        return {"error": f"Error parseando XML: {e}", "items": []}
+        return {"error": f"Error parseando XML: {e}", "inicio": xml_str[:300], "items": []}
 
     rde_key = next((k for k in raw if k.endswith("rDE") or k.endswith("DE")), None)
     if not rde_key:
