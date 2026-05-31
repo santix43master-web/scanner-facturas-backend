@@ -500,6 +500,7 @@ def _parsear_html_kude(html: str) -> dict | None:
                 "fuente": "HTML KUDE",
             }
 
+        print(f"[QR] HTML completo ({len(html)} chars):\n{html}")
         print("[QR] No se pudieron extraer datos del HTML")
         return None
     except Exception as e:
