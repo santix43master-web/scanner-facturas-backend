@@ -331,14 +331,20 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
 def _extraer_cdc_de_qr(qr_content: str) -> str | None:
     from urllib.parse import urlparse, parse_qs
     contenido = qr_content.replace("DEMO\n", "").replace("DEMO ", "").strip()
+    print(f"[QR] Contenido limpio: {contenido[:150]}")
     if contenido.startswith("http"):
         params = parse_qs(urlparse(contenido).query)
+        print(f"[QR] Parámetros encontrados: {list(params.keys())}")
         for key in ("m", "cdc", "CDC", "Id", "ld"):
             val = params.get(key, [None])[0]
-            if val and len(val) >= 40:
-                return val
+            if val:
+                print(f"[QR] {key}={val[:20]}... (len={len(val)})")
+                if len(val) >= 40:
+                    return val
     elif len(contenido) >= 40:
+        print(f"[QR] Contenido directo: {contenido[:30]}...")
         return contenido
+    print("[QR] ❌ No se encontró CDC")
     return None
 
 def _descargar_xml_sifen(cdc: str) -> str | None:
@@ -355,15 +361,24 @@ def _descargar_xml_sifen(cdc: str) -> str | None:
         ]
         for url in urls:
             try:
+                print(f"[QR] Intentando: {url[:80]}...")
                 resp = httpx.get(url, headers=headers, timeout=15, follow_redirects=True)
+                print(f"[QR] Status: {resp.status_code}, Tamaño: {len(resp.text)}")
                 if resp.status_code == 200 and resp.text.strip():
                     texto = resp.text.strip()
+                    print(f"[QR] Inicio respuesta: {texto[:200]}")
                     if texto.startswith("<?xml") or texto.startswith("<"):
+                        print("[QR] ✅ Parece XML")
                         return texto
-            except Exception:
+                    else:
+                        print("[QR] ⚠️ No empieza con <, no es XML")
+            except Exception as ex:
+                print(f"[QR] Error en URL {url[:60]}: {ex}")
                 continue
-    except Exception:
+    except Exception as ex:
+        print(f"[QR] Error general: {ex}")
         return None
+    print("[QR] ❌ Ninguna URL devolvió XML")
     return None
 
 def _parsear_xml_sifen(xml_str: str) -> dict | None:
