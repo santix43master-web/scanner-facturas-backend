@@ -3,6 +3,7 @@ import os
 import json
 import re
 import base64
+import traceback
 from pathlib import Path
 from anthropic import Anthropic
 
@@ -265,7 +266,7 @@ def extraer_json_robusto(texto: str) -> dict:
             texto_limpio = re.sub(r'[\n\r\t]+', ' ', texto)
             return json.loads(texto_limpio)
         except:
-            print("   ⚠️ No se pudo parsear el JSON")
+            print("   \u26a0\ufe0f No se pudo parsear el JSON")
             return {
                 "items": [],
                 "observaciones": ["ERROR: Sonnet no devolvió JSON válido"]
@@ -288,7 +289,7 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
         for b64 in imagenes_b64
     ]
 
-          user_text = (
+    user_text = (
         f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya (ej: mitad superior + mitad inferior).\n"
         "Combiná toda la información de todas las imágenes. NO dupliques items.\n"
         "Seguí los 5 pasos. Verificá el dígito verificador de cada EAN-13.\n"
@@ -322,7 +323,8 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
 
         return result
     except Exception as e:
-        return {"error": str(e)}
+        print(f"ERROR en extraer_datos_factura: {traceback.format_exc()}")
+        return {"error": str(e), "items": []}
 
 
 def imagen_a_base64(ruta: Path) -> str:
@@ -348,9 +350,9 @@ def procesar_carpeta():
             salida = Path(OUTPUT_FOLDER) / f"{archivo.stem}.json"
             with open(salida, "w", encoding="utf-8") as f:
                 json.dump(resultado, f, ensure_ascii=False, indent=2)
-            print("✓")
+            print("\u2713")
         except Exception as e:
-            print(f"✗ ERROR: {e}")
+            print(f"\u2717 ERROR: {e}")
     print("\nListo.")
 
 
