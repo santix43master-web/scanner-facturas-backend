@@ -468,7 +468,7 @@ def _descargar_xml_sifen(cdc: str) -> str | None:
 def _parsear_xml_sifen(xml_str: str) -> dict | None:
     import xmltodict, re
     try:
-        xml_clean = re.sub(r'\s+xmlns[^=]*="[^"]*"', "", xml_str, count=1)
+        xml_clean = re.sub(r'\s+xmlns[^=]*="[^"]*"', "", xml_str, count=0)
         data = xmltodict.parse(xml_clean)
         rde = {k.replace("ns0:", "").replace("rDE", ""): v for k, v in (data.get(list(data)[0]) or {}).items()}
         return rde
@@ -815,7 +815,7 @@ def procesar_qr(qr_content: str) -> dict:
         return {"error": "No se pudo obtener datos del QR", "qr_content": qr_content[:200], "items": []}
 
     # Tiene XML → parsear
-    xml_clean = re.sub(r'\s+xmlns[^=]*="[^"]*"', "", xml_str, count=1)
+    xml_clean = re.sub(r'\s+xmlns[^=]*="[^"]*"', "", xml_str, count=0)
     if not xml_clean.strip().startswith("<"):
         return {"error": f"No es XML. Respuesta: {xml_str[:300]}", "items": []}
     try:
