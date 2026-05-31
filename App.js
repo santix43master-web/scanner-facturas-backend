@@ -487,12 +487,18 @@ export default function App() {
             if (xhr.status === 200 && xhr.responseText) {
               try {
                 var data = JSON.parse(xhr.responseText);
-                if (data && (data.DE || data.gEmis)) {
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    type: 'DE_DATA',
-                    de_data: data,
-                    url: window.location.href
-                  }));
+                if (data) {
+                  var gcam = data.gCamItem || (data.DE || {}).gCamItem || ((data.DE || {}).gDtipDE || {}).gCamItem;
+                  var hasItems = false;
+                  if (Array.isArray(gcam) && gcam.length > 0) hasItems = true;
+                  else if (gcam && gcam.gItem) hasItems = true;
+                  if (hasItems) {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'DE_DATA',
+                      de_data: data,
+                      url: window.location.href
+                    }));
+                  }
                 }
               } catch(e) {}
             }
