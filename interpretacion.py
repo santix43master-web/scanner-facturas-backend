@@ -375,30 +375,69 @@ def _descargar_xml_sifen(cdc: str) -> str | None:
         except Exception as ex:
             print(f"[QR] Error API JSON: {ex}")
 
-        # 2) Intentar GET docs/documento-electronico-xml/{cdc}
+        # 2) Intentar GET docs/documento-electronico-xml/{cdc} con sesión persistente
         url_get_xml = f"https://ekuatia.set.gov.py/docs/documento-electronico-xml/{cdc_clean}"
         try:
-            print(f"[QR] Intentando API XML: GET {url_get_xml[:80]}...")
-            resp = httpx.get(url_get_xml, headers=headers_api, timeout=20, follow_redirects=True)
-            print(f"[QR] API XML Status: {resp.status_code}, Tamaño: {len(resp.text)}")
+            h = {"User-Agent": "Mozilla/5.0", "Accept": "application/json, application/xml, */*"}
+            with httpx.Client() as s:
+                s.get("https://ekuatia.set.gov.py/consultas/", headers=h, timeout=10)
+                resp = s.get(url_get_xml, headers=h, timeout=20, follow_redirects=True)
+            print(f"[QR] API XML GET (con sesión): Status {resp.status_code}, Tamaño: {len(resp.text)}")
             if resp.status_code == 200 and resp.text.strip():
                 texto = resp.text.strip()
                 print(f"[QR] Inicio respuesta: {texto[:200]}")
                 es_xml = texto.startswith("<?xml") or texto.startswith("<rDE") or texto.startswith("<DE")
                 if es_xml:
-                    print("[QR] ✅ Es XML")
+                    print("[QR] ✅ Es XML directo")
                     return texto
-                else:
-                    print("[QR] ⚠️ No es XML (intentar parsear como JSON)")
-                    try:
-                        data = json.loads(texto)
-                        if isinstance(data, dict) and data.get("xml"):
-                            print("[QR] ✅ XML dentro de JSON")
-                            return data["xml"]
-                    except:
-                        pass
+                try:
+                    data = json.loads(texto)
+                    if isinstance(data, dict) and data.get("xml"):
+                        print("[QR] ✅ XML dentro de JSON")
+                        return data["xml"]
+                except:
+                    pass
         except Exception as ex:
             print(f"[QR] Error API XML GET: {ex}")
+
+        # 2b) Intentar POST /docs/documento-electronico con los parámetros QR completos
+        url_doc_elec = f"https://ekuatia.set.gov.py/docs/documento-electronico"
+        try:
+            from urllib.parse import urlparse, parse_qs
+            params = {}
+            if qr_content.replace("DEMO\n", "").strip().startswith("http"):
+                qparams = parse_qs(urlparse(qr_content.replace("DEMO\n", "").strip()).query)
+                # Enviar TODOS los parámetros tal cual los tiene el QR
+                params = {k: v[0] for k, v in qparams.items()}
+            if not params.get("Id"):
+                params["Id"] = cdc_clean
+            with httpx.Client() as s:
+                s.get("https://ekuatia.set.gov.py/consultas/", headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+                resp = s.post(url_doc_elec, json=params, headers=headers_api, timeout=20)
+            print(f"[QR] API POST docs-echo: Status {resp.status_code}, Tamaño: {len(resp.text)}")
+            if resp.status_code == 200 and resp.text.strip():
+                print(f"[QR] Inicio respuesta: {resp.text[:300]}")
+                try:
+                    data = resp.json()
+                    if data.get("DE"):
+                        print("[QR] ✅ DE obtenido via POST docs-echo")
+                        # Intentar extraer XML del DE
+                        if data["DE"].get("xml"):
+                            return data["DE"]["xml"]
+                        # Si no tiene xml directo, devolver los datos como JSON y parsearlos nosotros
+                        if isinstance(data["DE"], dict):
+                            import xmltodict as xt
+                            # Convertir DE dict a XML string
+                            de_xml = ""
+                            de_fields = {}
+                            for k, v in data["DE"].items():
+                                if isinstance(v, str) or isinstance(v, (int, float)):
+                                    de_fields[k] = v
+                            print(f"[QR] DE fields: {list(data['DE'].keys())[:10]}")
+                except:
+                    pass
+        except Exception as ex:
+            print(f"[QR] Error API POST: {ex}")
 
         # 3) URLs legacy como fallback
         headers_legacy = {
@@ -550,6 +589,176 @@ def _parsear_html_kude(html: str) -> dict | None:
     except Exception as e:
         print(f"[QR] Error parseando HTML: {e}")
         return None
+
+def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = None, de_data: dict = None) -> dict:
+    """Parse the full DE page HTML or raw DE data from Angular scope
+    after captcha is solved on SIFEN WebView."""
+    import re
+    if qr_params is None:
+        qr_params = {}
+
+    # Caso 1: Ya tenemos datos parseados desde Angular scope
+    if de_data:
+        items = de_data.get("items", [])
+        if not items and isinstance(de_data.get("gCamItem"), list):
+            for it in de_data["gCamItem"]:
+                items.append({
+                    "codigo": it.get("dCodInt"),
+                    "codigoBarras": it.get("dCodBar"),
+                    "descripcion": it.get("dDesProSer", ""),
+                    "cantidad": float(it.get("dCamCant", 1) or 1),
+                    "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
+                    "subtotal": float(it.get("dSubTot", 0) or 0),
+                })
+        de = de_data.get("DE", de_data)
+        return {
+            "numeroFactura": de.get("dNumDoc") or qr_params.get("i") or qr_params.get("dNumDoc"),
+            "fechaEmision": de.get("dFecEmi", "").replace("-", "/")[:10] if de.get("dFecEmi") else None,
+            "nombreVendedor": de.get("dNomEm") or de_data.get("gEmis", {}).get("dNomEm"),
+            "rucVendedor": de.get("dRucEm") or de_data.get("gEmis", {}).get("dRucEm"),
+            "rucComprador": qr_params.get("dRucRec"),
+            "timbrado": de.get("dTimb"),
+            "totalGeneral": float(de.get("dTotGralOpe", 0) or 0) or float(de_data.get("gTotSub", {}).get("dTotGralOpe", 0) or 0),
+            "exenta": float(de_data.get("gTotSub", {}).get("dTotGralOpeExe", 0) or 0) if de_data.get("gTotSub") else None,
+            "gravada5": float(de_data.get("gTotSub", {}).get("dTotGralOpeIva5", 0) or 0) if de_data.get("gTotSub") else None,
+            "gravada10": float(de_data.get("gTotSub", {}).get("dTotGralOpeIva10", 0) or 0) if de_data.get("gTotSub") else None,
+            "observaciones": [f"Datos extraídos de SIFEN vía WebView ({len(items)} items)"],
+            "items": items,
+            "fuente": "SIFEN/KUDE completa (WebView captcha)",
+        }
+
+    # Caso 2: Parsear desde HTML
+    if not html:
+        return {"error": "Sin datos para procesar", "items": []}
+
+    datos = {}
+    items = []
+
+    texto = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+    texto = re.sub(r'<style[^>]*>.*?</style>', '', texto, flags=re.DOTALL | re.IGNORECASE)
+    texto = re.sub(r'<[^>]+>', '\n', texto)
+    texto = re.sub(r'\n\s*\n', '\n', texto)
+    lineas = [l.strip() for l in texto.split('\n') if l.strip()]
+
+    for i, l in enumerate(lineas):
+        lower = l.lower()
+        m = re.search(r'ruc[^\d]*([\d\-]{6,})', l, re.IGNORECASE)
+        if m and not datos.get('rucVendedor'):
+            datos['rucVendedor'] = re.sub(r'[^\d]', '', m.group(1))
+        m = re.search(r'(\d{3}-\d{3}-\d{7,})', l)
+        if m and not datos.get('numeroFactura'):
+            datos['numeroFactura'] = m.group(1)
+        m = re.search(r'(\d{2}/\d{2}/\d{4})', l)
+        if m and not datos.get('fechaEmision'):
+            datos['fechaEmision'] = m.group(1)
+        m = re.search(r'timbrado[^\d]*(\d{8,})', l, re.IGNORECASE)
+        if m and not datos.get('timbrado'):
+            datos['timbrado'] = m.group(1)
+        if any(x in lower for x in ('razón social', 'razon social', 'denominación', 'denominacion', 'nombre del emisor')):
+            for j in range(i, min(i + 3, len(lineas))):
+                c = lineas[j]
+                if len(c) > 5 and not c.startswith('http') and not c.strip().isdigit():
+                    datos['nombreVendedor'] = c
+                    break
+        if 'total general' in lower or 'total gs' in lower:
+            for j in range(i, min(i + 5, len(lineas))):
+                m2 = re.search(r'([\d,.]+)', lineas[j])
+                if m2:
+                    try:
+                        datos['totalGeneral'] = float(m2.group(1).replace('.', '').replace(',', '.'))
+                    except:
+                        pass
+
+    table_pat = re.compile(r'<table[^>]*>(.*?)</table>', re.DOTALL | re.IGNORECASE)
+    for tbl in table_pat.finditer(html):
+        rows = []
+        row_pat = re.compile(r'<tr[^>]*>(.*?)</tr>', re.DOTALL | re.IGNORECASE)
+        for r in row_pat.finditer(tbl.group(1)):
+            cells = []
+            cell_pat = re.compile(r'<t[dh][^>]*>(.*?)</t[dh]>', re.DOTALL | re.IGNORECASE)
+            for c in cell_pat.finditer(r.group(1)):
+                ct = re.sub(r'<[^>]+>', '', c.group(1))
+                ct = re.sub(r'\s+', ' ', ct).strip()
+                ct = ct.replace('\u00a0', ' ')
+                if ct:
+                    cells.append(ct)
+            if cells:
+                rows.append(cells)
+
+        if len(rows) < 2:
+            continue
+
+        hdr = ' '.join(rows[0]).lower()
+        if not any(x in hdr for x in ('descripci', 'cantidad', 'precio', 'código', 'codigo', 'importe', 'subtotal')):
+            continue
+
+        for row in rows[1:]:
+            if len(row) < 2:
+                continue
+            rt = row[0].lower()
+            if any(x in rt for x in ('total', 'subtotal', 'iva', 'exenta', 'gravada', 'son:')):
+                continue
+
+            num_cols = []
+            for ci, cv in enumerate(row):
+                c_clean = cv.replace('.', '').replace(',', '.').strip()
+                try:
+                    val = float(c_clean)
+                    num_cols.append((ci, val))
+                except ValueError:
+                    pass
+
+            non_num = [(ci, cv) for ci, cv in enumerate(row)
+                       if ci not in {nc[0] for nc in num_cols}]
+            item_desc = max(non_num, key=lambda x: len(x[1]))[1] if non_num else row[0]
+
+            vals = [v for _, v in num_cols]
+            item_qty, item_price, item_subtotal = 1, 0, 0
+            if len(vals) >= 3:
+                vs = sorted(vals)
+                item_subtotal = vs[-1]
+                item_qty = vs[0]
+                item_price = vs[1]
+            elif len(vals) == 2:
+                item_qty = vals[0]
+                item_subtotal = vals[1]
+                item_price = round(item_subtotal / item_qty, 2) if item_qty else 0
+            elif len(vals) == 1:
+                item_subtotal = vals[0]
+
+            if item_desc:
+                items.append({
+                    "codigo": None,
+                    "codigoBarras": None,
+                    "descripcion": item_desc,
+                    "cantidad": item_qty,
+                    "precioUnitario": round(item_price, 2),
+                    "subtotal": round(item_subtotal, 2),
+                })
+
+    total_fallback = datos.get('totalGeneral')
+    if not total_fallback and qr_params.get('dTotGralOpe'):
+        try:
+            total_fallback = float(qr_params['dTotGralOpe'])
+        except:
+            pass
+
+    return {
+        "numeroFactura": datos.get('numeroFactura'),
+        "fechaEmision": datos.get('fechaEmision'),
+        "nombreVendedor": datos.get('nombreVendedor'),
+        "rucVendedor": datos.get('rucVendedor'),
+        "rucComprador": qr_params.get('dRucRec'),
+        "timbrado": datos.get('timbrado'),
+        "totalGeneral": total_fallback,
+        "exenta": None,
+        "gravada5": None,
+        "gravada10": None,
+        "observaciones": [f"Datos extraídos de SIFEN vía WebView ({len(items)} items)"],
+        "items": items,
+        "fuente": "SIFEN/KUDE completa (WebView captcha)",
+    }
+
 
 def procesar_qr(qr_content: str) -> dict:
     from urllib.parse import urlparse, parse_qs
