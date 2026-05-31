@@ -483,7 +483,7 @@ export default function App() {
       XMLHttpRequest.prototype.send = function(body) {
         var xhr = this;
         xhr.addEventListener('load', function() {
-          if (xhr._url && xhr._url.indexOf('/docs/documento-electronico') >= 0) {
+          if (xhr._url && xhr._url.indexOf('documento-electronico') >= 0) {
             if (xhr.status === 200 && xhr.responseText) {
               try {
                 var data = JSON.parse(xhr.responseText);
