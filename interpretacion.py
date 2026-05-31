@@ -562,6 +562,17 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
     if de_data:
         import json as _json
         print(f"[HTML] de_data type={type(de_data).__name__}, keys={list(de_data.keys())[:15]}")
+        de_inner = de_data.get("DE", {})
+        print(f"[HTML] DE keys={list(de_inner.keys())[:20]}")
+        if isinstance(de_inner, dict):
+            for k, v in de_inner.items():
+                if isinstance(v, list):
+                    print(f"[HTML] DE.{k} es lista con {len(v)} items")
+                    if v and isinstance(v[0], dict):
+                        print(f"[HTML] DE.{k}[0] keys={list(v[0].keys())[:10]}")
+                elif isinstance(v, dict):
+                    subkeys = list(v.keys())[:10]
+                    print(f"[HTML] DE.{k} es dict con keys={subkeys}")
         items = de_data.get("items", [])
         gcam = de_data.get("gCamItem") or (de_data.get("DE", {})).get("gCamItem")
         if not items and isinstance(gcam, list):
