@@ -367,11 +367,12 @@ def _descargar_xml_sifen(cdc: str) -> str | None:
                 if resp.status_code == 200 and resp.text.strip():
                     texto = resp.text.strip()
                     print(f"[QR] Inicio respuesta: {texto[:200]}")
-                    if texto.startswith("<?xml") or texto.startswith("<"):
-                        print("[QR] ✅ Parece XML")
+                    es_xml = texto.startswith("<?xml") or texto.startswith("<rDE") or texto.startswith("<DE")
+                    if es_xml:
+                        print("[QR] ✅ Es XML")
                         return texto
                     else:
-                        print("[QR] ⚠️ No empieza con <, no es XML")
+                        print("[QR] ⚠️ No es XML (es HTML u otro)")
             except Exception as ex:
                 print(f"[QR] Error en URL {url[:60]}: {ex}")
                 continue
@@ -407,13 +408,103 @@ def _descargar_html_consulta(qr_content: str) -> str | None:
 
 def _extraer_cdc_de_html(html: str) -> str | None:
     import re
-    m = re.search(r'/(?:descargar-xml|descargar-kude)\?cdc=([a-zA-Z0-9]{40,48})', html)
-    if m:
-        return m.group(1)
-    m = re.search(r'cdc[=:]\s*["\']?([a-zA-Z0-9]{40,48})', html, re.IGNORECASE)
-    if m:
-        return m.group(1)
+    patrones = [
+        r'/(?:descargar-xml|descargar-kude)\?cdc=([a-zA-Z0-9]{40,48})',
+        r'cdc[=:]\s*["\']?([a-zA-Z0-9]{40,48})',
+        r'Id["\']?\s*[:=]\s*["\']?(\d{44})',
+        r'[?&]cdc=([a-zA-Z0-9]{40,48})',
+        r'data-cdc=["\']([a-zA-Z0-9]{40,48})',
+    ]
+    for pat in patrones:
+        m = re.search(pat, html, re.IGNORECASE)
+        if m:
+            print(f"[QR] CDC en HTML ({m.group(1)[:20]}...)")
+            return m.group(1)
     return None
+
+def _parsear_html_kude(html: str) -> dict | None:
+    """Raspa los datos de la página de consulta KUDE (HTML)."""
+    import re
+    try:
+        datos = {}
+        # Buscar datos en tablas o etiquetas <td>, <th>, <label>
+        html_plano = re.sub(r'<[^>]+>', '|', html)
+        html_plano = re.sub(r'\s+', ' ', html_plano)
+        partes = [p.strip() for p in html_plano.split('|') if p.strip()]
+
+        # Buscar RUC
+        for i, p in enumerate(partes):
+            lower = p.lower()
+            if 'ruc' in lower and i + 1 < len(partes):
+                val = partes[i + 1]
+                if re.search(r'\d{4,}', val):
+                    datos['rucVendedor'] = val
+
+        # Buscar Razón Social / Nombre
+        for i, p in enumerate(partes):
+            lower = p.lower()
+            if any(x in lower for x in ('razón social', 'razon social', 'nombre', 'denominación', 'denominacion')):
+                if i + 1 < len(partes):
+                    val = partes[i + 1]
+                    if len(val) > 3 and not val.startswith('http') and not val.isdigit():
+                        datos['nombreVendedor'] = val
+
+        # Buscar Total
+        for i, p in enumerate(partes):
+            lower = p.lower()
+            if 'total general' in lower or 'total' in lower and 'iva' not in lower:
+                for j in range(i, min(i + 5, len(partes))):
+                    m = re.search(r'([\d,.]+)', partes[j])
+                    if m:
+                        try:
+                            val = float(m.group(1).replace('.', '').replace(',', '.'))
+                            datos['totalGeneral'] = val
+                        except:
+                            pass
+
+        # Buscar Fecha
+        for p in partes:
+            m = re.search(r'(\d{2})/(\d{2})/(\d{4})', p)
+            if m:
+                datos['fechaEmision'] = p
+                break
+
+        # Buscar Timbrado
+        for i, p in enumerate(partes):
+            if 'timbrado' in p.lower() and i + 1 < len(partes):
+                m = re.search(r'(\d{8,})', partes[i + 1])
+                if m:
+                    datos['timbrado'] = m.group(1)
+                    break
+
+        # Buscar Número Factura
+        for p in partes:
+            m = re.search(r'(\d{3}-\d{3}-\d{7,})', p)
+            if m:
+                datos['numeroFactura'] = m.group(1)
+                break
+
+        if datos.get('totalGeneral') or datos.get('rucVendedor'):
+            print(f"[QR] HTML parseado: {json.dumps(datos, ensure_ascii=False)[:200]}")
+            return {
+                "numeroFactura": datos.get('numeroFactura'),
+                "fechaEmision": datos.get('fechaEmision'),
+                "nombreVendedor": datos.get('nombreVendedor'),
+                "rucVendedor": datos.get('rucVendedor'),
+                "rucComprador": None,
+                "timbrado": datos.get('timbrado'),
+                "totalGeneral": datos.get('totalGeneral'),
+                "exenta": None, "gravada5": None, "gravada10": None,
+                "observaciones": ["Datos extraídos de la página de consulta SIFEN/KUDE (sin XML). Usá foto + IA para items exactos."],
+                "items": [],
+                "fuente": "HTML KUDE",
+            }
+
+        print("[QR] No se pudieron extraer datos del HTML")
+        return None
+    except Exception as e:
+        print(f"[QR] Error parseando HTML: {e}")
+        return None
 
 def procesar_qr(qr_content: str) -> dict:
     from urllib.parse import urlparse, parse_qs
@@ -423,10 +514,35 @@ def procesar_qr(qr_content: str) -> dict:
     cdc = _extraer_cdc_de_qr(qr_content)
     xml_str = None
 
+    # 2) Probar múltiples URLs para descargar XML
     if cdc:
         xml_str = _descargar_xml_sifen(cdc)
 
-    # 2) Si no funciona, descargar HTML de consulta y buscar CDC
+    # 3) Si no, probar con la URL del QR directamente (cambiando /qr por /kude o /de)
+    if not xml_str and cdc:
+        from urllib.parse import urlparse, parse_qs
+        import httpx
+        base_url = "https://ekuatia.set.gov.py/consultas"
+        cdc_clean = cdc.replace("DEMO\n", "").strip()
+        urls_xml = [
+            f"{base_url}/kude?Id={cdc_clean}",
+            f"{base_url}/kude?nVersion=150&Id={cdc_clean}",
+            f"{base_url}/de?Id={cdc_clean}",
+            f"{base_url}/de?cdc={cdc_clean}",
+        ]
+        headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/xml, text/xml, */*"}
+        for url_try in urls_xml:
+            try:
+                resp = httpx.get(url_try, headers=headers, timeout=15, follow_redirects=True)
+                if resp.status_code == 200 and resp.text.strip():
+                    txt = resp.text.strip()
+                    if txt.startswith("<?xml") or txt.startswith("<rDE") or txt.startswith("<DE"):
+                        xml_str = txt
+                        break
+            except Exception:
+                continue
+
+    # 4) Si no funciona, descargar HTML de consulta y buscar CDC
     if not xml_str:
         html = _descargar_html_consulta(qr_content)
         if html:
@@ -435,7 +551,15 @@ def procesar_qr(qr_content: str) -> dict:
                 xml_str = _descargar_xml_sifen(cdc_html)
 
     if not xml_str:
-        # 3) Último recurso: extraer datos básicos del QR mismo (sin items)
+        # 5) Intentar raspar HTML de la consulta
+        html = _descargar_html_consulta(qr_content)
+        if html:
+            resultado_html = _parsear_html_kude(html)
+            if resultado_html:
+                return resultado_html
+
+    if not xml_str:
+        # 6) Último recurso: extraer datos básicos del QR mismo (sin items)
         if qr_content.startswith("http"):
             params = parse_qs(urlparse(qr_content.replace("DEMO\n", "").replace("DEMO ", "").strip()).query)
             total = float(params.get("dTotGralOpe", [0])[0]) if params.get("dTotGralOpe") else None
@@ -466,9 +590,9 @@ def procesar_qr(qr_content: str) -> dict:
                 "fuente": "QR parcial",
             }
 
-        return {"error": "No se pudo obtener el XML de SIFEN/KUDE", "qr_content": qr_content[:200], "items": []}
+        return {"error": "No se pudo obtener datos del QR", "qr_content": qr_content[:200], "items": []}
 
-    # 4) Verificar que sea XML válido antes de parsear
+    # Tiene XML → parsear
     xml_clean = re.sub(r'\s+xmlns[^=]*="[^"]*"', "", xml_str, count=1)
     if not xml_clean.strip().startswith("<"):
         return {"error": f"No es XML. Respuesta: {xml_str[:300]}", "items": []}
@@ -487,7 +611,7 @@ def procesar_qr(qr_content: str) -> dict:
     gtot = rde.get("gTotSub", {}) or {}
     gcam = rde.get("gCamItem", {}) or {}
 
-    ruc_v = gemis.get("dRucEm", "") or gemis.get("dRucEm", "")
+    ruc_v = gemis.get("dRucEm", "")
     nom_v = gemis.get("dNomEm", "")
     num_factura = gdat.get("dNumDoc", "")
     fecha = gdat_rec.get("dFecEmi", "") or gdat.get("dFecEmi", "")
@@ -498,7 +622,6 @@ def procesar_qr(qr_content: str) -> dict:
     grav5 = float(gtot.get("dTotGralOpeIva5", 0) or 0)
     grav10 = float(gtot.get("dTotGralOpeIva10", 0) or 0)
 
-    # Items
     gitems = gcam.get("gItem", []) or []
     if isinstance(gitems, dict):
         gitems = [gitems]
@@ -528,69 +651,6 @@ def procesar_qr(qr_content: str) -> dict:
         "observaciones": ["Extraído desde SIFEN/KUDE QR (sin IA)"],
         "items": items,
         "fuente": "SIFEN/KUDE QR",
-    }
-
-    # 2) Descargar XML
-    xml_str = _descargar_xml_sifen(cdc)
-    if not xml_str:
-        return {"error": f"No se pudo descargar XML para CDC: {cdc}", "items": []}
-
-    # 3) Parsear XML
-    xml_clean = re.sub(r'\s+xmlns[^=]*="[^"]*"', "", xml_str, count=1)
-    try:
-        raw = xmltodict.parse(xml_clean)
-    except Exception as e:
-        return {"error": f"Error parseando XML: {e}", "items": []}
-
-    rde_key = next(k for k in raw if k.endswith("rDE"))
-    rde = raw[rde_key]
-    gdat = rde.get("gDatGralOpe", {}) or {}
-    gdat_rec = gdat.get("gDatRec", {}) or {}
-    gemis = gdat.get("gEmis", {}) or {}
-    gtot = rde.get("gTotSub", {}) or {}
-    gcam = rde.get("gCamItem", {}) or {}
-
-    ruc_v = gemis.get("dRucEm", "")
-    nom_v = gemis.get("dNomEm", "")
-    num_factura = gdat.get("dNumDoc", "")
-    fecha = gdat_rec.get("dFecEmi", "") or gdat.get("dFecEmi", "")
-    timbrado_raw = gdat.get("dTimb", "")
-
-    total = float(gtot.get("dTotGralOpe", 0) or 0)
-    exenta = float(gtot.get("dTotGralOpeExe", 0) or 0)
-    grav5 = float(gtot.get("dTotGralOpeIva5", 0) or 0)
-    grav10 = float(gtot.get("dTotGralOpeIva10", 0) or 0)
-
-    # Items
-    gitems = gcam.get("gItem", []) or []
-    if isinstance(gitems, dict):
-        gitems = [gitems]
-
-    items = []
-    for it in gitems:
-        items.append({
-            "codigo": it.get("dCodInt", None),
-            "codigoBarras": it.get("dCodBar", None),
-            "descripcion": it.get("dDesProSer", ""),
-            "cantidad": float(it.get("dCamCant", 1) or 1),
-            "precioUnitario": float(it.get("dPUniProSer", 0) or 0),
-            "subtotal": float(it.get("dSubTot", 0) or 0),
-        })
-
-    return {
-        "numeroFactura": num_factura or None,
-        "fechaEmision": fecha or None,
-        "nombreVendedor": nom_v or None,
-        "rucVendedor": ruc_v or None,
-        "rucComprador": None,
-        "timbrado": timbrado_raw or None,
-        "totalGeneral": total,
-        "exenta": exenta,
-        "gravada5": grav5,
-        "gravada10": grav10,
-        "observaciones": ["Extraído desde SIFEN QR (sin IA)"],
-        "items": items,
-        "fuente": "SIFEN QR",
     }
 
 
