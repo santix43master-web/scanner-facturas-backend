@@ -855,11 +855,13 @@ def procesar_qr(qr_content: str) -> dict:
     rde = raw[rde_key]
     rde_keys = list(rde.keys())
     print(f"[QR] rDE keys: {rde_keys}")
-    gdat = rde.get("gDatGralOpe", {}) or {}
+    de_node = rde.get("DE", rde) or rde
+    print(f"[QR] DE node keys: {list(de_node.keys())[:20]}")
+    gdat = de_node.get("gDatGralOpe", {}) or {}
     gdat_rec = gdat.get("gDatRec", {}) or {}
-    gemis = rde.get("gEmis", {}) or {}
-    gtot = rde.get("gTotSub", {}) or {}
-    gcam = rde.get("gCamItem", {}) or {}
+    gemis = de_node.get("gEmis", {}) or {}
+    gtot = de_node.get("gTotSub", {}) or {}
+    gcam = de_node.get("gCamItem", {}) or de_node.get("gDtipDE", {}).get("gCamItem", {}) or {}
 
     ruc_v = gemis.get("dRucEm", "")
     nom_v = gemis.get("dNomEm", "")
