@@ -5,4 +5,3 @@ python-multipart
 gunicorn
 xmltodict
 httpx
-google-genai
