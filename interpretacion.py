@@ -929,7 +929,7 @@ def procesar_qr(qr_content: str) -> dict:
     ruc_comp_fmt = f"{ruc_comp_bare}-{ruc_comp_dv}" if ruc_comp_bare and ruc_comp_dv else (ruc_comp_bare or None)
     return {
         "numeroFactura": num_factura_fmt,
-        "fechaEmision": fecha[0:10].replace("-", "/") if fecha and "-" in fecha else fecha or None,
+        "fechaEmision": "/".join(fecha[0:10].split("-")[::-1]) if fecha and "-" in fecha else fecha or None,
         "nombreVendedor": nom_v or None,
         "rucVendedor": ruc_v_fmt,
         "rucComprador": ruc_comp_fmt,
