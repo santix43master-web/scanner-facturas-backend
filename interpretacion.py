@@ -769,7 +769,7 @@ def _extraer_items_de_lista(items_raw: list) -> list:
         subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or valor.get("dTotBruItem") or it.get("dSubTot") or 0
         salida.append({
             "codigo": it.get("dCodInt"),
-            "codigoBarras": next((b for b in [it.get("dGtin"), it.get("dCodBar"), it.get("dCodInt")] if b and len(str(b)) >= 12), None),
+            "codigoBarras": it.get("dGtin") or it.get("dCodBar") or it.get("dCodInt"),
             "descripcion": it.get("dDesProSer", ""),
             "cantidad": float(it.get("dCantProSer", 1) or 1),
             "precioUnitario": float(precio or 0),
