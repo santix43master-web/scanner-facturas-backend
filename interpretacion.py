@@ -10,10 +10,9 @@ from pathlib import Path
 PROVEEDOR = os.environ.get("PROVEEDOR", "claude").lower()
 
 if PROVEEDOR == "gemini":
-    from google import genai
+    import httpx
     MODELO = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-    client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 else:
     from anthropic import Anthropic
     MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
@@ -281,30 +280,25 @@ def extraer_json_robusto(texto: str) -> dict:
 
 # ===================== EXTRACCIÓN =====================
 def extraer_datos_factura_gemini(imagenes_b64: list[str]) -> dict:
-    if not imagenes_b64:
-        return {"error": "Sin imagen"}
-    contents = [SYSTEM_PROMPT, "\n\nAnalizá esta factura paraguaya:"]
+    if not imagenes_b64 or not GEMINI_API_KEY:
+        return {"error": "Sin API key de Gemini"}
+    import httpx
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO}:generateContent?key={GEMINI_API_KEY}"
+    parts = [{"text": f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya.\nCombiná toda la información. NO dupliques items.\nSeguí los pasos. Verificá el dígito verificador de cada EAN-13.\nUsá el totalGeneral como árbitro."}]
     for b64 in imagenes_b64:
-        contents.append({
-            "inline_data": {
-                "mime_type": "image/jpeg",
-                "data": b64,
-            }
-        })
-    contents.append(
-        f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya.\n"
-        "Combiná toda la información. NO dupliques items.\n"
-        "Seguí los pasos. Verificá el dígito verificador de cada EAN-13.\n"
-        "Usá el totalGeneral como árbitro.\n"
-        "Respondé SOLO con JSON válido, sin markdown ni texto adicional."
-    )
+        parts.append({"inline_data": {"mime_type": "image/jpeg", "data": b64}})
+    body = {
+        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"parts": parts}],
+        "generationConfig": {"response_mime_type": "application/json", "maxOutputTokens": 16000},
+    }
     try:
-        resp = client.models.generate_content(
-            model=MODELO,
-            contents=contents,
-            config={"response_mime_type": "application/json"},
-        )
-        result = extraer_json_robusto(resp.text)
+        resp = httpx.post(url, json=body, timeout=120)
+        if resp.status_code != 200:
+            return {"error": f"Gemini HTTP {resp.status_code}: {resp.text[:200]}", "items": []}
+        data = resp.json()
+        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        result = extraer_json_robusto(text)
         if result.get("items"):
             result["items"] = corregir_codigos_ean(result["items"])
         return result
