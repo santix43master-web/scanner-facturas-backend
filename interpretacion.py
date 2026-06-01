@@ -13,6 +13,10 @@ if PROVEEDOR == "gemini":
     import httpx
     MODELO = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+elif PROVEEDOR == "openai":
+    import httpx
+    MODELO = os.environ.get("OPENAI_MODEL", "gpt-4o")
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 else:
     from anthropic import Anthropic
     MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
@@ -306,9 +310,42 @@ def extraer_datos_factura_gemini(imagenes_b64: list[str]) -> dict:
         print(f"ERROR en Gemini: {traceback.format_exc()}")
         return {"error": str(e), "items": []}
 
+def extraer_datos_factura_openai(imagenes_b64: list[str]) -> dict:
+    if not imagenes_b64 or not OPENAI_API_KEY:
+        return {"error": "Sin API key de OpenAI", "items": []}
+    import httpx
+    url = "https://api.openai.com/v1/chat/completions"
+    content = [{"type": "text", "text": f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya.\nCombiná toda la información. NO dupliques items.\nSeguí los pasos. Verificá el dígito verificador de cada EAN-13.\nUsá el totalGeneral como árbitro."}]
+    for b64 in imagenes_b64:
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "high"}})
+    body = {
+        "model": MODELO,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": content},
+        ],
+        "max_tokens": 16000,
+        "response_format": {"type": "json_object"},
+    }
+    try:
+        resp = httpx.post(url, json=body, headers={"Authorization": f"Bearer {OPENAI_API_KEY}"}, timeout=120)
+        if resp.status_code != 200:
+            return {"error": f"OpenAI HTTP {resp.status_code}: {resp.text[:200]}", "items": []}
+        data = resp.json()
+        text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        result = extraer_json_robusto(text)
+        if result.get("items"):
+            result["items"] = corregir_codigos_ean(result["items"])
+        return result
+    except Exception as e:
+        print(f"ERROR en OpenAI: {traceback.format_exc()}")
+        return {"error": str(e), "items": []}
+
 def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
     if PROVEEDOR == "gemini":
         return extraer_datos_factura_gemini(imagenes_b64)
+    if PROVEEDOR == "openai":
+        return extraer_datos_factura_openai(imagenes_b64)
     if not imagenes_b64:
         return {"error": "Sin imagen"}
 
