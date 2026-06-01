@@ -11,7 +11,7 @@ PROVEEDOR = os.environ.get("PROVEEDOR", "claude").lower()
 
 if PROVEEDOR == "gemini":
     import httpx
-    MODELO = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    MODELO = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 else:
     from anthropic import Anthropic
