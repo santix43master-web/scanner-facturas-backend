@@ -535,7 +535,7 @@ def _parsear_html_kude(html: str) -> dict | None:
                 "fechaEmision": datos.get('fechaEmision'),
                 "nombreVendedor": datos.get('nombreVendedor'),
                 "rucVendedor": datos.get('rucVendedor'),
-                "rucComprador": None,
+        "rucComprador": ruc_comp or None,
                 "timbrado": datos.get('timbrado'),
                 "totalGeneral": datos.get('totalGeneral'),
                 "exenta": None, "gravada5": None, "gravada10": None,
@@ -579,17 +579,29 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
         print(f"[HTML] Items encontrados via _extraer_gcamitems: {len(gitems)}")
         items = _extraer_items_de_lista(gitems) if gitems else de_data.get("items", [])
         de = de_data.get("DE", de_data)
+        gdat = de.get("gDatGralOpe", {}) or {}
+        if not isinstance(gdat, dict):
+            gdat = {}
+        gemis = gdat.get("gEmis", {}) or {}
+        if not isinstance(gemis, dict):
+            gemis = {}
+        gdatrec = gdat.get("gDatRec", {}) or {}
+        if not isinstance(gdatrec, dict):
+            gdatrec = {}
+        gtimb = de.get("gTimb", {}) or {}
+        if not isinstance(gtimb, dict):
+            gtimb = {}
         gtot = de_data.get("gTotSub", de.get("gTotSub", {}))
         if not isinstance(gtot, dict):
             gtot = {}
         return {
-            "numeroFactura": de.get("dNumDoc") or qr_params.get("i") or qr_params.get("dNumDoc"),
-            "fechaEmision": de.get("dFecEmi", "").replace("-", "/")[:10] if de.get("dFecEmi") else None,
-            "nombreVendedor": de.get("dNomEm") or de_data.get("gEmis", {}).get("dNomEm"),
-            "rucVendedor": de.get("dRucEm") or de_data.get("gEmis", {}).get("dRucEm"),
-            "rucComprador": qr_params.get("dRucRec"),
-            "timbrado": de.get("dTimb"),
-            "totalGeneral": float(de.get("dTotGralOpe", 0) or 0) or float(gtot.get("dTotGralOpe", 0) or 0),
+            "numeroFactura": gtimb.get("dNumDoc") or qr_params.get("i") or qr_params.get("dNumDoc"),
+            "fechaEmision": gdat.get("dFeEmiDE", "").replace("-", "/")[:10] if gdat.get("dFeEmiDE") else None,
+            "nombreVendedor": gemis.get("dNomEmi") or gemis.get("dNomEm"),
+            "rucVendedor": gemis.get("dRucEm"),
+            "rucComprador": gdatrec.get("dRucRec") or qr_params.get("dRucRec"),
+            "timbrado": gtimb.get("dNumTim"),
+            "totalGeneral": float(gtot.get("dTotGralOpe", 0) or 0),
             "exenta": float(gtot.get("dSubExe", 0) or 0) or None,
             "gravada5": float(gtot.get("dSub5", 0) or 0) or None,
             "gravada10": float(gtot.get("dSub10", 0) or 0) or None,
@@ -876,7 +888,8 @@ def procesar_qr(qr_content: str) -> dict:
         gemis = {}
     gtot = de_node.get("gTotSub", {}) or {}
     ruc_v = gemis.get("dRucEm", "")
-    nom_v = gemis.get("dNomEm", "")
+    nom_v = gemis.get("dNomEmi", "") or gemis.get("dNomEm", "")
+    ruc_comp = gdat_rec.get("dRucRec", "") or ""
     gtimb = de_node.get("gTimb", {}) or {}
     if isinstance(gtimb, dict):
         num_factura = gtimb.get("dNumDoc", "")
