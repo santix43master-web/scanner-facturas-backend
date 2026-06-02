@@ -5,15 +5,25 @@ import re
 import base64
 import traceback
 from pathlib import Path
-from anthropic import Anthropic
 
-# ── Configuración ──────────────────────────────────────────────
-MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
+# ── Proveedor de IA ─────────────────────────────────────────
+PROVEEDOR = os.environ.get("PROVEEDOR", "claude").lower()
+
+if PROVEEDOR == "gemini":
+    import httpx
+    MODELO = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+elif PROVEEDOR == "openai":
+    import httpx
+    MODELO = os.environ.get("OPENAI_MODEL", "gpt-4o")
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+else:
+    from anthropic import Anthropic
+    MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
+    client = Anthropic(api_key=os.environ.get("API_KEY"))
 
 INPUT_FOLDER  = r"C:\Users\Family1\Desktop\trabajo de tanti\factura"
 OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", r"\\192.168.100.16\Users\public\JSON")
-
-client = Anthropic(api_key=os.environ.get("API_KEY"))
 
 EXTENSIONES_VALIDAS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -126,127 +136,111 @@ def corregir_codigos_ean(items: list[dict]) -> list[dict]:
             )
     return items
 
+# ===================== VALIDACIÓN POST-PROCESAMIENTO =====================
+def validar_resultado(resultado: dict) -> dict:
+    """Validate math and consistency of AI extraction result."""
+    items = resultado.get("items", [])
+    obs = resultado.setdefault("observaciones", [])
+    if isinstance(obs, str):
+        obs = [obs]
+        resultado["observaciones"] = obs
+    total = resultado.get("totalGeneral")
+    
+    # 1) Validate items: cantidad × precioUnitario == subtotal
+    suma_subtotales = 0
+    errores_item = 0
+    for i, item in enumerate(items):
+        cant = item.get("cantidad", 0) or 0
+        pu = item.get("precioUnitario", 0) or 0
+        sub = item.get("subtotal", 0) or 0
+        if cant and pu and sub:
+            esperado = round(cant * pu, 2)
+            if abs(esperado - sub) > 1:
+                errores_item += 1
+                obs.append(f"Item {i+1}: {cant}×{pu}={esperado}, dice subtotal={sub}")
+        suma_subtotales += sub
+    
+    # 2) Total vs sum of items
+    if total and suma_subtotales:
+        diff = abs(total - suma_subtotales)
+        if diff > 10:
+            obs.append(f"Suma items={suma_subtotales} ≠ totalGeneral={total} (diff={diff})")
+    
+    # 3) Validate exenta + gravada5 + gravada10 ≈ totalGeneral
+    exenta = resultado.get("exenta", 0) or 0
+    g5 = resultado.get("gravada5", 0) or 0
+    g10 = resultado.get("gravada10", 0) or 0
+    suma_iva = exenta + g5 + g10
+    if total and suma_iva:
+        diff_iva = abs(total - suma_iva)
+        if diff_iva > 10:
+            obs.append(f"exenta({exenta})+grav5({g5})+grav10({g10})={suma_iva} ≠ totalGeneral={total}")
+    
+    # 4) Validate RUC format
+    ruc = resultado.get("rucVendedor", "")
+    if ruc and not re.match(r'^\d{6,8}-\d$', ruc):
+        obs.append(f"RUC vendedor con formato inusual: {ruc}")
+    
+    if errores_item:
+        obs.append(f"{errores_item} item(s) con subtotal que NO coincide con cantidad×precio")
+    
+    return resultado
+
+
 # ===================== PROMPT =====================
-SYSTEM_PROMPT = """Eres un experto en lectura de facturas y tickets de venta paraguayos. Tu trabajo requiere precisión absoluta — un error en un código puede causar problemas graves de inventario.
+SYSTEM_PROMPT = """Eres un experto en lectura de facturas paraguayas. Un solo dígito incorrecto = problema grave de inventario. Tu precisión define si el negocio funciona o pierde plata.
 
-METODOLOGÍA OBLIGATORIA — SEGUÍ ESTOS PASOS EN ORDEN:
+PASO 1 — LEER CADA CARACTER CON EXTREMO CUIDADO:
+- Leé DÍGITO por DÍGITO, no asumas palabras. Cada caracter es crítico.
+- Códigos alfanuméricos (CC101, SD001): diferenciá C/G, C/L, S/5, 1/7, 0/8, B/8.
+- CC101 ≠ CC109, CC102 ≠ CC128 — un solo caracter diferente cambia el producto.
+- Cantidades con decimales (kg): 18.3 ≠ 183. El punto decimal es obligatorio.
+- Precios mayoristas de carne pueden ser altos (22.500 Gs/kg, 13.500 Gs/kg).
+- RUC: exactamente 8 dígitos + guión + DV (80003232-2). Sin letras, sin extra dígitos.
 
-PASO 1 — ANALIZAR ESTRUCTURA:
-Identificá los encabezados de columnas del documento antes de extraer.
+PASO 2 — ANALIZAR ESTRUCTURA de columnas en la tabla de items:
 Formatos comunes en Paraguay:
-- Tickets térmicos: COD. | CANT. | DESP. | PRECIO | TOTAL
+- Tickets térmicos: COD. | CANT. | DESCRIPCIÓN | PRECIO | TOTAL
 - Facturas tradicionales: Cant. | Descripción | Precio Unit. | Total
+- Carnicerías: Código | Descripción | Kg | Precio Kg | Total
 - Supermercados: Código | Artículo | Cant. | Precio | Importe
-- Facturas con doble código: Cod.Art | Cód.Barras | Descripción | Cant. | Precio | Total
-- Facturas de dos líneas: [codigo] [descripcion] / PV:[precio] [cantidad] [IVA%] [total]
-IMPORTANTE: El valor bajo COD. es siempre el CÓDIGO, NUNCA la cantidad.
+⚠️ El valor bajo "COD." o "CÓDIGO" es el código del producto, NO la cantidad.
+⚠️ Precios en GUARANÍES. "1.386.700" = 1.386.700 (1,3 millones), no 1386.
+  Para convertir: eliminá los puntos de miles, NO son decimales.
+  "22.500" = 22500 (veintidós mil quinientos), no 22.5.
+  "1.000" = 1000 (mil), no 1.
 
-PASO 2 — EXTRAER ENCABEZADO FISCAL:
-Extraé con precisión:
-- RUC del VENDEDOR/PROVEEDOR
-- Número de factura formato XXX-XXX-XXXXXXX
-- Timbrado
-- Fecha de emisión DD/MM/YYYY
-- Total general
-- Monto exento
-- Monto gravado IVA 5%
-- Monto gravado IVA 10%
+PASO 3 — VERIFICACIÓN MATEMÁTICA ESTRICTA (NO TE SALTEES ESTO):
+Para CADA item en la factura:
+  cantidad × precioUnitario DEBE ser exactamente igual al subtotal
+  Ej: 18.3 × 13000 = 237900, 48.3 × 22500 = 1086750
+  Si no da exacto → releé los números. Estás leyendo mal.
 
-PASO 3 — EXTRAER TODOS LOS ITEMS CON MÁXIMA PRECISIÓN:
-Montos en guaraníes: "8.000"=8000 | "1.386.700"=1386700 (eliminar puntos de miles)
+Para el TOTAL GENERAL:
+  exenta + gravada5 + gravada10 DEBE ser ≈ totalGeneral
+  La suma de subtotales de TODOS los items DEBE ser ≈ totalGeneral
+  Si alguna cuenta no cierra → VOLVÉ al PASO 1 y releé todo.
+  NUNCA entregues un JSON con cuentas incorrectas.
 
-REGLAS CRÍTICAS PARA DÍGITOS — LEELOS CON EXTREMO CUIDADO:
-- Leé cada dígito de forma INDIVIDUAL e INDEPENDIENTE
-- NUNCA asumas el valor de un dígito basándote en los que lo rodean
-- Dígitos visualmente similares en impresoras térmicas:
-  * si hay codigos con 14 digitos, usualmente, empiezan con un "0", entonces, lo que haces es le sacas el cero de la izquierda y dejas 13 numeros y validas EAN
-  * si lees solo 12 digitos agregale un 0 antes ejemplo: "772008000904" en ese caso agregas un 0 a la izquierda ejemplo: "0772008000904", NO hagas la verificacion de EAN porque solo hay 12 numero
-  * SOLO SI HAY 13 DIGITOS SE HACE ELEAN SINO,NO, TAMPOCO SE HACE EN EL CASO DE QUE HAYA 12 DIGITOS O MENOS
-  * Acercate dígito por dígito, no leas el código de corrido , tomate tu tiempo
-  * 5 vs 6: el 5 tiene parte superior PLANA, el 6 tiene curva COMPLETA arriba y abajo, pero no se cierra completamente como el 8
-  * 3 vs 0: el 3 tiene DOS curvas ABIERTAS a la derecha, el 0 es OVAL CERRADO
-  * 3 vs 8: el 3 está ABIERTO a la izquierda, el 8 es CERRADO completamente
-  * 0 vs 8: el 0 tiene UN solo espacio interior, el 8 tiene DOS espacios interiores
-  * 1 vs 7: el 1 es línea recta vertical, el 7 tiene trazo horizontal superior
-  * 5 vs 9: el 9 se cierra por completo en la parte superior derecha
-  * El 6 vs el 8 : el 6 tiene cola hacia abajo, el 8 tiene dos círculos
-  * El 0 vs el 8 : el 0 es oval simple, el 8 tiene cintura
-  * El 1 vs el 7 : el 7 tiene trazo diagonal y el 1 es recto parece un palito
-  * El 6 vs el 0 : el 5 no se cierra por completo
-  * El 5 vs el 8 : el 5 tiene el costado y la parte superior plana
-  * Si tenés dudas sobre UN dígito, preferí el que hace válido el EAN-13
-  * NUNCA inventes un dígito, si no lo ves claramente decí "?" en esa posición, y revisa detenidamente, no tengo prisa
-  * El código tiene exactamente 13 dígitos, ni más ni menos, revisa bien para aseguararte
-  * Para secuencias repetidas (666, 555, 000, 333): verificá CADA dígito individualmente, solo en algunos casos suele ser repetida
-
-REGLAS CRÍTICAS PARA CÓDIGOS EAN-13:
-Los códigos EAN-13 tienen EXACTAMENTE 13 dígitos y poseen un dígito verificador matemático.
-Para verificar un EAN-13:
-1. Tomá los primeros 12 dígitos
-2. Sumá los dígitos en posición impar (1,3,5,7,9,11) * 1
-3. Sumá los dígitos en posición par (2,4,6,8,10,12) * 3
-4. Sumá ambos resultados
-5. El dígito verificador = (10 - (suma / 10)) / 10
-6. Debe coincidir con el dígito 13
-
-Si el dígito verificador NO coincide → hay un error de lectura.
-En ese caso revisá cada dígito individualmente prestando atención a las confusiones mencionadas arriba.
-
-REGLAS PARA TIPOS DE CÓDIGO:
-- Cod. Artículo interno (corto, numérico o alfanumérico): 1816, 58, yog350
-- EAN-13 (exactamente 13 dígitos numéricos con dígito verificador válido)
-Si hay ambos extraelos SEPARADOS en "codigo" y "codigoBarras"
-Si solo hay uno: 13 dígitos → "codigoBarras", resto → "codigo"
-
-DETECCIÓN DE CÓDIGOS EN COLUMNA DESCRIPCIÓN:
-- "7840030002970--PACK BEB LACT" → codigoBarras=7840030002970, descripcion=PACK BEB LACT
-- "YOG350 - YOGUR GRIEGO 180G" → codigo=YOG350, descripcion=YOGUR GRIEGO 180G
-
-FORMATO ESPECIAL DE DOS LÍNEAS:
-Línea 1: [codigo_articulo]    [descripcion]
-Línea 2: PV: [precio]    [cantidad]    [IVA%]    [total]
-Ejemplo:
-  yog350    Yoghurt lactolanda 350 GR
-  PV: 3.900    3    10%    11.700
-→ codigo=yog350, descripcion=Yoghurt lactolanda 350 GR, precio=3900, cantidad=3, subtotal=11700
-OTRO FORMATO ESPECIAL:
-Linea 1: [descripcion]  [codigo_articulo]
-Ejemplo:
-    Nutrilea Cy Ac Niacinamida 12*190ml-7840508004925
-→descripcion=Nutrilea Cy Ac Niacinamida 12*190ml, codigo=7840508004925
-
-PASO 4 — VERIFICACIÓN MATEMÁTICA OBLIGATORIA:
-
-A) Para cada item:
-   - cantidad * precioUnitario = subtotal (tolerancia 1 Gs)
-   - Si no cuadra → revisá dígitos confundidos
-   - Revisar digito por dijito, la suma debe coincidir SIEMPRE
-
-B) Suma de subtotales vs totalGeneral:
-   - Suma > Total → hay DUPLICADOS → eliminá el repetido
-   - Suma < Total → faltan ITEMS → buscalos en la imagen
-   - Suma = Total → correcto ✓
-   - Si la suma no coincide volver a revisar numero por numero cada numero es independiente no inventes numeros, hacelo hasta que la suma sea correcta.
-
-PASO 5 — RESPONDÉ SOLO con JSON válido sin texto adicional ni markdown:
+PASO 4 — RESPONDÉ solo JSON, sin markdown, sin texto adicional:
 {
   "numeroFactura": "string o null",
   "fechaEmision": "string DD/MM/YYYY o null",
   "nombreVendedor": "string o null",
-  "rucVendedor": "string o null (RUC del PROVEEDOR)",
-  "rucComprador": "string o null (si aparece, sino null)",
+  "rucVendedor": "string o null",
+  "rucComprador": "string o null",
   "timbrado": "string o null",
-  "totalGeneral": number o null,
-  "exenta": number o null,
-  "gravada5": number o null,
-  "gravada10": number o null,
-  "observaciones": ["string — avisá duplicados eliminados, items agregados o dígitos corregidos"],
+  "totalGeneral": number | null,
+  "exenta": number | null,
+  "gravada5": number | null,
+  "gravada10": number | null,
+  "observaciones": ["string"],
   "items": [
     {
-      "codigo": "string o null (Cod. Artículo interno)",
-      "codigoBarras": "string o null (EAN-13, exactamente 13 dígitos verificados)",
+      "codigo": "string | null (código interno del artículo, ej: CC101, SD001)",
+      "codigoBarras": "string | null (solo si es EAN-13 de 13 dígitos)",
       "descripcion": "string",
-      "cantidad": number,
+      "cantidad": number (kg con decimal si corresponde),
       "precioUnitario": number,
       "subtotal": number
     }
@@ -274,7 +268,71 @@ def extraer_json_robusto(texto: str) -> dict:
             }
 
 # ===================== EXTRACCIÓN =====================
+def extraer_datos_factura_gemini(imagenes_b64: list[str]) -> dict:
+    if not imagenes_b64 or not GEMINI_API_KEY:
+        return {"error": "Sin API key de Gemini"}
+    import httpx
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO}:generateContent?key={GEMINI_API_KEY}"
+    parts = [{"text": f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya.\nCombiná toda la información. NO dupliques items.\nSeguí los pasos. Verificá el dígito verificador de cada EAN-13.\nUsá el totalGeneral como árbitro."}]
+    for b64 in imagenes_b64:
+        parts.append({"inline_data": {"mime_type": "image/jpeg", "data": b64}})
+    body = {
+        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"parts": parts}],
+        "generationConfig": {"response_mime_type": "application/json", "maxOutputTokens": 16000},
+    }
+    try:
+        resp = httpx.post(url, json=body, timeout=120)
+        if resp.status_code != 200:
+            return {"error": f"Gemini HTTP {resp.status_code}: {resp.text[:200]}", "items": []}
+        data = resp.json()
+        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        result = extraer_json_robusto(text)
+        if result.get("items"):
+            result["items"] = corregir_codigos_ean(result["items"])
+        result = validar_resultado(result)
+        return result
+    except Exception as e:
+        print(f"ERROR en Gemini: {traceback.format_exc()}")
+        return {"error": str(e), "items": []}
+
+def extraer_datos_factura_openai(imagenes_b64: list[str]) -> dict:
+    if not imagenes_b64 or not OPENAI_API_KEY:
+        return {"error": "Sin API key de OpenAI", "items": []}
+    import httpx
+    url = "https://api.openai.com/v1/chat/completions"
+    content = [{"type": "text", "text": f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya.\nCombiná toda la información. NO dupliques items.\nSeguí los pasos. Verificá el dígito verificador de cada EAN-13.\nUsá el totalGeneral como árbitro."}]
+    for b64 in imagenes_b64:
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "auto"}})
+    body = {
+        "model": MODELO,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": content},
+        ],
+        "max_tokens": 16000,
+        "response_format": {"type": "json_object"},
+    }
+    try:
+        resp = httpx.post(url, json=body, headers={"Authorization": f"Bearer {OPENAI_API_KEY}"}, timeout=120)
+        if resp.status_code != 200:
+            return {"error": f"OpenAI HTTP {resp.status_code}: {resp.text[:200]}", "items": []}
+        data = resp.json()
+        text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        result = extraer_json_robusto(text)
+        if result.get("items"):
+            result["items"] = corregir_codigos_ean(result["items"])
+        result = validar_resultado(result)
+        return result
+    except Exception as e:
+        print(f"ERROR en OpenAI: {traceback.format_exc()}")
+        return {"error": str(e), "items": []}
+
 def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
+    if PROVEEDOR == "gemini":
+        return extraer_datos_factura_gemini(imagenes_b64)
+    if PROVEEDOR == "openai":
+        return extraer_datos_factura_openai(imagenes_b64)
     if not imagenes_b64:
         return {"error": "Sin imagen"}
 
@@ -321,6 +379,8 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
 
         if result.get("items"):
             result["items"] = corregir_codigos_ean(result["items"])
+
+        result = validar_resultado(result)
 
         return result
     except Exception as e:
