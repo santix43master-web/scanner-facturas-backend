@@ -137,125 +137,57 @@ def corregir_codigos_ean(items: list[dict]) -> list[dict]:
     return items
 
 # ===================== PROMPT =====================
-SYSTEM_PROMPT = """Eres un experto en lectura de facturas y tickets de venta paraguayos. Tu trabajo requiere precisión absoluta — un error en un código puede causar problemas graves de inventario.
+SYSTEM_PROMPT = """Eres un experto en lectura de facturas paraguayas. Error en un dígito = problema grave de inventario.
 
-METODOLOGÍA OBLIGATORIA — SEGUÍ ESTOS PASOS EN ORDEN:
+PASO 1 — LEER CADA CARACTER CON EXTREMO CUIDADO:
+- Leé DÍGITO por DÍGITO, CARACTER por CARACTER. No leas palabras completas.
+- Los códigos alfanuméricos (CC101, SD001) tienen LETRAS + NÚMEROS. diferenciá C de G, C de L, S de 5, 1 de 7, 0 de 8.
+- CC101 ≠ CC109, CC102 ≠ CC128. Cada caracter cuenta.
+- Cantidades con decimales (kg, litros): 18.3, 48.3, 16.0 — el punto decimal es clave.
+- Precios unitarios altos (22.500 Gs/kg para carne) son normales en facturas mayoristas.
+- RUC: exactamente 8 dígitos + DV (80003232-2). No agregues ni quites dígitos.
 
-PASO 1 — ANALIZAR ESTRUCTURA:
-Identificá los encabezados de columnas del documento antes de extraer.
-Formatos comunes en Paraguay:
+PASO 2 — ANALIZAR ESTRUCTURA de columnas:
+Formatos comunes:
 - Tickets térmicos: COD. | CANT. | DESP. | PRECIO | TOTAL
 - Facturas tradicionales: Cant. | Descripción | Precio Unit. | Total
 - Supermercados: Código | Artículo | Cant. | Precio | Importe
-- Facturas con doble código: Cod.Art | Cód.Barras | Descripción | Cant. | Precio | Total
-- Facturas de dos líneas: [codigo] [descripcion] / PV:[precio] [cantidad] [IVA%] [total]
-IMPORTANTE: El valor bajo COD. es siempre el CÓDIGO, NUNCA la cantidad.
+- Facturas de carne: Código | Descripción | Kg | Precio Kg | Total
+IMPORTANTE: El valor bajo COD. es el CÓDIGO, NUNCA la cantidad.
+Montos en guaraníes: "1.386.700"=1386700, "22.500"=22500 (eliminar puntos de miles, la coma es decimal)
 
-PASO 2 — EXTRAER ENCABEZADO FISCAL:
-Extraé con precisión:
-- RUC del VENDEDOR/PROVEEDOR
-- Número de factura formato XXX-XXX-XXXXXXX
-- Timbrado
-- Fecha de emisión DD/MM/YYYY
-- Total general
-- Monto exento
-- Monto gravado IVA 5%
-- Monto gravado IVA 10%
+PASO 3 — EXTRAER ENCABEZADO:
+- RUC vendedor (ej: 80003232-2)
+- Factura: XXX-XXX-XXXXXXX
+- Timbrado, Fecha DD/MM/YYYY
+- Total general, Exenta, Gravada 5%, Gravada 10%
+- IVA: verificar que exenta + gravada5 + gravada10 ≈ totalGeneral
 
-PASO 3 — EXTRAER TODOS LOS ITEMS CON MÁXIMA PRECISIÓN:
-Montos en guaraníes: "8.000"=8000 | "1.386.700"=1386700 (eliminar puntos de miles)
+PASO 4 — VERIFICACIÓN MATEMÁTICA OBLIGATORIA (NO SALTAR):
+- Para CADA item: cantidad × precioUnitario DEBE dar subtotal exacto
+- Suma de subtotales DEBE dar totalGeneral exacto
+- Si NO cuadra → VOLVÉ a leer la imagen dígito por dígito hasta que cuadre
+- NUNCA entregues JSON con cuentas que no cierran. Seguí intentando.
 
-REGLAS CRÍTICAS PARA DÍGITOS — LEELOS CON EXTREMO CUIDADO:
-- Leé cada dígito de forma INDIVIDUAL e INDEPENDIENTE
-- NUNCA asumas el valor de un dígito basándote en los que lo rodean
-- Dígitos visualmente similares en impresoras térmicas:
-  * si lees solo 12 digitos agregale un 0 antes ejemplo: "772008000904" en ese caso agregas un 0 a la izquierda ejemplo: "0772008000904", no hagas la verificacion de EAN porque slo hay 12 numeros
-  * No te confundas con los numeros cada uno tiene sus caracteristicas, revisalos bien
-  * Acercate dígito por dígito, no leas el código de corrido , tomate tu tiempo
-  * 5 vs 6: el 5 tiene parte superior PLANA, el 6 tiene curva COMPLETA arriba y abajo, pero no se cierra completamente como el 8
-  * 3 vs 0: el 3 tiene DOS curvas ABIERTAS a la derecha, el 0 es OVAL CERRADO
-  * 3 vs 8: el 3 está ABIERTO a la izquierda, el 8 es CERRADO completamente
-  * 0 vs 8: el 0 tiene UN solo espacio interior, el 8 tiene DOS espacios interiores
-  * 1 vs 7: el 1 es línea recta vertical, el 7 tiene trazo horizontal superior
-  * 5 vs 9: el 9 se cierra por completo en la parte superior derecha
-  * El 6 vs el 8 : el 6 tiene cola hacia abajo, el 8 tiene dos círculos
-  * El 0 vs el 8 : el 0 es oval simple, el 8 tiene cintura
-  * El 1 vs el 7 : el 7 tiene trazo diagonal y el 1 es recto parece un palito
-  * El 6 vs el 0 : el 5 no se cierra por completo
-  * El 5 vs el 8 : el 5 tiene el costado y la parte superior plana
-  * Si tenés dudas sobre UN dígito, preferí el que hace válido el EAN-13
-  * NUNCA inventes un dígito, si no lo ves claramente decí "?" en esa posición, y revisa detenidamente, no tengo prisa
-  * El código tiene exactamente 13 dígitos, ni más ni menos, revisa bien para aseguararte
-  * Para secuencias repetidas (666, 555, 000, 333): verificá CADA dígito individualmente, solo en algunos casos suele ser repetida
-
-REGLAS CRÍTICAS PARA CÓDIGOS EAN-13:
-Los códigos EAN-13 tienen EXACTAMENTE 13 dígitos y poseen un dígito verificador matemático.
-Para verificar un EAN-13:
-1. Tomá los primeros 12 dígitos
-2. Sumá los dígitos en posición impar (1,3,5,7,9,11) * 1
-3. Sumá los dígitos en posición par (2,4,6,8,10,12) * 3
-4. Sumá ambos resultados
-5. El dígito verificador = (10 - (suma / 10)) / 10
-6. Debe coincidir con el dígito 13
-
-Si el dígito verificador NO coincide → hay un error de lectura.
-En ese caso revisá cada dígito individualmente prestando atención a las confusiones mencionadas arriba.
-
-REGLAS PARA TIPOS DE CÓDIGO:
-- Cod. Artículo interno (corto, numérico o alfanumérico): 1816, 58, yog350
-- EAN-13 (exactamente 13 dígitos numéricos con dígito verificador válido)
-Si hay ambos extraelos SEPARADOS en "codigo" y "codigoBarras"
-Si solo hay uno: 13 dígitos → "codigoBarras", resto → "codigo"
-
-DETECCIÓN DE CÓDIGOS EN COLUMNA DESCRIPCIÓN:
-- "7840030002970--PACK BEB LACT" → codigoBarras=7840030002970, descripcion=PACK BEB LACT
-- "YOG350 - YOGUR GRIEGO 180G" → codigo=YOG350, descripcion=YOGUR GRIEGO 180G
-
-FORMATO ESPECIAL DE DOS LÍNEAS:
-Línea 1: [codigo_articulo]    [descripcion]
-Línea 2: PV: [precio]    [cantidad]    [IVA%]    [total]
-Ejemplo:
-  yog350    Yoghurt lactolanda 350 GR
-  PV: 3.900    3    10%    11.700
-→ codigo=yog350, descripcion=Yoghurt lactolanda 350 GR, precio=3900, cantidad=3, subtotal=11700
-OTRO FORMATO ESPECIAL:
-Linea 1: [descripcion]  [codigo_articulo]
-Ejemplo:
-    Nutrilea Cy Ac Niacinamida 12*190ml-7840508004925
-→descripcion=Nutrilea Cy Ac Niacinamida 12*190ml, codigo=7840508004925
-
-PASO 4 — VERIFICACIÓN MATEMÁTICA OBLIGATORIA:
-
-A) Para cada item:
-   - cantidad * precioUnitario = subtotal (tolerancia 1 Gs)
-   - Si no cuadra → revisá dígitos confundidos
-   - Revisar digito por dijito, la suma debe coincidir SIEMPRE
-
-B) Suma de subtotales vs totalGeneral:
-   - Suma > Total → hay DUPLICADOS → eliminá el repetido
-   - Suma < Total → faltan ITEMS → buscalos en la imagen
-   - Suma = Total → correcto ✓
-   - Si la suma no coincide volver a revisar numero por numero cada numero es independiente no inventes numeros, hacelo hasta que la suma sea correcta.
-
-PASO 5 — RESPONDÉ SOLO con JSON válido sin texto adicional ni markdown:
+PASO 5 — RESPONDÉ solo JSON, sin markdown, sin texto adicional:
 {
   "numeroFactura": "string o null",
   "fechaEmision": "string DD/MM/YYYY o null",
   "nombreVendedor": "string o null",
-  "rucVendedor": "string o null (RUC del PROVEEDOR)",
-  "rucComprador": "string o null (si aparece, sino null)",
+  "rucVendedor": "string o null",
+  "rucComprador": "string o null",
   "timbrado": "string o null",
-  "totalGeneral": number o null,
-  "exenta": number o null,
-  "gravada5": number o null,
-  "gravada10": number o null,
-  "observaciones": ["string — avisá duplicados eliminados, items agregados o dígitos corregidos"],
+  "totalGeneral": number | null,
+  "exenta": number | null,
+  "gravada5": number | null,
+  "gravada10": number | null,
+  "observaciones": ["string"],
   "items": [
     {
-      "codigo": "string o null (Cod. Artículo interno)",
-      "codigoBarras": "string o null (EAN-13, exactamente 13 dígitos verificados)",
+      "codigo": "string | null (código interno del artículo, ej: CC101, SD001)",
+      "codigoBarras": "string | null (solo si es EAN-13 de 13 dígitos)",
       "descripcion": "string",
-      "cantidad": number,
+      "cantidad": number (kg con decimal si corresponde),
       "precioUnitario": number,
       "subtotal": number
     }
@@ -317,7 +249,7 @@ def extraer_datos_factura_openai(imagenes_b64: list[str]) -> dict:
     url = "https://api.openai.com/v1/chat/completions"
     content = [{"type": "text", "text": f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya.\nCombiná toda la información. NO dupliques items.\nSeguí los pasos. Verificá el dígito verificador de cada EAN-13.\nUsá el totalGeneral como árbitro."}]
     for b64 in imagenes_b64:
-        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "high"}})
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "auto"}})
     body = {
         "model": MODELO,
         "messages": [
