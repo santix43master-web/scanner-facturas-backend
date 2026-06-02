@@ -31,11 +31,8 @@ def status():
     return {
         "status": "ok",
         "modelo": interpretacion.MODELO,
-        "proveedor": interpretacion.PROVEEDOR,
         "output_folder": interpretacion.OUTPUT_FOLDER,
         "api_key": "Configurado" if os.environ.get("API_KEY") else "No configurado",
-        "gemini_api_key": "Configurado" if os.environ.get("GEMINI_API_KEY") else "No configurado",
-        "openai_api_key": "Configurado" if os.environ.get("OPENAI_API_KEY") else "No configurado",
     }
 
 @app.post("/procesar")
