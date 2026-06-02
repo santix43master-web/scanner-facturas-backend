@@ -160,8 +160,7 @@ REGLAS CRÍTICAS PARA DÍGITOS — LEELOS CON EXTREMO CUIDADO:
 - NUNCA asumas el valor de un dígito basándote en los que lo rodean
 - Dígitos visualmente similares en impresoras térmicas:
   * si hay codigos con 14 digitos, usualmente, empiezan con un "0", entonces, lo que haces es le sacas el cero de la izquierda y dejas 13 numeros y validas EAN
-  * si lees solo 12 digitos agregale un 0 antes ejemplo: "772008000904" en ese caso agregas un 0 a la izquierda ejemplo: "0772008000904", NO hagas la verificacion de EAN porque solo hay 12 numeros
-  * No te confundas con los numeros cada uno tiene sus caracteristicas, revisalos bien
+  * si lees solo 12 digitos agregale un 0 antes ejemplo: "772008000904" en ese caso agregas un 0 a la izquierda ejemplo: "0772008000904", NO hagas la verificacion de EAN porque solo hay 12 numero
   * SOLO SI HAY 13 DIGITOS SE HACE ELEAN SINO,NO, TAMPOCO SE HACE EN EL CASO DE QUE HAYA 12 DIGITOS O MENOS
   * Acercate dígito por dígito, no leas el código de corrido , tomate tu tiempo
   * 5 vs 6: el 5 tiene parte superior PLANA, el 6 tiene curva COMPLETA arriba y abajo, pero no se cierra completamente como el 8
