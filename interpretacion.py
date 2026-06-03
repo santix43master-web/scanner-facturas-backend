@@ -5,22 +5,15 @@ import re
 import base64
 import traceback
 from pathlib import Path
+from anthropic import Anthropic
 
-# ── Proveedor de IA ─────────────────────────────────────────
-PROVEEDOR = os.environ.get("PROVEEDOR", "claude").lower()
-
-if PROVEEDOR == "gemini":
-    from google import genai
-    MODELO = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
-    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-    client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
-else:
-    from anthropic import Anthropic
-    MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
-    client = Anthropic(api_key=os.environ.get("API_KEY"))
+# ── Configuración ──────────────────────────────────────────────
+MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
 
 INPUT_FOLDER  = r"C:\Users\Family1\Desktop\trabajo de tanti\factura"
 OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", r"\\192.168.100.16\Users\public\JSON")
+
+client = Anthropic(api_key=os.environ.get("API_KEY"))
 
 EXTENSIONES_VALIDAS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -280,41 +273,7 @@ def extraer_json_robusto(texto: str) -> dict:
             }
 
 # ===================== EXTRACCIÓN =====================
-def extraer_datos_factura_gemini(imagenes_b64: list[str]) -> dict:
-    if not imagenes_b64:
-        return {"error": "Sin imagen"}
-    contents = [SYSTEM_PROMPT, "\n\nAnalizá esta factura paraguaya:"]
-    for b64 in imagenes_b64:
-        contents.append({
-            "inline_data": {
-                "mime_type": "image/jpeg",
-                "data": b64,
-            }
-        })
-    contents.append(
-        f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya.\n"
-        "Combiná toda la información. NO dupliques items.\n"
-        "Seguí los pasos. Verificá el dígito verificador de cada EAN-13.\n"
-        "Usá el totalGeneral como árbitro.\n"
-        "Respondé SOLO con JSON válido, sin markdown ni texto adicional."
-    )
-    try:
-        resp = client.models.generate_content(
-            model=MODELO,
-            contents=contents,
-            config={"response_mime_type": "application/json"},
-        )
-        result = extraer_json_robusto(resp.text)
-        if result.get("items"):
-            result["items"] = corregir_codigos_ean(result["items"])
-        return result
-    except Exception as e:
-        print(f"ERROR en Gemini: {traceback.format_exc()}")
-        return {"error": str(e), "items": []}
-
 def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
-    if PROVEEDOR == "gemini":
-        return extraer_datos_factura_gemini(imagenes_b64)
     if not imagenes_b64:
         return {"error": "Sin imagen"}
 
