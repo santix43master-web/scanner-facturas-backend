@@ -5,15 +5,22 @@ import re
 import base64
 import traceback
 from pathlib import Path
-from anthropic import Anthropic
 
-# ── Configuración ──────────────────────────────────────────────
-MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
+# ── Proveedor de IA ─────────────────────────────────────────
+PROVEEDOR = os.environ.get("PROVEEDOR", "claude").lower()
+
+if PROVEEDOR == "gemini":
+    from google import genai
+    MODELO = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+    client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+else:
+    from anthropic import Anthropic
+    MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
+    client = Anthropic(api_key=os.environ.get("API_KEY"))
 
 INPUT_FOLDER  = r"C:\Users\Family1\Desktop\trabajo de tanti\factura"
 OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", r"\\192.168.100.16\Users\public\JSON")
-
-client = Anthropic(api_key=os.environ.get("API_KEY"))
 
 EXTENSIONES_VALIDAS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -273,7 +280,41 @@ def extraer_json_robusto(texto: str) -> dict:
             }
 
 # ===================== EXTRACCIÓN =====================
+def extraer_datos_factura_gemini(imagenes_b64: list[str]) -> dict:
+    if not imagenes_b64:
+        return {"error": "Sin imagen"}
+    contents = [SYSTEM_PROMPT, "\n\nAnalizá esta factura paraguaya:"]
+    for b64 in imagenes_b64:
+        contents.append({
+            "inline_data": {
+                "mime_type": "image/jpeg",
+                "data": b64,
+            }
+        })
+    contents.append(
+        f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya.\n"
+        "Combiná toda la información. NO dupliques items.\n"
+        "Seguí los pasos. Verificá el dígito verificador de cada EAN-13.\n"
+        "Usá el totalGeneral como árbitro.\n"
+        "Respondé SOLO con JSON válido, sin markdown ni texto adicional."
+    )
+    try:
+        resp = client.models.generate_content(
+            model=MODELO,
+            contents=contents,
+            config={"response_mime_type": "application/json"},
+        )
+        result = extraer_json_robusto(resp.text)
+        if result.get("items"):
+            result["items"] = corregir_codigos_ean(result["items"])
+        return result
+    except Exception as e:
+        print(f"ERROR en Gemini: {traceback.format_exc()}")
+        return {"error": str(e), "items": []}
+
 def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
+    if PROVEEDOR == "gemini":
+        return extraer_datos_factura_gemini(imagenes_b64)
     if not imagenes_b64:
         return {"error": "Sin imagen"}
 
@@ -594,12 +635,22 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
         gtot = de_data.get("gTotSub", de.get("gTotSub", {}))
         if not isinstance(gtot, dict):
             gtot = {}
+        num_factura_bare = gtimb.get("dNumDoc") or qr_params.get("i") or qr_params.get("dNumDoc")
+        est = gtimb.get("dEst", "")
+        pun = gtimb.get("dPunExp", "") or gtimb.get("dPuntExp", "")
+        num_factura_fmt = f"{est}-{pun}-{num_factura_bare}" if est and pun and num_factura_bare else (num_factura_bare or None)
+        ruc_v_bare = gemis.get("dRucEm", "")
+        ruc_v_dv = gemis.get("dDVEmi", "") or gemis.get("dDVEm", "")
+        ruc_v_fmt = f"{ruc_v_bare}-{ruc_v_dv}" if ruc_v_bare and ruc_v_dv else (ruc_v_bare or None)
+        ruc_c_bare = gdatrec.get("dRucRec", "") or qr_params.get("dRucRec", "")
+        ruc_c_dv = gdatrec.get("dDVRec", "") or ""
+        ruc_c_fmt = f"{ruc_c_bare}-{ruc_c_dv}" if ruc_c_bare and ruc_c_dv else (ruc_c_bare or None)
         return {
-            "numeroFactura": gtimb.get("dNumDoc") or qr_params.get("i") or qr_params.get("dNumDoc"),
+            "numeroFactura": num_factura_fmt,
             "fechaEmision": gdat.get("dFeEmiDE", "").replace("-", "/")[:10] if gdat.get("dFeEmiDE") else None,
             "nombreVendedor": gemis.get("dNomEmi") or gemis.get("dNomEm"),
-            "rucVendedor": gemis.get("dRucEm"),
-            "rucComprador": gdatrec.get("dRucRec") or qr_params.get("dRucRec"),
+            "rucVendedor": ruc_v_fmt,
+            "rucComprador": ruc_c_fmt,
             "timbrado": gtimb.get("dNumTim"),
             "totalGeneral": float(gtot.get("dTotGralOpe", 0) or 0),
             "exenta": float(gtot.get("dSubExe", 0) or 0) or None,
@@ -888,13 +939,19 @@ def procesar_qr(qr_content: str) -> dict:
         gemis = {}
     gtot = de_node.get("gTotSub", {}) or {}
     ruc_v = gemis.get("dRucEm", "")
+    ruc_v_dv = gemis.get("dDVEmi", "") or gemis.get("dDVEm", "")
     nom_v = gemis.get("dNomEmi", "") or gemis.get("dNomEm", "")
-    ruc_comp = gdat_rec.get("dRucRec", "") or ""
+    ruc_comp_bare = gdat_rec.get("dRucRec", "") or ""
+    ruc_comp_dv = gdat_rec.get("dDVRec", "") or ""
     gtimb = de_node.get("gTimb", {}) or {}
     if isinstance(gtimb, dict):
+        est = gtimb.get("dEst", "")
+        pun = gtimb.get("dPunExp", "") or gtimb.get("dPuntExp", "")
         num_factura = gtimb.get("dNumDoc", "")
         timbrado_raw = gtimb.get("dNumTim", "")
     else:
+        est = ""
+        pun = ""
         num_factura = gdat.get("dNumDoc", "")
         timbrado_raw = gdat.get("dTimb", "")
     fecha = gdat_rec.get("dFecEmi", "") or gdat.get("dFeEmiDE", "")
@@ -908,12 +965,15 @@ def procesar_qr(qr_content: str) -> dict:
     print(f"[QR] Items encontrados: {len(gitems)}")
     items = _extraer_items_de_lista(gitems) if gitems else []
 
+    num_factura_fmt = f"{est}-{pun}-{num_factura}" if est and pun else (num_factura or None)
+    ruc_v_fmt = f"{ruc_v}-{ruc_v_dv}" if ruc_v and ruc_v_dv else (ruc_v or None)
+    ruc_comp_fmt = f"{ruc_comp_bare}-{ruc_comp_dv}" if ruc_comp_bare and ruc_comp_dv else (ruc_comp_bare or None)
     return {
-        "numeroFactura": num_factura or None,
-        "fechaEmision": fecha[0:10].replace("-", "/") if fecha and "-" in fecha else fecha or None,
+        "numeroFactura": num_factura_fmt,
+        "fechaEmision": "/".join(fecha[0:10].split("-")[::-1]) if fecha and "-" in fecha else fecha or None,
         "nombreVendedor": nom_v or None,
-        "rucVendedor": ruc_v or None,
-        "rucComprador": None,
+        "rucVendedor": ruc_v_fmt,
+        "rucComprador": ruc_comp_fmt,
         "timbrado": timbrado_raw or None,
         "totalGeneral": total,
         "exenta": exenta,
