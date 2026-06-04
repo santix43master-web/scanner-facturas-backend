@@ -767,9 +767,16 @@ def _extraer_items_de_lista(items_raw: list) -> list:
             resta = {}
         precio = valor.get("dPUniProSer") or it.get("gPaDePrecio", {}).get("dPrcUnit") or it.get("dPUniProSer") or 0
         subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or valor.get("dTotBruItem") or it.get("dSubTot") or 0
+        codigo_barras = it.get("dGtin") or it.get("dCodBar") or ""
+        cod_int_raw = it.get("dCodInt") or ""
+        if not codigo_barras and cod_int_raw and str(cod_int_raw).strip().isdigit() and len(str(cod_int_raw).strip()) >= 8:
+            codigo_barras = str(cod_int_raw).strip()
+            cod_int = None
+        else:
+            cod_int = cod_int_raw or None
         salida.append({
-            "codigo": it.get("dCodInt"),
-            "codigoBarras": it.get("dGtin") or it.get("dCodBar") or it.get("dCodInt"),
+            "codigo": cod_int,
+            "codigoBarras": codigo_barras or None,
             "descripcion": it.get("dDesProSer", ""),
             "cantidad": float(it.get("dCantProSer", 1) or 1),
             "precioUnitario": float(precio or 0),
