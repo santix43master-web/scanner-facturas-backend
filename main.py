@@ -42,18 +42,20 @@ def status():
 async def procesar(factura: List[UploadFile] = File(...)):
     try:
         imagenes_b64 = []
-        for f in factura:
+        for i, f in enumerate(factura):
             img_bytes = await f.read()
             b64 = base64.b64encode(img_bytes).decode("utf-8")
             imagenes_b64.append(b64)
+            print(f"[DEBUG] Imagen {i+1}: {len(img_bytes)} bytes, base64={len(b64)} chars")
+        print(f"[DEBUG] Total imágenes recibidas: {len(imagenes_b64)}")
         resultado = interpretacion.extraer_datos_factura(imagenes_b64)
 
         if "items" in resultado and isinstance(resultado["items"], list):
             for item in resultado["items"]:
                 if "codigoBarras" in item:
-                    item["codigo_barras"] = item["codigoBarras"]
+                    item["codigo_barras"] = item.pop("codigoBarras")
                 if "precioUnitario" in item:
-                    item["precio_unitario"] = item["precioUnitario"]
+                    item["precio_unitario"] = item.pop("precioUnitario")
 
         return resultado
     except Exception as e:
@@ -70,9 +72,9 @@ def procesar_qr(data: dict):
         if "items" in resultado and isinstance(resultado["items"], list):
             for item in resultado["items"]:
                 if "codigoBarras" in item:
-                    item["codigo_barras"] = item["codigoBarras"]
+                    item["codigo_barras"] = item.pop("codigoBarras")
                 if "precioUnitario" in item:
-                    item["precio_unitario"] = item["precioUnitario"]
+                    item["precio_unitario"] = item.pop("precioUnitario")
 
         return resultado
     except Exception as e:
