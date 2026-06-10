@@ -4,6 +4,8 @@ import base64
 from datetime import datetime
 from typing import List
 from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import HTMLResponse
+from urllib.parse import quote, unquote
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -164,6 +166,73 @@ async def descargar(sucursal: str, nombre_archivo: str):
             "sucursal_intentada": sucursal,
             "archivo": nombre_archivo,
         }
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/archivos", response_class=HTMLResponse)
+def listar_archivos():
+    try:
+        base = interpretacion.OUTPUT_FOLDER
+        html = """<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Archivos - Facturas R21</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f0f2f5;padding:20px;color:#333}
+h1{color:#1a237e;margin-bottom:8px}
+.sub{color:#666;margin-bottom:24px;font-size:14px}
+.sucursal{background:#fff;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.sucursal h2{color:#1a237e;font-size:18px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e8eaf6}
+.archivo{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #f0f0f0}
+.archivo:last-child{border-bottom:none}
+.archivo .nombre{font-size:14px;flex:1}
+.archivo .acciones a{text-decoration:none;font-size:13px;padding:4px 12px;border-radius:6px;margin-left:8px}
+.ver{background:#e8eaf6;color:#1a237e}
+.descargar{background:#1a237e;color:#fff}
+.ver:hover{background:#c5cae9}
+.descargar:hover{background:#283593}
+.vacio{color:#999;font-size:14px;padding:10px 0}
+.error{color:#c62828;background:#ffebee;padding:12px;border-radius:8px}
+</style></head><body>
+<h1>Facturas R21</h1>
+<p class="sub">Archivos JSON guardados</p>"""
+        carpetas = [d for d in os.listdir(base) if os.path.isdir(os.path.join(base, d))]
+        if not carpetas:
+            html += '<div class="sucursal"><div class="vacio">No hay archivos guardados.</div></div>'
+        for carpeta in sorted(carpetas):
+            ruta_carpeta = os.path.join(base, carpeta)
+            archivos = sorted([f for f in os.listdir(ruta_carpeta) if f.endswith('.json')], reverse=True)
+            html += f'<div class="sucursal"><h2>{carpeta}</h2>'
+            if not archivos:
+                html += '<div class="vacio">Sin archivos.</div>'
+            for a in archivos:
+                esc = quote(a)
+                html += f'''<div class="archivo">
+<div class="nombre">{a}</div>
+<div class="acciones">
+<a class="ver" href="/ver-json/{carpeta}/{esc}">Ver</a>
+<a class="descargar" href="/descargar/{carpeta}/{esc}">Descargar</a>
+</div></div>'''
+            html += '</div>'
+        html += '</body></html>'
+        return HTMLResponse(html)
+    except Exception as e:
+        return HTMLResponse(f'<div class="error">Error: {e}</div>')
+
+@app.get("/ver-json/{sucursal}/{nombre_archivo}")
+async def ver_json(sucursal: str, nombre_archivo: str):
+    try:
+        nombre_archivo = unquote(nombre_archivo)
+        posibles = [
+            os.path.join(interpretacion.OUTPUT_FOLDER, sucursal, nombre_archivo),
+            os.path.join(interpretacion.OUTPUT_FOLDER, sucursal.replace("_", " "), nombre_archivo),
+        ]
+        for ruta in posibles:
+            if os.path.exists(ruta):
+                with open(ruta, 'r', encoding='utf-8') as f:
+                    datos = json.load(f)
+                return datos
+        return {"error": "Archivo no encontrado"}
     except Exception as e:
         return {"error": str(e)}
 
