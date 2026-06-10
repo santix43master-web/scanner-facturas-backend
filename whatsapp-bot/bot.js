@@ -257,7 +257,9 @@ async function iniciarBot() {
             break;
           case 2:
             await enviarJSON(sock, jid, datos);
-            await sock.sendMessage(jid, { text: 'Ahi te lo mande.' });
+            const jsonStr = JSON.stringify(datos, null, 2);
+            const jsonTruncado = jsonStr.length > 4000 ? jsonStr.slice(0, 4000) + '\n...' : jsonStr;
+            await sock.sendMessage(jid, { text: `JSON:\n\`\`\`\n${jsonTruncado}\n\`\`\`` });
             break;
           case 3:
             await enviarPDF(sock, jid, datos);
