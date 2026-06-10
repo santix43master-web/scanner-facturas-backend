@@ -166,7 +166,7 @@ async function iniciarBot() {
 
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
-    if (!msg.key || msg.key.fromMe) return;
+    if (!msg.key) return;
 
     const jid = msg.key.remoteJid;
     const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim();
