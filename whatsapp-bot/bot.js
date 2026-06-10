@@ -12,11 +12,13 @@ const AUTH_DIR = './auth_info';
 let ultimoQR = null;
 let estadoConexion = 'desconectado';
 
-const server = http.createServer((req, res) => {
-  if (req.url === '/qr' && ultimoQR) {
-    const qrLink = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(ultimoQR)}`;
+const server = http.createServer(async (req, res) => {
+  const url = req.url;
+
+  if (url === '/qr') {
+    const qrLink = ultimoQR ? `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(ultimoQR)}` : '';
     res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(`<!DOCTYPE html>
+    return res.end(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bot Facturas R21 - QR</title>
 <style>body{font-family:sans-serif;text-align:center;padding:20px;background:#111;color:#fff}
@@ -24,14 +26,65 @@ h1{color:#25D366}img{max-width:90vw;border-radius:12px;box-shadow:0 0 30px rgba(
 p{color:#aaa;margin-top:20px}.estado{display:inline-block;padding:6px 16px;border-radius:20px;font-size:14px}
 .conectado{background:#25D366;color:#000}.desconectado{background:#e74c3c;color:#fff}.conectando{background:#f39c12;color:#000}
 </style></head><body>
-<h1>🤖 Bot Facturas R21</h1>
+<h1>Bot Facturas R21</h1>
 <p>Estado: <span class="estado ${estadoConexion}">${estadoConexion}</span></p>
 ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR Code"/>` : '<p>Esperando QR...</p>'}
 </body></html>`);
-  } else {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: estadoConexion, qr: !!ultimoQR, bot: 'Facturas R21 WhatsApp Bot' }));
   }
+
+  if (url.startsWith('/ver-json/')) {
+    const nombre = decodeURIComponent(url.slice(10));
+    try {
+      const resp = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
+      const data = await resp.json();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(data, null, 2));
+    } catch {
+      res.writeHead(500);
+      return res.end('{"error":"Error al obtener archivo"}');
+    }
+  }
+
+  if (url === '/archivos') {
+    try {
+      const resp = await fetch(`${BACKEND_URL}/listar/WhatsApp`);
+      const { archivos = [] } = await resp.json();
+      const items = archivos.map(a => `<div class="archivo">
+        <span class="nombre">${a}</span>
+        <div class="acciones">
+          <a class="ver" href="/ver-json/${encodeURIComponent(a)}" target="_blank">Ver</a>
+          <a class="descargar" href="${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(a)}">Descargar</a>
+        </div></div>`).join('');
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      return res.end(`<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Archivos - Facturas R21</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f0f2f5;padding:20px;color:#333}
+h1{color:#1a237e;margin-bottom:8px}
+.sub{color:#666;margin-bottom:24px;font-size:14px}
+.card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.archivo{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0}
+.archivo:last-child{border-bottom:none}
+.nombre{font-size:14px;flex:1}
+.acciones a{text-decoration:none;font-size:13px;padding:4px 12px;border-radius:6px;margin-left:8px}
+.ver{background:#e8eaf6;color:#1a237e}
+.descargar{background:#1a237e;color:#fff}
+.vacio{color:#999;font-size:14px;padding:20px 0;text-align:center}
+</style></head><body>
+<h1>Facturas R21</h1>
+<p class="sub">Archivos JSON guardados</p>
+<div class="card">${items || '<div class="vacio">No hay archivos guardados.</div>'}</div>
+</body></html>`);
+    } catch {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end('{"error":"Error al conectar con el backend"}');
+    }
+  }
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ status: estadoConexion, qr: !!ultimoQR, bot: 'Facturas R21 WhatsApp Bot', archivos: 'https://whatsapp-facturas-bot.onrender.com/archivos' }));
 });
 server.listen(PORT, () => console.log(`✅ HTTP server on port ${PORT}`));
 
