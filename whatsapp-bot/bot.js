@@ -170,10 +170,54 @@ async function iniciarBot() {
     if (!msg.key || sentIds.has(msg.key.id) || type !== 'notify') return;
 
     const jid = msg.key.remoteJid;
-    const esChatPropio = jid === `${MI_NUMERO}@s.whatsapp.net`;
-    if (!esChatPropio) return;
+    const caption = msg.message?.imageMessage?.caption || '';
+    const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || caption || '').trim();
+    const lower = texto.toLowerCase();
+    const esComando = lower.startsWith('!');
 
-    const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim();
+    if (!esComando && !msg.message?.imageMessage) return;
+
+    if (msg.message?.imageMessage) {
+      const activo = usuarios[jid] && usuarios[jid].esperandoFoto;
+
+      if (!lower.includes('!factura') && !activo) return;
+
+      await sock.sendMessage(jid, { text: 'Dale, dejame ver...' });
+
+      try {
+        const buffer = await descargarImagen(msg);
+        const datos = await procesarFactura(buffer);
+
+        if (datos.error) {
+          await sock.sendMessage(jid, { text: `Algo salio mal: ${datos.error}` });
+          return;
+        }
+
+        usuarios[jid] = { datos, pendiente: true, esperandoFoto: false };
+        await sock.sendMessage(jid, { text: formatearResultado(datos) });
+      } catch (e) {
+        await sock.sendMessage(jid, { text: `Upa, algo salio mal: ${e.message}` });
+        delete usuarios[jid];
+      }
+      return;
+    }
+
+    if (lower === '!factura') {
+      usuarios[jid] = { ...usuarios[jid], esperandoFoto: true };
+      await sock.sendMessage(jid, { text: 'Mandame la foto de la factura y la proceso.' });
+      return;
+    }
+
+    if (lower === '!status') {
+      await sock.sendMessage(jid, { text: 'Estoy andando, mandate !factura y la foto.' });
+      return;
+    }
+
+    if (lower === '!cancelar') {
+      delete usuarios[jid];
+      await sock.sendMessage(jid, { text: 'Listo, cancelado.' });
+      return;
+    }
 
     if (usuarios[jid] && usuarios[jid].pendiente && /^[1-4]$/.test(texto)) {
       const datos = usuarios[jid].datos;
@@ -204,37 +248,6 @@ async function iniciarBot() {
       }
 
       delete usuarios[jid].pendiente;
-      return;
-    }
-
-    if (msg.message?.imageMessage) {
-      await sock.sendMessage(jid, { text: 'Dale, dejame ver...' });
-
-      try {
-        const buffer = await descargarImagen(msg);
-        const datos = await procesarFactura(buffer);
-
-        if (datos.error) {
-          await sock.sendMessage(jid, { text: `Algo salio mal: ${datos.error}` });
-          return;
-        }
-
-        usuarios[jid] = { datos, pendiente: true };
-        await sock.sendMessage(jid, { text: formatearResultado(datos) });
-      } catch (e) {
-        await sock.sendMessage(jid, { text: `Upa, algo salio mal: ${e.message}` });
-      }
-      return;
-    }
-
-    const lower = texto.toLowerCase();
-
-    if (/^!(procesar|factura|ayuda|help|status)$/.test(lower)) {
-      if (lower === '!status') {
-        await sock.sendMessage(jid, { text: 'Estoy andando, mandate una foto de la factura nomas.' });
-      } else {
-        await sock.sendMessage(jid, { text: 'Mandame la foto de la factura y la proceso.' });
-      }
       return;
     }
   });
