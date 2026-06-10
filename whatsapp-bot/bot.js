@@ -289,6 +289,10 @@ async function iniciarBot() {
       return;
     }
 
+    if (usuarios[jid] && usuarios[jid].datos && !usuarios[jid].pendiente && /^[1-4]$/.test(texto)) {
+      usuarios[jid].pendiente = true;
+    }
+
     if (!activo) return;
 
     if (msg.message?.imageMessage) {
@@ -335,13 +339,12 @@ async function iniciarBot() {
           case 4:
             const ok = await enviarASistema(datos);
             await sock.sendMessage(jid, { text: ok ? 'Listo, ya quedo guardado en el sistema.' : 'No se pudo guardar, fijate si el sistema esta bien.' });
+            delete usuarios[jid].pendiente;
             break;
         }
       } catch (e) {
         await sock.sendMessage(jid, { text: `Upa, error: ${e.message}` });
       }
-
-      delete usuarios[jid].pendiente;
       return;
     }
   });
