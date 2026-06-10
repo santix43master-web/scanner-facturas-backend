@@ -10,7 +10,7 @@ from anthropic import Anthropic
 client = Anthropic(api_key=os.environ.get("API_KEY"))
 
 # Rutas configuradas
-INPUT_FOLDER = r"C:\Users\Family1\Desktop\trabajo de tanti\factura"
+INPUT_FOLDER = r"C:\Users\Santiago\Desktop\Todo de Santiago\trabajo de tanti\factura"
 OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", r"\\192.168.100.16\Users\public\JSON")
 EXTENSIONES_VALIDAS = {".jpg", ".jpeg", ".png", ".webp"}
 

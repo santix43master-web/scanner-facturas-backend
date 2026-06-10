@@ -23,15 +23,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import { WebView } from 'react-native-webview';
+import { actualizarPrecios } from './PriceTracker';
+import Network from 'expo-network';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const comprimirImagen = async (uri) => {
+const comprimirImagen = async (uri, altaCalidad = false) => {
   try {
+    const options = altaCalidad
+      ? [{ resize: { width: 1600 } }]
+      : [{ resize: { width: 1200 } }];
     const result = await ImageManipulator.manipulateAsync(
       uri,
-      [{ resize: { width: 1024 } }],
-      { compress: 0.2, format: ImageManipulator.SaveFormat.JPEG }
+      options,
+      { compress: 0.45, format: ImageManipulator.SaveFormat.JPEG }
     );
     return result.uri;
   } catch {
@@ -67,6 +72,7 @@ export default function App() {
   const [captchaVisible, setCaptchaVisible] = useState(false);
   const [captchaCargando, setCaptchaCargando] = useState(false);
   const [modalAgregar, setModalAgregar] = useState(false);
+  const [cambiosPrecios, setCambiosPrecios] = useState([]);
 
   useEffect(() => {
     (async () => {
@@ -340,9 +346,10 @@ export default function App() {
       }
 
       setDatosFactura(json);
+      const cambios = await actualizarPrecios(json);
+      if (cambios) setCambiosPrecios(cambios);
       await guardarEnHistorial(json);
       Vibration.vibrate(200);
-      Alert.alert("Listo", "Factura procesada correctamente");
 
     } catch (error) {
       console.error("Error procesarIA:", error);
@@ -400,6 +407,58 @@ export default function App() {
     }
   };
 
+  const enviarACarpeta = async () => {
+    if (!datosFactura) {
+      Alert.alert("Error", "No hay datos para enviar");
+      return;
+    }
+
+    try {
+      const networkState = await Network.getNetworkStateAsync();
+      if (!networkState.isConnected || networkState.type !== Network.NetworkStateType.WIFI) {
+        Alert.alert(
+          "Error de conexión",
+          "No estás conectado a WiFi.\n\nPara enviar a la carpeta compartida necesitás estar en la red WiFi local.\n\nConectate a la red WiFi y volvé a intentar.\n\nSi el problema persiste, contactá al soporte."
+        );
+        return;
+      }
+
+      setCargando(true);
+      const datosConSucursal = {
+        ...datosFactura,
+        sucursal: sucursalActual,
+        fechaEnvio: new Date().toISOString()
+      };
+
+      const res = await fetch(`http://192.168.100.100:8080/guardar-compartido`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(datosConSucursal),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Error del servidor local: ${res.status}`);
+      }
+
+      Alert.alert("Guardado", `Factura enviada a carpeta compartida (${sucursalActual})`);
+      setFotos([]);
+      setDatosFactura(null);
+      setMenuAbierto(false);
+
+    } catch (error) {
+      console.error("Error enviarACarpeta:", error);
+      Alert.alert(
+        "Error de red",
+        `No se pudo conectar a la carpeta compartida.\n\nAsegúrate de estar en WiFi.\n\nDetalles: ${error.message}`
+      );
+    } finally {
+      setCargando(false);
+    }
+  };
+
   const cambiarSucursal = async () => {
     Alert.alert(
       "Cambiar Sucursal",
@@ -447,9 +506,10 @@ export default function App() {
       if (json.error) throw new Error(json.error);
       setQrActivo(false);
       setDatosFactura(json);
+      const cambios = await actualizarPrecios(json);
+      if (cambios) setCambiosPrecios(cambios);
       await guardarEnHistorial(json);
       Vibration.vibrate(200);
-      Alert.alert("Listo", "Factura procesada desde QR");
     } catch (error) {
       qrScaneado.current = false;
       Alert.alert("Error QR", `No se pudo procesar: ${error.message}`);
@@ -560,9 +620,10 @@ export default function App() {
       if (json.error) throw new Error(json.error);
       if (!json.items || json.items.length === 0) throw new Error("sin items");
       setDatosFactura((prev) => ({ ...prev, ...json }));
+      const cambios = await actualizarPrecios(json);
+      if (cambios) setCambiosPrecios(cambios);
       await guardarEnHistorial(json);
       setCaptchaVisible(false);
-      Alert.alert("Listo", `${json.items.length} items obtenidos de SIFEN`);
     } catch (error) {
       setCaptchaCargando(false);
     }
@@ -814,7 +875,9 @@ export default function App() {
             <Text style={styles.sectionTitulo}>Articulos Extraidos ({datosFactura.items?.length || 0})</Text>
             
             {datosFactura.items && datosFactura.items.length > 0 ? (
-              datosFactura.items.map((it, idx) => (
+              datosFactura.items.map((it, idx) => {
+                const cambio = cambiosPrecios.find(c => c.codigo === it.codigo || c.codigo === it.codigo_barras);
+                return (
                 <View key={idx} style={styles.card}>
                   <View style={styles.cardHeader}>
                     <View style={styles.cardNumero}>
@@ -832,8 +895,24 @@ export default function App() {
                   <Text style={styles.cardSubtotal}>
                     Subtotal: {it.subtotal ? it.subtotal.toLocaleString('es-PY') : 0} Gs.
                   </Text>
+                  {cambio && !cambio.esPrimeraVez ? (
+                    <View style={styles.precioCambioRow}>
+                      <Text style={[styles.precioCambioIcono, { color: cambio.diferencia > 0 ? '#EF5350' : '#66BB6A' }]}>
+                        {cambio.diferencia > 0 ? '↑' : '↓'}
+                      </Text>
+                      <Text style={[styles.precioCambioTexto, { color: cambio.diferencia > 0 ? '#EF5350' : '#66BB6A' }]}>
+                        {Number(cambio.precioAnterior).toLocaleString('es-PY')} Gs → {Number(cambio.precioActual).toLocaleString('es-PY')} Gs ({cambio.porcentaje}%)
+                      </Text>
+                    </View>
+                  ) : null}
+                  {cambio && cambio.esPrimeraVez ? (
+                    <View style={styles.precioCambioRow}>
+                      <Text style={[styles.precioCambioIcono, { color: '#90A4AE' }]}>●</Text>
+                      <Text style={[styles.precioCambioTexto, { color: '#90A4AE' }]}>Primera vez que se escanea</Text>
+                    </View>
+                  ) : null}
                 </View>
-              ))
+              )})
             ) : (
               <View style={styles.noItemsCard}>
                 <Text style={styles.noItemsText}>No se detectaron articulos</Text>
@@ -858,6 +937,14 @@ export default function App() {
                 <Text style={styles.btnAccionText}>ENVIAR</Text>
               </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={styles.btnCarpeta}
+              onPress={enviarACarpeta}
+              disabled={cargando}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.btnAccionText}>CARPETA COMPARTIDA</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -1500,6 +1587,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
   },
+  btnCarpeta: {
+    backgroundColor: '#FF8F00',
+    paddingVertical: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10,
+  },
   btnAccionText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
@@ -2004,5 +2099,20 @@ const styles = StyleSheet.create({
   agregarCancelarText: {
     color: '#78909C',
     fontSize: 14,
+  },
+  precioCambioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 36,
+    marginTop: 6,
+  },
+  precioCambioIcono: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 6,
+  },
+  precioCambioTexto: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

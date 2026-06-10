@@ -5,21 +5,15 @@ import re
 import base64
 import traceback
 from pathlib import Path
+from anthropic import Anthropic
 
-# ── Proveedor de IA ─────────────────────────────────────────
-PROVEEDOR = os.environ.get("PROVEEDOR", "claude").lower()
+# ── Configuración ──────────────────────────────────────────────
+MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
 
-if PROVEEDOR == "gemini":
-    import httpx
-    MODELO = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
-    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-else:
-    from anthropic import Anthropic
-    MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
-    client = Anthropic(api_key=os.environ.get("API_KEY"))
-
-INPUT_FOLDER  = r"C:\Users\Family1\Desktop\trabajo de tanti\factura"
+INPUT_FOLDER  = r"C:\Users\Santiago\Desktop\Todo de Santiago\trabajo de tanti\factura"
 OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", r"\\192.168.100.16\Users\public\JSON")
+
+client = Anthropic(api_key=os.environ.get("API_KEY"))
 
 EXTENSIONES_VALIDAS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -279,36 +273,7 @@ def extraer_json_robusto(texto: str) -> dict:
             }
 
 # ===================== EXTRACCIÓN =====================
-def extraer_datos_factura_gemini(imagenes_b64: list[str]) -> dict:
-    if not imagenes_b64 or not GEMINI_API_KEY:
-        return {"error": "Sin API key de Gemini"}
-    import httpx
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO}:generateContent?key={GEMINI_API_KEY}"
-    parts = [{"text": f"Son {len(imagenes_b64)} imágenes de UNA SOLA factura paraguaya.\nCombiná toda la información. NO dupliques items.\nSeguí los pasos. Verificá el dígito verificador de cada EAN-13.\nUsá el totalGeneral como árbitro."}]
-    for b64 in imagenes_b64:
-        parts.append({"inline_data": {"mime_type": "image/jpeg", "data": b64}})
-    body = {
-        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [{"parts": parts}],
-        "generationConfig": {"response_mime_type": "application/json", "maxOutputTokens": 16000},
-    }
-    try:
-        resp = httpx.post(url, json=body, timeout=120)
-        if resp.status_code != 200:
-            return {"error": f"Gemini HTTP {resp.status_code}: {resp.text[:200]}", "items": []}
-        data = resp.json()
-        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-        result = extraer_json_robusto(text)
-        if result.get("items"):
-            result["items"] = corregir_codigos_ean(result["items"])
-        return result
-    except Exception as e:
-        print(f"ERROR en Gemini: {traceback.format_exc()}")
-        return {"error": str(e), "items": []}
-
 def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
-    if PROVEEDOR == "gemini":
-        return extraer_datos_factura_gemini(imagenes_b64)
     if not imagenes_b64:
         return {"error": "Sin imagen"}
 
@@ -802,9 +767,19 @@ def _extraer_items_de_lista(items_raw: list) -> list:
             resta = {}
         precio = valor.get("dPUniProSer") or it.get("gPaDePrecio", {}).get("dPrcUnit") or it.get("dPUniProSer") or 0
         subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or valor.get("dTotBruItem") or it.get("dSubTot") or 0
+        codigo_barras = it.get("dGtin") or it.get("dCodBar") or ""
+        cod_int_raw = str(it.get("dCodInt") or "").strip()
+        es_barcode = cod_int_raw.isdigit() and len(cod_int_raw) >= 8
+        if not codigo_barras and es_barcode:
+            codigo_barras = cod_int_raw
+            cod_int = None
+        elif codigo_barras and es_barcode and cod_int_raw == codigo_barras:
+            cod_int = None
+        else:
+            cod_int = cod_int_raw or None
         salida.append({
-            "codigo": it.get("dCodInt"),
-            "codigoBarras": it.get("dGtin") or it.get("dCodBar") or it.get("dCodInt"),
+            "codigo": cod_int,
+            "codigoBarras": codigo_barras or None,
             "descripcion": it.get("dDesProSer", ""),
             "cantidad": float(it.get("dCantProSer", 1) or 1),
             "precioUnitario": float(precio or 0),

@@ -28,7 +28,7 @@ class ServicioBTI(win32serviceutil.ServiceFramework):
 
     def SvcDoRun(self):
         # 📂 Tu carpeta actual en el escritorio
-        ruta_proyecto = r"C:\Users\Family1\Desktop\app-facturas"
+        ruta_proyecto = r"C:\Users\Santiago\Desktop\Todo de Santiago\app-facturas"
         os.chdir(ruta_proyecto)
         
         # 🚀 Apuntamos directo al uvicorn de tu entorno virtual (.venv)
