@@ -36,6 +36,7 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
 server.listen(PORT, () => console.log(`✅ HTTP server on port ${PORT}`));
 
 const usuarios = {};
+const sentIds = new Set();
 
 async function descargarImagen(msg) {
   const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
@@ -58,39 +59,36 @@ async function procesarFactura(buffer) {
 }
 
 function formatearResultado(datos) {
-  if (datos.error) return `❌ Error: ${datos.error}`;
-  let texto = `✅ *Factura procesada*\n\n`;
-  texto += `🏪 *${datos.nombreVendedor || 'Desconocido'}*\n`;
-  texto += `📄 N°: ${datos.numeroFactura || 'Sin número'}\n`;
-  texto += `📆 ${datos.fechaEmision || 'Sin fecha'}\n`;
-  texto += `💰 *Total: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs*\n`;
-  texto += `📦 ${(datos.items || []).length} artículos\n\n`;
-  texto += `📍 *Opciones:*\n\n`;
-  texto += `1️⃣ Ver detalle completo\n`;
-  texto += `2️⃣ Descargar JSON\n`;
-  texto += `3️⃣ Descargar PDF\n`;
-  texto += `4️⃣ Enviar a sistema\n\n`;
-  texto += `Respondé con el número (ej: 1)`;
+  if (datos.error) return `Error: ${datos.error}`;
+  let texto = `Listo, acá están los datos de la factura:\n\n`;
+  texto += `Vendedor: ${datos.nombreVendedor || 'Desconocido'}\n`;
+  texto += `Factura N°: ${datos.numeroFactura || 'Sin número'}\n`;
+  texto += `Fecha: ${datos.fechaEmision || 'Sin fecha'}\n`;
+  texto += `Total: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs\n`;
+  texto += `Artículos: ${(datos.items || []).length}\n\n`;
+  texto += `Decime qué querés hacer:\n`;
+  texto += `1 - Ver detalle completo\n`;
+  texto += `2 - Bajar JSON\n`;
+  texto += `3 - Bajar PDF\n`;
+  texto += `4 - Enviar al sistema\n\n`;
+  texto += `Mandame el número nomas.`;
   return texto;
 }
 
 function formatearDetalle(datos) {
-  if (!datos.items || datos.items.length === 0) return 'Sin artículos detectados.';
-  let texto = `📋 *DETALLE COMPLETO*\n\n`;
-  texto += `🏪 ${datos.nombreVendedor || '?'}\n`;
-  texto += `RUC: ${datos.rucVendedor || '?'}\n`;
-  texto += `N°: ${datos.numeroFactura || '?'}\n`;
-  texto += `Timbrado: ${datos.timbrado || '?'}\n`;
+  if (!datos.items || datos.items.length === 0) return 'No se detectaron artículos.';
+  let texto = `Detalle completo:\n\n`;
+  texto += `${datos.nombreVendedor || '?'} - RUC ${datos.rucVendedor || '?'}\n`;
+  texto += `Factura N° ${datos.numeroFactura || '?'} - Timbrado ${datos.timbrado || '?'}\n`;
   texto += `Fecha: ${datos.fechaEmision || '?'}\n`;
   if (datos.rucComprador) texto += `Comprador: ${datos.rucComprador}\n`;
-  texto += `\n📦 *ARTÍCULOS:*\n\n`;
+  texto += `\nArtículos:\n`;
   datos.items.forEach((it, i) => {
-    texto += `${i+1}. ${it.descripcion || '?'}\n`;
-    if (it.codigo) texto += `   Cód: ${it.codigo}\n`;
-    if (it.codigo_barras) texto += `   Barra: ${it.codigo_barras}\n`;
-    texto += `   ${it.cantidad || 1}x ${Number(it.precio_unitario || 0).toLocaleString()} Gs = ${Number(it.subtotal || 0).toLocaleString()} Gs\n\n`;
+    texto += `${i+1}. ${it.descripcion || '?'}`;
+    if (it.codigo) texto += ` (${it.codigo})`;
+    texto += `\n   ${it.cantidad || 1} x ${Number(it.precio_unitario || 0).toLocaleString()} = ${Number(it.subtotal || 0).toLocaleString()} Gs\n`;
   });
-  texto += `💰 *TOTAL: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs*`;
+  texto += `\nTotal: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs`;
   return texto;
 }
 
@@ -164,9 +162,12 @@ async function iniciarBot() {
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('messages.upsert', async ({ messages }) => {
+  const origSend = sock.sendMessage.bind(sock);
+  sock.sendMessage = (...args) => origSend(...args).then(r => { if (r?.key?.id) sentIds.add(r.key.id); return r; });
+
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
     const msg = messages[0];
-    if (!msg.key) return;
+    if (!msg.key || sentIds.has(msg.key.id) || type !== 'notify') return;
 
     const jid = msg.key.remoteJid;
     const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim();
@@ -175,7 +176,7 @@ async function iniciarBot() {
       const datos = usuarios[jid].datos;
       const opcion = parseInt(texto);
 
-      await sock.sendMessage(jid, { text: '⏳ Procesando...' });
+      await sock.sendMessage(jid, { text: 'Dame un segundo...' });
 
       try {
         switch (opcion) {
@@ -184,19 +185,19 @@ async function iniciarBot() {
             break;
           case 2:
             await enviarJSON(sock, jid, datos);
-            await sock.sendMessage(jid, { text: '✅ JSON enviado' });
+            await sock.sendMessage(jid, { text: 'Ahi te lo mande.' });
             break;
           case 3:
             await enviarPDF(sock, jid, datos);
-            await sock.sendMessage(jid, { text: '✅ PDF enviado' });
+            await sock.sendMessage(jid, { text: 'Ahi va el PDF.' });
             break;
           case 4:
             const ok = await enviarASistema(datos);
-            await sock.sendMessage(jid, { text: ok ? '✅ Factura guardada en el sistema' : '❌ Error al guardar' });
+            await sock.sendMessage(jid, { text: ok ? 'Listo, ya quedo guardado en el sistema.' : 'No se pudo guardar, fijate si el sistema esta bien.' });
             break;
         }
       } catch (e) {
-        await sock.sendMessage(jid, { text: `❌ Error: ${e.message}` });
+        await sock.sendMessage(jid, { text: `Upa, error: ${e.message}` });
       }
 
       delete usuarios[jid].pendiente;
@@ -204,62 +205,87 @@ async function iniciarBot() {
     }
 
     if (msg.message?.imageMessage) {
-      await sock.sendMessage(jid, { text: '📸 Procesando factura...' });
+      await sock.sendMessage(jid, { text: 'Dale, dejame ver...' });
 
       try {
         const buffer = await descargarImagen(msg);
         const datos = await procesarFactura(buffer);
 
         if (datos.error) {
-          await sock.sendMessage(jid, { text: `❌ Error al procesar: ${datos.error}` });
+          await sock.sendMessage(jid, { text: `Algo salio mal: ${datos.error}` });
           return;
         }
 
         usuarios[jid] = { datos, pendiente: true };
         await sock.sendMessage(jid, { text: formatearResultado(datos) });
       } catch (e) {
-        await sock.sendMessage(jid, { text: `❌ Error: ${e.message}` });
+        await sock.sendMessage(jid, { text: `Upa, algo salio mal: ${e.message}` });
       }
       return;
     }
 
     const lower = texto.toLowerCase();
 
-    if (lower === '!help' || lower === '!ayuda' || lower === '!comandos') {
-      await sock.sendMessage(jid, {
-        text: `🤖 *Bot Facturas R21*\n\n📸 Enviá una foto de una factura y la proceso al toque.\n\n*Comandos:*\n!help - Esta ayuda\n!status - Estado del servidor\n\n💬 También podés saludarme nomás 😄`
-      });
-      return;
-    }
-
-    if (lower === '!status') {
-      try {
-        const res = await fetch(`${BACKEND_URL}/status`);
-        const data = await res.json();
-        await sock.sendMessage(jid, { text: `📡 *Servidor:* ${data.status}\n🤖 *Modelo:* ${data.modelo}\n🔑 *API:* ${data.api_key}` });
-      } catch {
-        await sock.sendMessage(jid, { text: '❌ No se pudo conectar al servidor' });
-      }
-      return;
-    }
-
     if (/^(hola|buenas|buen[ads]|hello|hey|hi|que tal|ke tal|q tal|buen día)$/i.test(texto)) {
-      await sock.sendMessage(jid, { text: `¡Hola! 👋 Mandame una foto de una factura y la proceso para vos.\nUsá *!help* para ver los comandos.` });
+      const respuestas = [
+        'Hola, todo bien? Mandame la foto de la factura y te ayudo.',
+        'Buenas! Decime, tenes alguna factura para procesar?',
+        'Hola! Mandame la foto nomas y me encargo.',
+        'Que tal, como va? Si tenes una factura mandamela y la proceso.'
+      ];
+      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
       return;
     }
 
-    if (/^(gracias|graciass|grax|thanks|thank you|dale|ok|okey|oka)$/i.test(texto)) {
-      await sock.sendMessage(jid, { text: `¡De nada! 😊 Cuando quieras mandame otra factura.` });
+    if (/^(gracias|graciass|grax|thanks|thank you|dale|ok|okey|oka|perfecto|listo|joya)$/i.test(texto)) {
+      const respuestas = [
+        'De nada, cuando quieras mandame otra.',
+        'No hay problema, para eso estoy.',
+        'A las ordenes, cualquier cosa me decis.',
+        'Por nada, cuando necesites aca estoy.'
+      ];
+      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
       return;
     }
 
-    if (/^(chau|chao|adios|adiós|bye|nos vemos|nos vidrios)$/i.test(texto)) {
-      await sock.sendMessage(jid, { text: `¡Chau! 👋 Cuando necesites algo ya sabés.` });
+    if (/^(chau|chao|adios|adiós|bye|nos vemos|nos vidrios|nos hablamos)$/i.test(texto)) {
+      const respuestas = [
+        'Chau, cuando necesites algo avisame.',
+        'Nos vemos, cualquier cosa aca estoy.',
+        'Bueno, nos hablamos entonces.',
+        'Chau, que andes bien.'
+      ];
+      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
+      return;
+    }
+
+    if (/^(que hac(e|és?)|como andas|como estas|todo bien|como va|que cuentas)$/i.test(texto)) {
+      const respuestas = [
+        'Todo bien, aca nomas. Vos tenes alguna factura para procesar?',
+        'Aca estamos, mandame una foto de la factura si tenes.',
+        'Bien, bien. Si queres mandame la factura y la miro.',
+      ];
+      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
+      return;
+    }
+
+    if (/^(que podes hacer|que haces|como funciona|que hace|ayuda|help|que sabes hacer)$/i.test(texto)) {
+      const respuestas = [
+        'Mira, lo que hago es procesar facturas. Me mandas la foto y yo te devuelvo todos los datos: total, items, fecha, todo. Despues de ahi podes ver el detalle, descargar el JSON o PDF, o mandarlo al sistema.',
+        'Soy un bot para facturas nomas. Mandame una foto y la proceso al toque. Te doy el detalle completo y podes descargar los datos.',
+        'Basicamente te ayudo con facturas. Envias la foto, yo la leo y te paso los datos. Despues podes elegir que hacer con esa informacion.'
+      ];
+      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
       return;
     }
 
     if (texto) {
-      await sock.sendMessage(jid, { text: `👋 No entendí eso. Mandame *!help* para ver qué puedo hacer, o enviame una foto de una factura.` });
+      const respuestas = [
+        'No entendi bien, pero si tenes una factura mandame la foto nomas y yo la proceso.',
+        'Disculpa, no te entendi. Si queres podes mandarme la foto de una factura y te ayudo con eso.',
+        'Mmm no se bien que decirte. Mandame la foto de la factura y yo me encargo del resto.',
+      ];
+      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
     }
   });
 
