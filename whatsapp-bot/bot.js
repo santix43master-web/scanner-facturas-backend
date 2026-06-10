@@ -229,66 +229,13 @@ async function iniciarBot() {
 
     const lower = texto.toLowerCase();
 
-    if (/^(hola|buenas|buen[ads]|hello|hey|hi|que tal|ke tal|q tal|buen día)$/i.test(texto)) {
-      const respuestas = [
-        'Hola, todo bien? Mandame la foto de la factura y te ayudo.',
-        'Buenas! Decime, tenes alguna factura para procesar?',
-        'Hola! Mandame la foto nomas y me encargo.',
-        'Que tal, como va? Si tenes una factura mandamela y la proceso.'
-      ];
-      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
+    if (/^!(procesar|factura|ayuda|help|status)$/.test(lower)) {
+      if (lower === '!status') {
+        await sock.sendMessage(jid, { text: 'Estoy andando, mandate una foto de la factura nomas.' });
+      } else {
+        await sock.sendMessage(jid, { text: 'Mandame la foto de la factura y la proceso.' });
+      }
       return;
-    }
-
-    if (/^(gracias|graciass|grax|thanks|thank you|dale|ok|okey|oka|perfecto|listo|joya)$/i.test(texto)) {
-      const respuestas = [
-        'De nada, cuando quieras mandame otra.',
-        'No hay problema, para eso estoy.',
-        'A las ordenes, cualquier cosa me decis.',
-        'Por nada, cuando necesites aca estoy.'
-      ];
-      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
-      return;
-    }
-
-    if (/^(chau|chao|adios|adiós|bye|nos vemos|nos vidrios|nos hablamos)$/i.test(texto)) {
-      const respuestas = [
-        'Chau, cuando necesites algo avisame.',
-        'Nos vemos, cualquier cosa aca estoy.',
-        'Bueno, nos hablamos entonces.',
-        'Chau, que andes bien.'
-      ];
-      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
-      return;
-    }
-
-    if (/^(que hac(e|és?)|como andas|como estas|todo bien|como va|que cuentas)$/i.test(texto)) {
-      const respuestas = [
-        'Todo bien, aca nomas. Vos tenes alguna factura para procesar?',
-        'Aca estamos, mandame una foto de la factura si tenes.',
-        'Bien, bien. Si queres mandame la factura y la miro.',
-      ];
-      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
-      return;
-    }
-
-    if (/^(que podes hacer|que haces|como funciona|que hace|ayuda|help|que sabes hacer)$/i.test(texto)) {
-      const respuestas = [
-        'Mira, lo que hago es procesar facturas. Me mandas la foto y yo te devuelvo todos los datos: total, items, fecha, todo. Despues de ahi podes ver el detalle, descargar el JSON o PDF, o mandarlo al sistema.',
-        'Soy un bot para facturas nomas. Mandame una foto y la proceso al toque. Te doy el detalle completo y podes descargar los datos.',
-        'Basicamente te ayudo con facturas. Envias la foto, yo la leo y te paso los datos. Despues podes elegir que hacer con esa informacion.'
-      ];
-      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
-      return;
-    }
-
-    if (texto) {
-      const respuestas = [
-        'No entendi bien, pero si tenes una factura mandame la foto nomas y yo la proceso.',
-        'Disculpa, no te entendi. Si queres podes mandarme la foto de una factura y te ayudo con eso.',
-        'Mmm no se bien que decirte. Mandame la foto de la factura y yo me encargo del resto.',
-      ];
-      await sock.sendMessage(jid, { text: respuestas[Math.floor(Math.random() * respuestas.length)] });
     }
   });
 
