@@ -1,19 +1,39 @@
 const http = require('http');
 const { default: makeWASocket, useMultiFileAuthState, downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const qrcode = require('qrcode-terminal');
 const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 
 const PORT = process.env.PORT || 3000;
-http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ status: 'ok', bot: 'Facturas R21 WhatsApp Bot' }));
-}).listen(PORT, () => console.log(`✅ HTTP server on port ${PORT}`));
-
 const BACKEND_URL = process.env.BACKEND_URL || 'https://scanner-facturas-backend.onrender.com';
 const AUTH_DIR = './auth_info';
+
+let ultimoQR = null;
+let estadoConexion = 'desconectado';
+
+const server = http.createServer((req, res) => {
+  if (req.url === '/qr' && ultimoQR) {
+    const qrLink = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(ultimoQR)}`;
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bot Facturas R21 - QR</title>
+<style>body{font-family:sans-serif;text-align:center;padding:20px;background:#111;color:#fff}
+h1{color:#25D366}img{max-width:90vw;border-radius:12px;box-shadow:0 0 30px rgba(37,211,102,.3)}
+p{color:#aaa;margin-top:20px}.estado{display:inline-block;padding:6px 16px;border-radius:20px;font-size:14px}
+.conectado{background:#25D366;color:#000}.desconectado{background:#e74c3c;color:#fff}.conectando{background:#f39c12;color:#000}
+</style></head><body>
+<h1>🤖 Bot Facturas R21</h1>
+<p>Estado: <span class="estado ${estadoConexion}">${estadoConexion}</span></p>
+${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR Code"/>` : '<p>Esperando QR...</p>'}
+</body></html>`);
+  } else {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: estadoConexion, qr: !!ultimoQR, bot: 'Facturas R21 WhatsApp Bot' }));
+  }
+});
+server.listen(PORT, () => console.log(`✅ HTTP server on port ${PORT}`));
 
 const usuarios = {};
 
@@ -30,7 +50,6 @@ async function procesarFactura(buffer) {
   const form = new FormData();
   const blob = new Blob([buffer], { type: 'image/jpeg' });
   form.append('factura', blob, 'factura.jpg');
-
   const res = await fetch(`${BACKEND_URL}/procesar`, {
     method: 'POST',
     body: form,
@@ -138,6 +157,9 @@ async function iniciarBot() {
   const sock = makeWASocket({
     auth: state,
     printQRInTerminal: false,
+    syncFullHistory: false,
+    markOnlineOnConnect: false,
+    generateHighQualityLink: true,
   });
 
   sock.ev.on('creds.update', saveCreds);
@@ -149,7 +171,6 @@ async function iniciarBot() {
     const jid = msg.key.remoteJid;
     const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim();
 
-    // Si el usuario tiene una factura pendiente y responde con opción
     if (usuarios[jid] && usuarios[jid].pendiente && /^[1-4]$/.test(texto)) {
       const datos = usuarios[jid].datos;
       const opcion = parseInt(texto);
@@ -182,7 +203,6 @@ async function iniciarBot() {
       return;
     }
 
-    // Si tiene imagen
     if (msg.message?.imageMessage) {
       await sock.sendMessage(jid, { text: '📸 Procesando factura...' });
 
@@ -203,7 +223,6 @@ async function iniciarBot() {
       return;
     }
 
-    // Comandos
     if (texto.toLowerCase() === '!help' || texto.toLowerCase() === '!ayuda') {
       await sock.sendMessage(jid, {
         text: `🤖 *Bot Facturas R21*\n\n📸 Enviá una foto de una factura para procesarla.\n\nComandos:\n!help - Esta ayuda\n!status - Estado del servidor`
@@ -223,15 +242,28 @@ async function iniciarBot() {
     }
   });
 
-  sock.ev.on('connection.update', ({ connection, qr }) => {
+  sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
     if (qr) {
-      console.log('Escanea este QR con WhatsApp:');
-      qrcode.generate(qr, { small: true });
+      ultimoQR = qr;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(qr)}`;
+      console.log('🔐 Escaneá el QR en:');
+      console.log(`   https://whatsapp-facturas-bot.onrender.com/qr`);
+      console.log(`   O directo: ${qrUrl}`);
+      console.log('   (También en http://localhost:' + PORT + '/qr si estás en local)');
+      estadoConexion = 'conectando';
     }
-    if (connection === 'open') console.log('✅ Bot conectado a WhatsApp');
+    if (connection === 'open') {
+      console.log('✅ Bot conectado a WhatsApp');
+      estadoConexion = 'conectado';
+      ultimoQR = null;
+    }
     if (connection === 'close') {
-      console.log('❌ Conexión cerrada, reconectando...');
-      setTimeout(iniciarBot, 5000);
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
+      console.log(`❌ Conexión cerrada${shouldReconnect ? ', reconectando en 5s...' : ', sesión inválida.'}`);
+      estadoConexion = 'desconectado';
+      if (shouldReconnect) {
+        setTimeout(iniciarBot, 5000);
+      }
     }
   });
 }
