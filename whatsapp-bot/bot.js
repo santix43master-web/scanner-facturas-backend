@@ -8,7 +8,8 @@ const PDFDocument = require('pdfkit');
 const PORT = process.env.PORT || 3000;
 const BACKEND_URL = process.env.BACKEND_URL || 'https://scanner-facturas-backend.onrender.com';
 const AUTH_DIR = './auth_info';
-const MI_NUMERO = process.env.MI_NUMERO || '595976399307';
+const NUMERO_ACTIVADOR = (process.env.NUMERO_ACTIVADOR || '595981644723').replace(/[^0-9]/g, '');
+const JID_ACTIVADOR = `${NUMERO_ACTIVADOR}@s.whatsapp.net`;
 
 let ultimoQR = null;
 let estadoConexion = 'desconectado';
@@ -170,18 +171,29 @@ async function iniciarBot() {
     if (!msg.key || sentIds.has(msg.key.id) || type !== 'notify') return;
 
     const jid = msg.key.remoteJid;
+    if (jid !== JID_ACTIVADOR) return;
+
     const caption = msg.message?.imageMessage?.caption || '';
     const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || caption || '').trim();
     const lower = texto.toLowerCase();
-    const esComando = lower.startsWith('!');
 
-    if (!esComando && !msg.message?.imageMessage) return;
+    const activo = usuarios[jid] && usuarios[jid].activo;
+
+    if (lower === 'hola bot' && !activo) {
+      usuarios[jid] = { activo: true };
+      await sock.sendMessage(jid, { text: 'Bot activado. Mandame la foto de la factura.' });
+      return;
+    }
+
+    if (lower === 'chau bot') {
+      delete usuarios[jid];
+      await sock.sendMessage(jid, { text: 'Bot desactivado.' });
+      return;
+    }
+
+    if (!activo) return;
 
     if (msg.message?.imageMessage) {
-      const activo = usuarios[jid] && usuarios[jid].esperandoFoto;
-
-      if (!lower.includes('!factura') && !activo) return;
-
       await sock.sendMessage(jid, { text: 'Dale, dejame ver...' });
 
       try {
@@ -193,29 +205,11 @@ async function iniciarBot() {
           return;
         }
 
-        usuarios[jid] = { datos, pendiente: true, esperandoFoto: false };
+        usuarios[jid] = { ...usuarios[jid], datos, pendiente: true };
         await sock.sendMessage(jid, { text: formatearResultado(datos) });
       } catch (e) {
         await sock.sendMessage(jid, { text: `Upa, algo salio mal: ${e.message}` });
-        delete usuarios[jid];
       }
-      return;
-    }
-
-    if (lower === '!factura') {
-      usuarios[jid] = { ...usuarios[jid], esperandoFoto: true };
-      await sock.sendMessage(jid, { text: 'Mandame la foto de la factura y la proceso.' });
-      return;
-    }
-
-    if (lower === '!status') {
-      await sock.sendMessage(jid, { text: 'Estoy andando, mandate !factura y la foto.' });
-      return;
-    }
-
-    if (lower === '!cancelar') {
-      delete usuarios[jid];
-      await sock.sendMessage(jid, { text: 'Listo, cancelado.' });
       return;
     }
 
