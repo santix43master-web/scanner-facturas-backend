@@ -261,11 +261,25 @@ async function iniciarBot() {
     const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || caption || '').trim();
     const lower = texto.toLowerCase();
 
-    const activo = usuarios[jid] && usuarios[jid].activo;
+    const SUCURSALES_VALIDAS = ["Minimarket LF", "Local 1"];
 
-    if (lower === 'hola bot' && !activo) {
-      usuarios[jid] = { activo: true };
-      await sock.sendMessage(jid, { text: 'Bot activado. Mandame la foto de la factura.' });
+    const activo = usuarios[jid] && usuarios[jid].activo;
+    const esperandoUser = usuarios[jid] && usuarios[jid].esperandoUsuario;
+
+    if (lower === 'hola bot' && !activo && !esperandoUser) {
+      usuarios[jid] = { esperandoUsuario: true };
+      await sock.sendMessage(jid, { text: 'Decime tu usuario (sucursal) para activar el bot.' });
+      return;
+    }
+
+    if (esperandoUser) {
+      const encontrada = SUCURSALES_VALIDAS.find(s => s.toLowerCase() === lower);
+      if (encontrada) {
+        usuarios[jid] = { activo: true, sucursal: encontrada };
+        await sock.sendMessage(jid, { text: `Usuario ${encontrada} reconocido. Bot activado. Mandame la foto de la factura.` });
+      } else {
+        await sock.sendMessage(jid, { text: `Usuario no reconocido. Los validos son: ${SUCURSALES_VALIDAS.join(', ')}` });
+      }
       return;
     }
 
