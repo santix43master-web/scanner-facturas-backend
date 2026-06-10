@@ -61,6 +61,27 @@ async def procesar(factura: List[UploadFile] = File(...)):
     except Exception as e:
         return {"error": str(e)}
 
+@app.post("/procesar-json")
+async def procesar_json(data: dict):
+    try:
+        b64 = data.get("imagen", "")
+        if not b64:
+            return {"error": "Sin imagen"}
+        import base64
+        img_bytes = base64.b64decode(b64)
+        resultado = interpretacion.extraer_datos_factura([b64])
+
+        if "items" in resultado and isinstance(resultado["items"], list):
+            for item in resultado["items"]:
+                if "codigoBarras" in item:
+                    item["codigo_barras"] = item.pop("codigoBarras")
+                if "precioUnitario" in item:
+                    item["precio_unitario"] = item.pop("precioUnitario")
+
+        return resultado
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/procesar-qr")
 def procesar_qr(data: dict):
     try:
