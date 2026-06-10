@@ -48,11 +48,13 @@ async function descargarImagen(msg) {
 }
 
 async function procesarFactura(buffer) {
-  const b64 = buffer.toString('base64');
-  const res = await fetch(`${BACKEND_URL}/procesar-json`, {
+  const FormData = require('form-data');
+  const form = new FormData();
+  form.append('factura', buffer, { filename: 'factura.jpg', contentType: 'image/jpeg' });
+  const res = await fetch(`${BACKEND_URL}/procesar`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imagen: b64, formato: 'image/jpeg' }),
+    body: form,
+    headers: form.getHeaders(),
   });
   return await res.json();
 }
