@@ -95,31 +95,64 @@ function formatearDetalle(datos) {
 
 function generarPDFBuffer(datos) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 30 });
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
     const buffers = [];
     doc.on('data', buffers.push.bind(buffers));
     doc.on('end', () => resolve(Buffer.concat(buffers)));
     doc.on('error', reject);
 
-    doc.fontSize(18).text('Factura', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(12).text(`Vendedor: ${datos.nombreVendedor || '?'}`);
-    doc.text(`RUC: ${datos.rucVendedor || '?'}`);
-    doc.text(`N° Factura: ${datos.numeroFactura || '?'}`);
-    doc.text(`Timbrado: ${datos.timbrado || '?'}`);
-    doc.text(`Fecha: ${datos.fechaEmision || '?'}`);
-    if (datos.rucComprador) doc.text(`Comprador: ${datos.rucComprador}`);
-    doc.moveDown();
-    doc.text(`Total: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs`, { bold: true });
-    doc.moveDown();
+    const gs = (n) => Number(n || 0).toLocaleString() + ' Gs';
+    const azul = '#1a237e';
+    const gris = '#f5f5f5';
+
+    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#fafafa');
+
+    doc.rect(0, 0, doc.page.width, 120).fill(azul);
+    doc.fill('#ffffff').fontSize(28).font('Helvetica-Bold').text('FACTURA', 40, 35, { align: 'center' });
+    doc.fontSize(12).font('Helvetica').text('Documento Electrónico', { align: 'center' });
+    doc.fill('#ffffff').fontSize(10).text(`RUC: ${datos.rucVendedor || '---'}`, 40, 85, { align: 'center' });
+    doc.fill('#000000');
+
+    doc.rect(40, 135, doc.page.width - 80, 50).fill(gris);
+    doc.fill('#000000').fontSize(10).font('Helvetica');
+    doc.text(`Vendedor: ${datos.nombreVendedor || '---'}`, 50, 143);
+    doc.text(`N° Factura: ${datos.numeroFactura || '---'}`, 50, 158);
+    doc.text(`Timbrado: ${datos.timbrado || '---'}`, 300, 143);
+    doc.text(`Fecha: ${datos.fechaEmision || '---'}`, 300, 158);
 
     if (datos.items && datos.items.length > 0) {
-      doc.text('Artículos:', { underline: true });
-      doc.moveDown(0.5);
-      datos.items.forEach((it) => {
-        doc.text(`${it.descripcion || '?'} - ${it.cantidad || 1}x ${Number(it.precio_unitario || 0).toLocaleString()} Gs = ${Number(it.subtotal || 0).toLocaleString()} Gs`);
+      let y = 205;
+      doc.rect(40, y, doc.page.width - 80, 22).fill(azul);
+      doc.fill('#ffffff').fontSize(9).font('Helvetica-Bold');
+      doc.text('CODIGO', 50, y + 6, { width: 100 });
+      doc.text('DESCRIPCION', 120, y + 6, { width: 180 });
+      doc.text('CANT', 310, y + 6, { width: 40 });
+      doc.text('PRECIO', 360, y + 6, { width: 80 });
+      doc.text('SUBTOTAL', 440, y + 6, { width: 100 });
+      y += 22;
+
+      doc.fill('#000000').fontSize(9).font('Helvetica');
+      datos.items.forEach((it, i) => {
+        if (i % 2 === 0) doc.rect(40, y, doc.page.width - 80, 20).fill('#f0f0f0');
+        doc.fill('#000000');
+        doc.text(it.codigo || it.codigo_barras || '-', 50, y + 4, { width: 70 });
+        doc.text((it.descripcion || '?').slice(0, 35), 120, y + 4, { width: 180 });
+        doc.text((it.cantidad || 1).toString(), 310, y + 4, { width: 40 });
+        doc.text(Number(it.precio_unitario || 0).toLocaleString(), 360, y + 4, { width: 80 });
+        doc.text(Number(it.subtotal || 0).toLocaleString(), 440, y + 4, { width: 100 });
+        y += 20;
       });
+
+      y += 10;
+      doc.rect(300, y, doc.page.width - 340, 30).fill(azul);
+      doc.fill('#ffffff').fontSize(12).font('Helvetica-Bold');
+      doc.text(`TOTAL: ${gs(datos.totalGeneral)}`, 310, y + 7);
+    } else {
+      doc.fill('#000000').fontSize(11).text('No se detectaron artículos.', 50, 210);
     }
+
+    doc.fillColor('#999999').fontSize(8).font('Helvetica');
+    doc.text('Generado por Sistema de Facturación R21', 40, doc.page.height - 40, { align: 'center' });
 
     doc.end();
   });
