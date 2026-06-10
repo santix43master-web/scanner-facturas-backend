@@ -31,7 +31,7 @@ def status():
     return {
         "status": "ok",
         "modelo": interpretacion.MODELO,
-        "proveedor": interpretacion.PROVEEDOR,
+        "proveedor": os.environ.get("PROVEEDOR", "anthropic"),
         "output_folder": interpretacion.OUTPUT_FOLDER,
         "api_key": "Configurado" if os.environ.get("API_KEY") else "No configurado",
         "gemini_api_key": "Configurado" if os.environ.get("GEMINI_API_KEY") else "No configurado",
@@ -109,7 +109,11 @@ async def guardar(datos: dict):
         ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal_limpia)
         os.makedirs(ruta_sucursal, exist_ok=True)
 
-        nombre = f"factura_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        vendedor = datos.get("nombreVendedor", "Desconocido")
+        vendedor_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
+        nro_factura = datos.get("numeroFactura", "SIN_NUM")
+        nro_factura_limpio = re.sub(r'[\\/*?:"<>|]', '', nro_factura).strip().replace(" ", "_")[:20]
+        nombre = f"{vendedor_limpio}_{nro_factura_limpio}.json"
         ruta_completa = os.path.join(ruta_sucursal, nombre)
 
         with open(ruta_completa, 'w', encoding='utf-8') as f:
