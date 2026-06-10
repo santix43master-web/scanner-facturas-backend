@@ -8,6 +8,7 @@ const PDFDocument = require('pdfkit');
 const PORT = process.env.PORT || 3000;
 const BACKEND_URL = process.env.BACKEND_URL || 'https://scanner-facturas-backend.onrender.com';
 const AUTH_DIR = './auth_info';
+const MI_NUMERO = process.env.MI_NUMERO || '595976399307';
 
 let ultimoQR = null;
 let estadoConexion = 'desconectado';
@@ -169,6 +170,9 @@ async function iniciarBot() {
     if (!msg.key || sentIds.has(msg.key.id) || type !== 'notify') return;
 
     const jid = msg.key.remoteJid;
+    const esChatPropio = jid === `${MI_NUMERO}@s.whatsapp.net`;
+    if (!esChatPropio) return;
+
     const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim();
 
     if (usuarios[jid] && usuarios[jid].pendiente && /^[1-4]$/.test(texto)) {
