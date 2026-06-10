@@ -1,0 +1,239 @@
+const http = require('http');
+const { default: makeWASocket, useMultiFileAuthState, downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const qrcode = require('qrcode-terminal');
+const fetch = require('node-fetch');
+const fs = require('fs');
+const path = require('path');
+const PDFDocument = require('pdfkit');
+
+const PORT = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ status: 'ok', bot: 'Facturas R21 WhatsApp Bot' }));
+}).listen(PORT, () => console.log(`✅ HTTP server on port ${PORT}`));
+
+const BACKEND_URL = process.env.BACKEND_URL || 'https://scanner-facturas-backend.onrender.com';
+const AUTH_DIR = './auth_info';
+
+const usuarios = {};
+
+async function descargarImagen(msg) {
+  const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function procesarFactura(buffer) {
+  const form = new FormData();
+  const blob = new Blob([buffer], { type: 'image/jpeg' });
+  form.append('factura', blob, 'factura.jpg');
+
+  const res = await fetch(`${BACKEND_URL}/procesar`, {
+    method: 'POST',
+    body: form,
+  });
+  return await res.json();
+}
+
+function formatearResultado(datos) {
+  if (datos.error) return `❌ Error: ${datos.error}`;
+  let texto = `✅ *Factura procesada*\n\n`;
+  texto += `🏪 *${datos.nombreVendedor || 'Desconocido'}*\n`;
+  texto += `📄 N°: ${datos.numeroFactura || 'Sin número'}\n`;
+  texto += `📆 ${datos.fechaEmision || 'Sin fecha'}\n`;
+  texto += `💰 *Total: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs*\n`;
+  texto += `📦 ${(datos.items || []).length} artículos\n\n`;
+  texto += `📍 *Opciones:*\n\n`;
+  texto += `1️⃣ Ver detalle completo\n`;
+  texto += `2️⃣ Descargar JSON\n`;
+  texto += `3️⃣ Descargar PDF\n`;
+  texto += `4️⃣ Enviar a sistema\n\n`;
+  texto += `Respondé con el número (ej: 1)`;
+  return texto;
+}
+
+function formatearDetalle(datos) {
+  if (!datos.items || datos.items.length === 0) return 'Sin artículos detectados.';
+  let texto = `📋 *DETALLE COMPLETO*\n\n`;
+  texto += `🏪 ${datos.nombreVendedor || '?'}\n`;
+  texto += `RUC: ${datos.rucVendedor || '?'}\n`;
+  texto += `N°: ${datos.numeroFactura || '?'}\n`;
+  texto += `Timbrado: ${datos.timbrado || '?'}\n`;
+  texto += `Fecha: ${datos.fechaEmision || '?'}\n`;
+  if (datos.rucComprador) texto += `Comprador: ${datos.rucComprador}\n`;
+  texto += `\n📦 *ARTÍCULOS:*\n\n`;
+  datos.items.forEach((it, i) => {
+    texto += `${i+1}. ${it.descripcion || '?'}\n`;
+    if (it.codigo) texto += `   Cód: ${it.codigo}\n`;
+    if (it.codigo_barras) texto += `   Barra: ${it.codigo_barras}\n`;
+    texto += `   ${it.cantidad || 1}x ${Number(it.precio_unitario || 0).toLocaleString()} Gs = ${Number(it.subtotal || 0).toLocaleString()} Gs\n\n`;
+  });
+  texto += `💰 *TOTAL: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs*`;
+  return texto;
+}
+
+function generarPDFBuffer(datos) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 30 });
+    const buffers = [];
+    doc.on('data', buffers.push.bind(buffers));
+    doc.on('end', () => resolve(Buffer.concat(buffers)));
+    doc.on('error', reject);
+
+    doc.fontSize(18).text('Factura', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).text(`Vendedor: ${datos.nombreVendedor || '?'}`);
+    doc.text(`RUC: ${datos.rucVendedor || '?'}`);
+    doc.text(`N° Factura: ${datos.numeroFactura || '?'}`);
+    doc.text(`Timbrado: ${datos.timbrado || '?'}`);
+    doc.text(`Fecha: ${datos.fechaEmision || '?'}`);
+    if (datos.rucComprador) doc.text(`Comprador: ${datos.rucComprador}`);
+    doc.moveDown();
+    doc.text(`Total: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs`, { bold: true });
+    doc.moveDown();
+
+    if (datos.items && datos.items.length > 0) {
+      doc.text('Artículos:', { underline: true });
+      doc.moveDown(0.5);
+      datos.items.forEach((it) => {
+        doc.text(`${it.descripcion || '?'} - ${it.cantidad || 1}x ${Number(it.precio_unitario || 0).toLocaleString()} Gs = ${Number(it.subtotal || 0).toLocaleString()} Gs`);
+      });
+    }
+
+    doc.end();
+  });
+}
+
+async function enviarJSON(sock, jid, datos) {
+  const tmpDir = '/tmp';
+  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+  const nombre = `${(datos.nombreVendedor || 'factura').replace(/[^a-zA-Z0-9]/g, '_')}_${datos.numeroFactura || 'sin_num'}.json`.slice(0, 80);
+  const ruta = path.join(tmpDir, nombre);
+  fs.writeFileSync(ruta, JSON.stringify(datos, null, 2), 'utf-8');
+  const buffer = fs.readFileSync(ruta);
+  await sock.sendMessage(jid, { document: buffer, fileName: nombre, mimetype: 'application/json' });
+  fs.unlinkSync(ruta);
+}
+
+async function enviarPDF(sock, jid, datos) {
+  const buffer = await generarPDFBuffer(datos);
+  const nombre = `${(datos.nombreVendedor || 'factura').replace(/[^a-zA-Z0-9]/g, '_')}_${datos.numeroFactura || 'sin_num'}.pdf`.slice(0, 80);
+  await sock.sendMessage(jid, { document: buffer, fileName: nombre, mimetype: 'application/pdf' });
+}
+
+async function enviarASistema(datos) {
+  const res = await fetch(`${BACKEND_URL}/guardar-compartido`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...datos, sucursal: 'WhatsApp', fechaEnvio: new Date().toISOString() }),
+  });
+  return res.ok;
+}
+
+async function iniciarBot() {
+  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+  const sock = makeWASocket({
+    auth: state,
+    printQRInTerminal: false,
+  });
+
+  sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg.key || msg.key.fromMe) return;
+
+    const jid = msg.key.remoteJid;
+    const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim();
+
+    // Si el usuario tiene una factura pendiente y responde con opción
+    if (usuarios[jid] && usuarios[jid].pendiente && /^[1-4]$/.test(texto)) {
+      const datos = usuarios[jid].datos;
+      const opcion = parseInt(texto);
+
+      await sock.sendMessage(jid, { text: '⏳ Procesando...' });
+
+      try {
+        switch (opcion) {
+          case 1:
+            await sock.sendMessage(jid, { text: formatearDetalle(datos) });
+            break;
+          case 2:
+            await enviarJSON(sock, jid, datos);
+            await sock.sendMessage(jid, { text: '✅ JSON enviado' });
+            break;
+          case 3:
+            await enviarPDF(sock, jid, datos);
+            await sock.sendMessage(jid, { text: '✅ PDF enviado' });
+            break;
+          case 4:
+            const ok = await enviarASistema(datos);
+            await sock.sendMessage(jid, { text: ok ? '✅ Factura guardada en el sistema' : '❌ Error al guardar' });
+            break;
+        }
+      } catch (e) {
+        await sock.sendMessage(jid, { text: `❌ Error: ${e.message}` });
+      }
+
+      delete usuarios[jid].pendiente;
+      return;
+    }
+
+    // Si tiene imagen
+    if (msg.message?.imageMessage) {
+      await sock.sendMessage(jid, { text: '📸 Procesando factura...' });
+
+      try {
+        const buffer = await descargarImagen(msg);
+        const datos = await procesarFactura(buffer);
+
+        if (datos.error) {
+          await sock.sendMessage(jid, { text: `❌ Error al procesar: ${datos.error}` });
+          return;
+        }
+
+        usuarios[jid] = { datos, pendiente: true };
+        await sock.sendMessage(jid, { text: formatearResultado(datos) });
+      } catch (e) {
+        await sock.sendMessage(jid, { text: `❌ Error: ${e.message}` });
+      }
+      return;
+    }
+
+    // Comandos
+    if (texto.toLowerCase() === '!help' || texto.toLowerCase() === '!ayuda') {
+      await sock.sendMessage(jid, {
+        text: `🤖 *Bot Facturas R21*\n\n📸 Enviá una foto de una factura para procesarla.\n\nComandos:\n!help - Esta ayuda\n!status - Estado del servidor`
+      });
+      return;
+    }
+
+    if (texto.toLowerCase() === '!status') {
+      try {
+        const res = await fetch(`${BACKEND_URL}/status`);
+        const data = await res.json();
+        await sock.sendMessage(jid, { text: `📡 *Servidor:* ${data.status}\n🤖 *Modelo:* ${data.modelo}\n🔑 *API:* ${data.api_key}` });
+      } catch {
+        await sock.sendMessage(jid, { text: '❌ No se pudo conectar al servidor' });
+      }
+      return;
+    }
+  });
+
+  sock.ev.on('connection.update', ({ connection, qr }) => {
+    if (qr) {
+      console.log('Escanea este QR con WhatsApp:');
+      qrcode.generate(qr, { small: true });
+    }
+    if (connection === 'open') console.log('✅ Bot conectado a WhatsApp');
+    if (connection === 'close') {
+      console.log('❌ Conexión cerrada, reconectando...');
+      setTimeout(iniciarBot, 5000);
+    }
+  });
+}
+
+iniciarBot();

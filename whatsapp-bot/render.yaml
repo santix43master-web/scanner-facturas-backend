@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: whatsapp-facturas-bot
+    env: docker
+    repo: https://github.com/santix43master-web/scanner-facturas-backend
+    branch: main
+    rootDir: whatsapp-bot
+    healthCheckPath: /
+    envVars:
+      - key: BACKEND_URL
+        value: https://scanner-facturas-backend.onrender.com
