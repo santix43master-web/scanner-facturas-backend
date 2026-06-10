@@ -278,7 +278,7 @@ async function iniciarBot() {
         usuarios[jid] = { activo: true, sucursal: encontrada };
         await sock.sendMessage(jid, { text: `Usuario ${encontrada} reconocido. Bot activado. Mandame la foto de la factura.` });
       } else {
-        await sock.sendMessage(jid, { text: `Usuario no reconocido. Los validos son: ${SUCURSALES_VALIDAS.join(', ')}` });
+        await sock.sendMessage(jid, { text: `Usuario no existe.` });
       }
       return;
     }
