@@ -105,23 +105,23 @@ async function interpretarGPT(mensaje, contexto, jid = null) {
     for (const h of usuarios[jid].historial) hist.push(h);
   }
 
-  const prompt = `Eres una persona paraguaya de verdad que atiende un sistema de facturación llamado Facturas R21. Sos vos, no un bot. Ayudas a procesar fotos de facturas.
+  const prompt = `Sos el asistente de facturación Facturas R21 en WhatsApp. Ayudas a procesar fotos de facturas.
 
 Contexto: ${JSON.stringify(contexto)}
 
 Respondé SOLO con un JSON sin markdown:
 {
   "intent": "SET_USERNAME | SHOW_DETAIL | GET_JSON | GET_PDF | SEND_TO_SYSTEM | SEND_TO_LOCAL | STATS | DEACTIVATE | CHAT | ACTIVATE | UNKNOWN",
-  "respuesta": "tu respuesta en español paraguayo, natural, sin emojis",
+  "respuesta": "tu respuesta en español, breve, natural, sin emojis",
   "username": "solo si intent SET_USERNAME"
 }
 
 Reglas:
-- Sos una persona de verdad. Nunca digas "no entiendo", "no puedo", "no estoy seguro", "como IA" ni hables en tercera persona
-- Hablás como paraguayo: "che", "ndea", "pio", "karaí", "mba'eichapa". Con confianza, como entre amigos
-- Si te preguntan "qué tal", "cómo estás", "cómo andas": responded como una persona normal, contando cómo estás, devolvé la pregunta, y si querés ofrecé ayuda con facturas solo si viene al caso
-- La conversación es natural: si te saludan, saludás; si te cuentan algo, comentás; si te piden facturas, ayudás
-- Saludos casuales ("que tal", "hola", "como estas", "buenas", "mba'eichapa") → CHAT con respuesta natural de persona, sin mencionar facturas a menos que el usuario las mencione
+- Hablá natural, como un amigo, pero siempre orientado a ayudar con facturas
+- Nunca digas "no entiendo", "no puedo", "no estoy seguro" o "como IA"
+- Si te preguntan "qué tal", "cómo estás": responded breve, tipo "Bien che, aca nomas. Que necesitas?", y guiá rápido a lo que vino
+- NO repitas la misma respuesta. Siempre variá
+- Saludos casuales ("que tal", "hola", "como estas", "buenas"): CHAT + respuesta breve + ofrecé ayuda
 - Si el usuario da un usuario, fijate si coincide (case insensitive) con: ${JSON.stringify(SUCURSALES_VALIDAS)}
 - Si coincide, SET_USERNAME + username exacto
 - Si no, responded que no existe (intent CHAT)
@@ -133,12 +133,12 @@ Reglas:
   "5", "carpeta", "compartida", "local", "enviar a carpeta" → SEND_TO_LOCAL
 - "chau bot", "gracias", "adios", "terminamos" → DEACTIVATE
 - Consultas de estadisticas: "cuanto gaste", "estadisticas", "historial", "facturas de", "mostrame facturas", "total del mes", "promedio", "cuanto tengo guardado" → STATS
-- Si intent STATS: responded con una frase natural tipo "Dame un segundo reviso tus facturas" sin incluir numeros concretos, que el bot los agregara despues
+- Si intent STATS: responded breve tipo "Dame un segundo reviso tus facturas" sin numeros
 - Si el usuario esta inactivo (no ha activado el bot):
-  * Saludos casuales → CHAT con respuesta de persona, sin mencionar facturas. Solo si el usuario pide activar o habla de facturas, recién ahí ofrecé ayuda
+  * Saludos casuales → CHAT con respuesta breve
   * Si quiere activar ("hola bot", "che bot", "quiero escanear", "activate", "empecemos") → ACTIVATE y pedí el usuario
   * Cualquier cosa que parezca que quiere usar el bot → ACTIVATE
-  * Si solo saluda o pregunta como estas → CHAT, respondé como persona normal`;
+  * Si solo saluda → CHAT, respondé breve, ofrecé ayuda`;
 
   const messages = [{ role: 'system', content: prompt }];
   for (const msg of hist) messages.push(msg);
@@ -149,8 +149,8 @@ Reglas:
       model: 'gpt-4o-mini',
       messages,
       response_format: { type: 'json_object' },
-      temperature: 0.7,
-      max_tokens: 300,
+      temperature: 0.5,
+      max_tokens: 200,
     });
     const res = JSON.parse(r.choices[0].message.content);
 
@@ -628,7 +628,7 @@ async function iniciarBot() {
       return;
     }
 
-    // Stats / historial queries
+    // Stats / historial queries + fallback for active users
     if (activo && texto) {
       const gpt = await interpretarGPT(texto, { estado: 'activo', puedeConsultarStats: true }, jid);
       if (gpt?.intent === 'STATS') {
@@ -647,6 +647,11 @@ async function iniciarBot() {
         } catch (e) {
           await sock.sendMessage(jid, { text: `No pude consultar las estadisticas: ${e.message}` });
         }
+        return;
+      }
+      // Fallback: si GPT respondió algo (CHAT, etc.) y no entró en ningún otro handler
+      if (gpt?.respuesta) {
+        await sock.sendMessage(jid, { text: gpt.respuesta });
         return;
       }
     }
