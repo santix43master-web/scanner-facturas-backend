@@ -97,8 +97,14 @@ const sentIds = new Set();
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
-async function interpretarGPT(mensaje, contexto) {
+async function interpretarGPT(mensaje, contexto, jid = null) {
   if (!openai) return null;
+
+  const hist = [];
+  if (jid && usuarios[jid]?.historial) {
+    for (const h of usuarios[jid].historial) hist.push(h);
+  }
+
   const prompt = `Eres un asistente de facturación en WhatsApp del sistema Facturas R21. Ayudas a procesar fotos de facturas.
 
 Contexto: ${JSON.stringify(contexto)}
@@ -111,7 +117,9 @@ Respondé SOLO con un JSON sin markdown:
 }
 
 Reglas:
-- Hablá como persona, no robot. Natural, casual, pila
+- Sos una persona, no un robot. Nunca digas "no entiendo", "no puedo", "no estoy seguro" o "como IA"
+- Sos capaz de todo, siempre encontrás una solución, respondé con confianza
+- Hablá natural, casual, como un amigo
 - Saludos/agradecimientos: CHAT + respuesta cordial, siempre mencioná que podes ayudar con facturas
 - Si el usuario da un usuario, fijate si coincide (case insensitive) con: ${JSON.stringify(SUCURSALES_VALIDAS)}
 - Si coincide, SET_USERNAME + username exacto
@@ -129,15 +137,29 @@ Reglas:
   * Cualquier cosa que parezca que quiere usar el bot → ACTIVATE
   * Si solo saluda o pregunta como estas → CHAT, respondé natural`;
 
+  const messages = [{ role: 'system', content: prompt }];
+  for (const msg of hist) messages.push(msg);
+  messages.push({ role: 'user', content: mensaje });
+
   try {
     const r = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: [{ role: 'system', content: prompt }, { role: 'user', content: mensaje }],
+      messages,
       response_format: { type: 'json_object' },
       temperature: 0.7,
-      max_tokens: 250,
+      max_tokens: 300,
     });
-    return JSON.parse(r.choices[0].message.content);
+    const res = JSON.parse(r.choices[0].message.content);
+
+    if (jid && res?.respuesta) {
+      if (!usuarios[jid]) usuarios[jid] = {};
+      if (!usuarios[jid].historial) usuarios[jid].historial = [];
+      usuarios[jid].historial.push({ role: 'user', content: mensaje });
+      usuarios[jid].historial.push({ role: 'assistant', content: res.respuesta });
+      if (usuarios[jid].historial.length > 6) usuarios[jid].historial = usuarios[jid].historial.slice(-6);
+    }
+
+    return res;
   } catch {
     return null;
   }
@@ -210,58 +232,88 @@ function generarPDFBuffer(datos) {
 
     const gs = (n) => Number(n || 0).toLocaleString() + ' Gs';
     const azul = '#1a237e';
-    const gris = '#f5f5f5';
+    const azulClaro = '#e8eaf6';
+    const verde = '#00bcd4';
+    const gris = '#fafafa';
+    const borde = '#e0e0e0';
 
-    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#fafafa');
+    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#ffffff');
 
-    doc.rect(0, 0, doc.page.width, 120).fill(azul);
-    doc.fill('#ffffff').fontSize(28).font('Helvetica-Bold').text('FACTURA', 40, 35, { align: 'center' });
-    doc.fontSize(12).font('Helvetica').text('Documento Electrónico', { align: 'center' });
-    doc.fill('#ffffff').fontSize(10).text(`RUC: ${datos.rucVendedor || '---'}`, 40, 85, { align: 'center' });
+    // Header banner
+    doc.rect(0, 0, doc.page.width, 130).fill(azul);
+    doc.rect(0, 125, doc.page.width, 8).fill(verde);
+
+    doc.fill('#ffffff').fontSize(30).font('Helvetica-Bold').text('FACTURA', 40, 35, { align: 'center' });
+    doc.fontSize(13).font('Helvetica').text('Documento Electrónico', { align: 'center' });
+    doc.fill('#b3b3ff').fontSize(10).text(`RUC: ${datos.rucVendedor || '---'}`, 40, 85, { align: 'center' });
     doc.fill('#000000');
 
-    doc.rect(40, 135, doc.page.width - 80, 50).fill(gris);
-    doc.fill('#000000').fontSize(10).font('Helvetica');
-    doc.text(`Vendedor: ${datos.nombreVendedor || '---'}`, 50, 143);
-    doc.text(`N° Factura: ${datos.numeroFactura || '---'}`, 50, 158);
-    doc.text(`Timbrado: ${datos.timbrado || '---'}`, 300, 143);
-    doc.text(`Fecha: ${datos.fechaEmision || '---'}`, 300, 158);
+    // Info cards
+    const infoY = 158;
+    const cardW = (doc.page.width - 100) / 2;
+    const infoItems = [
+      { label: 'VENDEDOR', value: datos.nombreVendedor || '---' },
+      { label: 'N° FACTURA', value: datos.numeroFactura || '---' },
+      { label: 'TIMBRADO', value: datos.timbrado || '---' },
+      { label: 'FECHA EMISION', value: datos.fechaEmision || '---' },
+    ];
 
+    infoItems.forEach((item, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = 40 + col * (cardW + 10);
+      const y = infoY + row * 38;
+
+      doc.roundedRect(x, y, cardW, 32, 6).fill('#ffffff');
+      doc.roundedRect(x, y, cardW, 32, 6).lineWidth(1).stroke(borde);
+      doc.rect(x, y, 4, 32).fill(verde);
+      doc.fill('#78909c').fontSize(8).font('Helvetica-Bold').text(item.label, x + 12, y + 5, { width: cardW - 20 });
+      doc.fill('#212121').fontSize(10).font('Helvetica').text(item.value, x + 12, y + 16, { width: cardW - 20 });
+    });
+
+    // Items table
     if (datos.items && datos.items.length > 0) {
-      let y = 205;
-      doc.rect(40, y, doc.page.width - 80, 22).fill(azul);
+      let y = infoY + 85;
+
+      // Table header
+      doc.roundedRect(40, y, doc.page.width - 80, 24, 6).fill(azul);
       doc.fill('#ffffff').fontSize(9).font('Helvetica-Bold');
-      doc.text('CODIGO', 50, y + 6, { width: 55 });
-      doc.text('COD. BARRAS', 110, y + 6, { width: 65 });
-      doc.text('DESCRIPCION', 180, y + 6, { width: 130 });
+      doc.text('CODIGO', 50, y + 6, { width: 60 });
+      doc.text('COD. BARRAS', 115, y + 6, { width: 65 });
+      doc.text('DESCRIPCION', 185, y + 6, { width: 125 });
       doc.text('CANT', 315, y + 6, { width: 35 });
       doc.text('PRECIO', 355, y + 6, { width: 75 });
       doc.text('SUBTOTAL', 435, y + 6, { width: 80 });
-      y += 22;
+      y += 24;
 
-      doc.fill('#000000').fontSize(9).font('Helvetica');
+      // Table rows
       datos.items.forEach((it, i) => {
-        if (i % 2 === 0) doc.rect(40, y, doc.page.width - 80, 20).fill('#f0f0f0');
-        doc.fill('#000000');
-        doc.text(it.codigo || '-', 50, y + 4, { width: 55 });
-        doc.text(it.codigo_barras || '-', 110, y + 4, { width: 65 });
-        doc.text((it.descripcion || '?').slice(0, 30), 180, y + 4, { width: 130 });
-        doc.text((it.cantidad || 1).toString(), 315, y + 4, { width: 35 });
-        doc.text(Number(it.precio_unitario || 0).toLocaleString(), 355, y + 4, { width: 75 });
-        doc.text(Number(it.subtotal || 0).toLocaleString(), 435, y + 4, { width: 80 });
-        y += 20;
+        const rowBg = i % 2 === 0 ? '#f5f7ff' : '#ffffff';
+        doc.rect(40, y, doc.page.width - 80, 22).fill(rowBg);
+        doc.rect(40, y, doc.page.width - 80, 22).lineWidth(0.5).stroke(borde);
+        doc.fill('#424242').fontSize(8.5).font('Helvetica');
+        doc.text(it.codigo || '-', 50, y + 5, { width: 60 });
+        doc.text(it.codigo_barras || '-', 115, y + 5, { width: 65 });
+        doc.text((it.descripcion || '?').slice(0, 30), 185, y + 5, { width: 125 });
+        doc.text((it.cantidad || 1).toString(), 315, y + 5, { width: 35 });
+        doc.text(Number(it.precio_unitario || 0).toLocaleString(), 355, y + 5, { width: 75 });
+        doc.text(Number(it.subtotal || 0).toLocaleString(), 435, y + 5, { width: 80 });
+        y += 22;
       });
 
-      y += 10;
-      doc.rect(300, y, doc.page.width - 340, 30).fill(azul);
-      doc.fill('#ffffff').fontSize(12).font('Helvetica-Bold');
-      doc.text(`TOTAL: ${gs(datos.totalGeneral)}`, 310, y + 7);
+      // Total card
+      y += 12;
+      doc.roundedRect(40, y, doc.page.width - 80, 42, 8).fill(azul);
+      doc.fill('#ffffff').fontSize(11).font('Helvetica').text('TOTAL GENERAL', 55, y + 5, { width: doc.page.width - 130 });
+      doc.fontSize(18).font('Helvetica-Bold').text(gs(datos.totalGeneral), 55, y + 18, { width: doc.page.width - 130 });
     } else {
-      doc.fill('#000000').fontSize(11).text('No se detectaron artículos.', 50, 210);
+      doc.fill('#9e9e9e').fontSize(12).font('Helvetica').text('No se detectaron artículos.', 40, 280);
     }
 
-    doc.fillColor('#999999').fontSize(8).font('Helvetica');
-    doc.text('Generado por Sistema de Facturación R21', 40, doc.page.height - 40, { align: 'center' });
+    // Footer
+    doc.fillColor('#bdbdbd').fontSize(8).font('Helvetica');
+    doc.text('Generado por Sistema de Facturación R21', 40, doc.page.height - 35, { align: 'center' });
+    doc.text(`Fecha: ${new Date().toLocaleDateString('es-PY')}`, 40, doc.page.height - 25, { align: 'center' });
 
     doc.end();
   });
@@ -332,7 +384,7 @@ async function iniciarBot() {
 
     // Inactive: respond to anything via GPT
     if (!activo && !esperandoUser) {
-      const gpt = await interpretarGPT(texto, { estado: 'inactivo' });
+      const gpt = await interpretarGPT(texto, { estado: 'inactivo' }, jid);
       if (gpt?.intent === 'ACTIVATE') {
         usuarios[jid] = { esperandoUsuario: true };
         await sock.sendMessage(jid, { text: gpt.respuesta || 'Decime tu usuario (sucursal) para activar el bot.' });
@@ -351,10 +403,10 @@ async function iniciarBot() {
       const encontrada = SUCURSALES_VALIDAS.find(s => s.toLowerCase() === lower);
       if (encontrada) {
         usuarios[jid] = { activo: true, sucursal: encontrada };
-        const gpt = await interpretarGPT(texto, { estado: 'esperando_usuario', username: encontrada });
+        const gpt = await interpretarGPT(texto, { estado: 'esperando_usuario', username: encontrada }, jid);
         await sock.sendMessage(jid, { text: gpt?.respuesta || `Usuario ${encontrada} reconocido. Bot activado. Mandame la foto de la factura.` });
       } else {
-        const gpt = await interpretarGPT(texto, { estado: 'esperando_usuario' });
+        const gpt = await interpretarGPT(texto, { estado: 'esperando_usuario' }, jid);
         if (gpt?.intent === 'SET_USERNAME' && gpt.username) {
           usuarios[jid] = { activo: true, sucursal: gpt.username };
           await sock.sendMessage(jid, { text: gpt.respuesta || `Usuario ${gpt.username} reconocido. Bot activado.` });
@@ -366,7 +418,7 @@ async function iniciarBot() {
     }
 
     if (activo && (/^(chau|gracias|adios?)\s*(bot)?$/.test(lower) || lower === 'terminamos')) {
-      const gpt = await interpretarGPT(texto, { estado: 'activo' });
+      const gpt = await interpretarGPT(texto, { estado: 'activo' }, jid);
       delete usuarios[jid];
       await sock.sendMessage(jid, { text: gpt?.respuesta || 'Bot desactivado.' });
       return;
@@ -374,7 +426,7 @@ async function iniciarBot() {
 
     // Re-activate options for any natural request when datos exist but pendiente is off
     if (usuarios[jid] && usuarios[jid].datos && !usuarios[jid].pendiente && texto) {
-      const gpt = await interpretarGPT(texto, { estado: 'activo_con_datos', tieneDatos: true });
+      const gpt = await interpretarGPT(texto, { estado: 'activo_con_datos', tieneDatos: true }, jid);
       if (gpt && ['SHOW_DETAIL','GET_JSON','GET_PDF','SEND_TO_SYSTEM','SEND_TO_LOCAL'].includes(gpt.intent)) {
         usuarios[jid].pendiente = true;
       }
@@ -409,7 +461,7 @@ async function iniciarBot() {
       let gptResponse = null;
 
       if (!/^[1-5]$/.test(texto)) {
-        const gpt = await interpretarGPT(texto, { estado: 'opciones', tieneDatos: true });
+        const gpt = await interpretarGPT(texto, { estado: 'opciones', tieneDatos: true }, jid);
         if (gpt && ['SHOW_DETAIL','GET_JSON','GET_PDF','SEND_TO_SYSTEM','SEND_TO_LOCAL'].includes(gpt.intent)) {
           opcion = { SHOW_DETAIL: 1, GET_JSON: 2, GET_PDF: 3, SEND_TO_SYSTEM: 4, SEND_TO_LOCAL: 5 }[gpt.intent];
           gptResponse = gpt.respuesta;
