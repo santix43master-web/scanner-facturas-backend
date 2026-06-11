@@ -176,9 +176,9 @@ function formatearResultado(datos) {
   texto += `1 - Ver detalle completo\n`;
   texto += `2 - Bajar JSON\n`;
   texto += `3 - Bajar PDF\n`;
-   texto += `4 - Enviar al sistema\n`;
-   if (IP_LOCAL_URL) texto += `5 - Enviar a carpeta compartida\n`;
-   texto += `\nMandame el número nomas.`;
+  texto += `4 - Enviar al sistema\n`;
+  if (IP_LOCAL_URL) texto += `5 - Enviar a carpeta compartida\n`;
+  texto += `\nMandame el número nomas.`;
   return texto;
 }
 
