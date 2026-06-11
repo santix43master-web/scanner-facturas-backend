@@ -384,6 +384,11 @@ async function iniciarBot() {
 
     // Inactive: respond to anything via GPT
     if (!activo && !esperandoUser) {
+      if (msg.message?.imageMessage) {
+        usuarios[jid] = { esperandoUsuario: true };
+        await sock.sendMessage(jid, { text: 'Primero necesito tu usuario. Decime tu sucursal.' });
+        return;
+      }
       const gpt = await interpretarGPT(texto, { estado: 'inactivo' }, jid);
       if (gpt?.intent === 'ACTIVATE') {
         usuarios[jid] = { esperandoUsuario: true };
