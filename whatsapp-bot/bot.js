@@ -188,7 +188,8 @@ function formatearDetalle(datos) {
   texto += `\nArtículos:\n`;
   datos.items.forEach((it, i) => {
     texto += `${i+1}. ${it.descripcion || '?'}`;
-    if (it.codigo) texto += ` (${it.codigo})`;
+    if (it.codigo) texto += ` (Cod: ${it.codigo})`;
+    if (it.codigo_barras) texto += ` [Bar: ${it.codigo_barras}]`;
     texto += `\n   ${it.cantidad || 1} x ${Number(it.precio_unitario || 0).toLocaleString()} = ${Number(it.subtotal || 0).toLocaleString()} Gs\n`;
   });
   texto += `\nTotal: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs`;
@@ -226,22 +227,24 @@ function generarPDFBuffer(datos) {
       let y = 205;
       doc.rect(40, y, doc.page.width - 80, 22).fill(azul);
       doc.fill('#ffffff').fontSize(9).font('Helvetica-Bold');
-      doc.text('CODIGO', 50, y + 6, { width: 100 });
-      doc.text('DESCRIPCION', 120, y + 6, { width: 180 });
-      doc.text('CANT', 310, y + 6, { width: 40 });
-      doc.text('PRECIO', 360, y + 6, { width: 80 });
-      doc.text('SUBTOTAL', 440, y + 6, { width: 100 });
+      doc.text('CODIGO', 50, y + 6, { width: 55 });
+      doc.text('COD. BARRAS', 110, y + 6, { width: 65 });
+      doc.text('DESCRIPCION', 180, y + 6, { width: 130 });
+      doc.text('CANT', 315, y + 6, { width: 35 });
+      doc.text('PRECIO', 355, y + 6, { width: 75 });
+      doc.text('SUBTOTAL', 435, y + 6, { width: 80 });
       y += 22;
 
       doc.fill('#000000').fontSize(9).font('Helvetica');
       datos.items.forEach((it, i) => {
         if (i % 2 === 0) doc.rect(40, y, doc.page.width - 80, 20).fill('#f0f0f0');
         doc.fill('#000000');
-        doc.text(it.codigo || it.codigo_barras || '-', 50, y + 4, { width: 70 });
-        doc.text((it.descripcion || '?').slice(0, 35), 120, y + 4, { width: 180 });
-        doc.text((it.cantidad || 1).toString(), 310, y + 4, { width: 40 });
-        doc.text(Number(it.precio_unitario || 0).toLocaleString(), 360, y + 4, { width: 80 });
-        doc.text(Number(it.subtotal || 0).toLocaleString(), 440, y + 4, { width: 100 });
+        doc.text(it.codigo || '-', 50, y + 4, { width: 55 });
+        doc.text(it.codigo_barras || '-', 110, y + 4, { width: 65 });
+        doc.text((it.descripcion || '?').slice(0, 30), 180, y + 4, { width: 130 });
+        doc.text((it.cantidad || 1).toString(), 315, y + 4, { width: 35 });
+        doc.text(Number(it.precio_unitario || 0).toLocaleString(), 355, y + 4, { width: 75 });
+        doc.text(Number(it.subtotal || 0).toLocaleString(), 435, y + 4, { width: 80 });
         y += 20;
       });
 
