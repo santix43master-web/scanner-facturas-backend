@@ -10,7 +10,7 @@ const SUCURSALES_VALIDAS = ["Minimarket LF", "Local 1"];
 
 const PORT = process.env.PORT || 3000;
 const BACKEND_URL = process.env.BACKEND_URL || 'https://scanner-facturas-backend.onrender.com';
-const IP_LOCAL_URL = process.env.IP_LOCAL_URL || '';
+const IP_LOCAL_URL = process.env.IP_LOCAL_URL || 'https://snooze-chafe-bullwhip.ngrok-free.dev';
 const AUTH_DIR = './auth_info';
 
 let ultimoQR = null;
