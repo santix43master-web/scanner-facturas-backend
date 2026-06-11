@@ -1,6 +1,8 @@
 import os
 import json
 import base64
+import re
+import shutil
 from datetime import datetime
 from typing import List
 from fastapi import FastAPI, File, UploadFile
@@ -166,6 +168,36 @@ async def descargar(sucursal: str, nombre_archivo: str):
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+AUTH_FILE = os.path.join(interpretacion.OUTPUT_FOLDER, "auth_whatsapp.json")
+
+
+@app.post("/auth-guardar")
+async def auth_guardar(datos: dict):
+    try:
+        contenido = datos.get("auth", "")
+        if not contenido:
+            return {"status": "error", "message": "auth vacio"}
+        os.makedirs(interpretacion.OUTPUT_FOLDER, exist_ok=True)
+        with open(AUTH_FILE, "w", encoding="utf-8") as f:
+            json.dump({"auth": contenido}, f)
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/auth-cargar")
+async def auth_cargar():
+    try:
+        if not os.path.exists(AUTH_FILE):
+            return {"status": "error", "message": "no hay auth guardado"}
+        with open(AUTH_FILE, "r", encoding="utf-8") as f:
+            datos = json.load(f)
+        return {"status": "ok", "auth": datos.get("auth", "")}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))

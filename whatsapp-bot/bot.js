@@ -199,7 +199,7 @@ function formatearResultado(datos) {
   texto += `2 - Bajar JSON\n`;
   texto += `3 - Bajar PDF\n`;
   texto += `4 - Enviar al sistema\n`;
-  if (IP_LOCAL_URL) texto += `5 - Enviar a carpeta compartida\n`;
+  texto += `5 - Enviar a carpeta compartida\n`;
   texto += `\nMandame el número nomas.`;
   return texto;
 }
@@ -355,7 +355,45 @@ async function enviarALocal(datos) {
   return res.ok;
 }
 
+async function cargarAuthRemoto() {
+  try {
+    const res = await fetch(`${BACKEND_URL}/auth-cargar`);
+    const data = await res.json();
+    if (data.status === 'ok' && data.auth) {
+      const archivos = JSON.parse(data.auth);
+      if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
+      for (const [nombre, contenido] of Object.entries(archivos)) {
+        fs.writeFileSync(path.join(AUTH_DIR, nombre), Buffer.from(contenido, 'base64'));
+      }
+      console.log('Auth cargado del backend');
+      return true;
+    }
+  } catch (e) {
+    console.log('No hay auth remoto:', e.message);
+  }
+  return false;
+}
+
+async function guardarAuthRemoto() {
+  try {
+    if (!fs.existsSync(AUTH_DIR)) return;
+    const archivos = {};
+    for (const f of fs.readdirSync(AUTH_DIR)) {
+      archivos[f] = fs.readFileSync(path.join(AUTH_DIR, f)).toString('base64');
+    }
+    await fetch(`${BACKEND_URL}/auth-guardar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth: JSON.stringify(archivos) }),
+    });
+    console.log('Auth guardado en el backend');
+  } catch (e) {
+    console.log('Error guardando auth remoto:', e.message);
+  }
+}
+
 async function iniciarBot() {
+  await cargarAuthRemoto();
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const sock = makeWASocket({
     auth: state,
@@ -528,6 +566,7 @@ async function iniciarBot() {
       console.log('✅ Bot conectado a WhatsApp');
       estadoConexion = 'conectado';
       ultimoQR = null;
+      guardarAuthRemoto();
     }
     if (connection === 'close') {
       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
