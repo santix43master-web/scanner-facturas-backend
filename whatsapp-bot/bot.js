@@ -111,8 +111,8 @@ Respondé SOLO con un JSON sin markdown:
 }
 
 Reglas:
-- Hablá como persona, no robot. Natural, casual
-- Saludos/agradecimientos: CHAT + respuesta cordial
+- Hablá como persona, no robot. Natural, casual, pila
+- Saludos/agradecimientos: CHAT + respuesta cordial, siempre mencioná que podes ayudar con facturas
 - Si el usuario da un usuario, fijate si coincide (case insensitive) con: ${JSON.stringify(SUCURSALES_VALIDAS)}
 - Si coincide, SET_USERNAME + username exacto
 - Si no, responded que no existe (intent CHAT)
@@ -120,10 +120,14 @@ Reglas:
   "1", "detalle", "mostrame", "items", "ver detalle" → SHOW_DETAIL
   "2", "json", "descargar json", "bajar json", "dame el json" → GET_JSON
   "3", "pdf", "descargar pdf", "bajar pdf", "dame el pdf" → GET_PDF
-   "4", "enviar", "sistema", "guardar", "mandar al sistema" → SEND_TO_SYSTEM
+  "4", "enviar", "sistema", "guardar", "mandar al sistema" → SEND_TO_SYSTEM
   "5", "carpeta", "compartida", "local", "enviar a carpeta" → SEND_TO_LOCAL
 - "chau bot", "gracias", "adios", "terminamos" → DEACTIVATE
-- Si quiere activar o saludar al bot: "hola", "che bot", "activate", "quiero escanear" → ACTIVATE`;
+- Si el usuario esta inactivo (no ha activado el bot):
+  * Saludos casuales ("que tal", "hola", "como estas", "buenas") → CHAT con respuesta amigable, ofreciendo ayuda
+  * Si quiere activar ("hola bot", "che bot", "quiero escanear", "activate", "empecemos") → ACTIVATE y pedí el usuario
+  * Cualquier cosa que parezca que quiere usar el bot → ACTIVATE
+  * Si solo saluda o pregunta como estas → CHAT, respondé natural`;
 
   try {
     const r = await openai.chat.completions.create({
@@ -326,15 +330,16 @@ async function iniciarBot() {
     const activo = usuarios[jid] && usuarios[jid].activo;
     const esperandoUser = usuarios[jid] && usuarios[jid].esperandoUsuario;
 
-    // Activation: "hola bot" fast path + GPT for natural variants
+    // Inactive: respond to anything via GPT
     if (!activo && !esperandoUser) {
-      const esActivacion = lower === 'hola bot' || /^(che|hey|ea?)\s*bot/.test(lower) || lower === 'bot' || lower.includes('activar');
-      if (esActivacion) {
+      const gpt = await interpretarGPT(texto, { estado: 'inactivo' });
+      if (gpt?.intent === 'ACTIVATE') {
         usuarios[jid] = { esperandoUsuario: true };
-        const gpt = await interpretarGPT(texto, { estado: 'inactivo' });
-        await sock.sendMessage(jid, { text: gpt?.respuesta || 'Decime tu usuario (sucursal) para activar el bot.' });
-        return;
+        await sock.sendMessage(jid, { text: gpt.respuesta || 'Decime tu usuario (sucursal) para activar el bot.' });
+      } else if (gpt) {
+        await sock.sendMessage(jid, { text: gpt.respuesta || 'Hola! Si queres escanear una factura solo decime.' });
       }
+      return;
     }
 
     if (esperandoUser) {
