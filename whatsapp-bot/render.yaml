@@ -11,3 +11,5 @@ services:
         value: https://scanner-facturas-backend.onrender.com
       - key: OPENAI_API_KEY
         sync: false
+      - key: IP_LOCAL_URL
+        value: https://snooze-chafe-bullwhip.ngrok-free.dev

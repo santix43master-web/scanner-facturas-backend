@@ -10,6 +10,7 @@ const SUCURSALES_VALIDAS = ["Minimarket LF", "Local 1"];
 
 const PORT = process.env.PORT || 3000;
 const BACKEND_URL = process.env.BACKEND_URL || 'https://scanner-facturas-backend.onrender.com';
+const IP_LOCAL_URL = process.env.IP_LOCAL_URL || '';
 const AUTH_DIR = './auth_info';
 
 let ultimoQR = null;
@@ -104,7 +105,7 @@ Contexto: ${JSON.stringify(contexto)}
 
 Respondé SOLO con un JSON sin markdown:
 {
-  "intent": "SET_USERNAME | SHOW_DETAIL | GET_JSON | GET_PDF | SEND_TO_SYSTEM | DEACTIVATE | CHAT | ACTIVATE | UNKNOWN",
+  "intent": "SET_USERNAME | SHOW_DETAIL | GET_JSON | GET_PDF | SEND_TO_SYSTEM | SEND_TO_LOCAL | DEACTIVATE | CHAT | ACTIVATE | UNKNOWN",
   "respuesta": "tu respuesta natural en español, sin emojis",
   "username": "solo si intent SET_USERNAME"
 }
@@ -119,7 +120,8 @@ Reglas:
   "1", "detalle", "mostrame", "items", "ver detalle" → SHOW_DETAIL
   "2", "json", "descargar json", "bajar json", "dame el json" → GET_JSON
   "3", "pdf", "descargar pdf", "bajar pdf", "dame el pdf" → GET_PDF
-  "4", "enviar", "sistema", "guardar", "mandar al sistema" → SEND_TO_SYSTEM
+   "4", "enviar", "sistema", "guardar", "mandar al sistema" → SEND_TO_SYSTEM
+  "5", "carpeta", "compartida", "local", "enviar a carpeta" → SEND_TO_LOCAL
 - "chau bot", "gracias", "adios", "terminamos" → DEACTIVATE
 - Si quiere activar o saludar al bot: "hola", "che bot", "activate", "quiero escanear" → ACTIVATE`;
 
@@ -170,8 +172,9 @@ function formatearResultado(datos) {
   texto += `1 - Ver detalle completo\n`;
   texto += `2 - Bajar JSON\n`;
   texto += `3 - Bajar PDF\n`;
-  texto += `4 - Enviar al sistema\n\n`;
-  texto += `Mandame el número nomas.`;
+   texto += `4 - Enviar al sistema\n`;
+   if (IP_LOCAL_URL) texto += `5 - Enviar a carpeta compartida\n`;
+   texto += `\nMandame el número nomas.`;
   return texto;
 }
 
@@ -283,6 +286,16 @@ async function enviarASistema(datos) {
   return res.ok;
 }
 
+async function enviarALocal(datos) {
+  if (!IP_LOCAL_URL) return false;
+  const res = await fetch(`${IP_LOCAL_URL}/guardar-compartido`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...datos, sucursal: 'WhatsApp', fechaEnvio: new Date().toISOString() }),
+  });
+  return res.ok;
+}
+
 async function iniciarBot() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const sock = makeWASocket({
@@ -354,7 +367,7 @@ async function iniciarBot() {
     // Re-activate options for any natural request when datos exist but pendiente is off
     if (usuarios[jid] && usuarios[jid].datos && !usuarios[jid].pendiente && texto) {
       const gpt = await interpretarGPT(texto, { estado: 'activo_con_datos', tieneDatos: true });
-      if (gpt && ['SHOW_DETAIL','GET_JSON','GET_PDF','SEND_TO_SYSTEM'].includes(gpt.intent)) {
+      if (gpt && ['SHOW_DETAIL','GET_JSON','GET_PDF','SEND_TO_SYSTEM','SEND_TO_LOCAL'].includes(gpt.intent)) {
         usuarios[jid].pendiente = true;
       }
     }
@@ -387,15 +400,15 @@ async function iniciarBot() {
       let opcion = parseInt(texto);
       let gptResponse = null;
 
-      if (!/^[1-4]$/.test(texto)) {
+      if (!/^[1-5]$/.test(texto)) {
         const gpt = await interpretarGPT(texto, { estado: 'opciones', tieneDatos: true });
-        if (gpt && ['SHOW_DETAIL','GET_JSON','GET_PDF','SEND_TO_SYSTEM'].includes(gpt.intent)) {
-          opcion = { SHOW_DETAIL: 1, GET_JSON: 2, GET_PDF: 3, SEND_TO_SYSTEM: 4 }[gpt.intent];
+        if (gpt && ['SHOW_DETAIL','GET_JSON','GET_PDF','SEND_TO_SYSTEM','SEND_TO_LOCAL'].includes(gpt.intent)) {
+          opcion = { SHOW_DETAIL: 1, GET_JSON: 2, GET_PDF: 3, SEND_TO_SYSTEM: 4, SEND_TO_LOCAL: 5 }[gpt.intent];
           gptResponse = gpt.respuesta;
         }
       }
 
-      if (!opcion || opcion < 1 || opcion > 4) return;
+      if (!opcion || opcion < 1 || opcion > 5) return;
 
       if (!gptResponse) await sock.sendMessage(jid, { text: 'Dame un segundo...' });
 
@@ -417,6 +430,15 @@ async function iniciarBot() {
           case 4:
             const ok = await enviarASistema(datos);
             await sock.sendMessage(jid, { text: gptResponse || (ok ? 'Listo, ya quedo guardado en el sistema.' : 'No se pudo guardar, fijate si el sistema esta bien.') });
+            delete usuarios[jid].pendiente;
+            break;
+          case 5:
+            if (!IP_LOCAL_URL) {
+              await sock.sendMessage(jid, { text: 'No hay URL local configurada.' });
+            } else {
+              const lok = await enviarALocal(datos);
+              await sock.sendMessage(jid, { text: gptResponse || (lok ? 'Enviado a carpeta compartida.' : 'No se pudo enviar a la carpeta compartida.') });
+            }
             delete usuarios[jid].pendiente;
             break;
         }
