@@ -4,6 +4,9 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
+const OpenAI = require('openai');
+
+const SUCURSALES_VALIDAS = ["Minimarket LF", "Local 1"];
 
 const PORT = process.env.PORT || 3000;
 const BACKEND_URL = process.env.BACKEND_URL || 'https://scanner-facturas-backend.onrender.com';
@@ -90,6 +93,49 @@ server.listen(PORT, () => console.log(`✅ HTTP server on port ${PORT}`));
 
 const usuarios = {};
 const sentIds = new Set();
+
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+
+async function interpretarGPT(mensaje, contexto) {
+  if (!openai) return null;
+  const prompt = `Eres un asistente de facturación en WhatsApp del sistema Facturas R21. Ayudas a procesar fotos de facturas.
+
+Contexto: ${JSON.stringify(contexto)}
+
+Respondé SOLO con un JSON sin markdown:
+{
+  "intent": "SET_USERNAME | SHOW_DETAIL | GET_JSON | GET_PDF | SEND_TO_SYSTEM | DEACTIVATE | CHAT | ACTIVATE | UNKNOWN",
+  "respuesta": "tu respuesta natural en español, sin emojis",
+  "username": "solo si intent SET_USERNAME"
+}
+
+Reglas:
+- Hablá como persona, no robot. Natural, casual
+- Saludos/agradecimientos: CHAT + respuesta cordial
+- Si el usuario da un usuario, fijate si coincide (case insensitive) con: ${JSON.stringify(SUCURSALES_VALIDAS)}
+- Si coincide, SET_USERNAME + username exacto
+- Si no, responded que no existe (intent CHAT)
+- Opciones de factura:
+  "1", "detalle", "mostrame", "items", "ver detalle" → SHOW_DETAIL
+  "2", "json", "descargar json", "bajar json", "dame el json" → GET_JSON
+  "3", "pdf", "descargar pdf", "bajar pdf", "dame el pdf" → GET_PDF
+  "4", "enviar", "sistema", "guardar", "mandar al sistema" → SEND_TO_SYSTEM
+- "chau bot", "gracias", "adios", "terminamos" → DEACTIVATE
+- Si quiere activar o saludar al bot: "hola", "che bot", "activate", "quiero escanear" → ACTIVATE`;
+
+  try {
+    const r = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'system', content: prompt }, { role: 'user', content: mensaje }],
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+      max_tokens: 250,
+    });
+    return JSON.parse(r.choices[0].message.content);
+  } catch {
+    return null;
+  }
+}
 
 async function descargarImagen(msg) {
   const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
@@ -261,36 +307,56 @@ async function iniciarBot() {
     const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || caption || '').trim();
     const lower = texto.toLowerCase();
 
-    const SUCURSALES_VALIDAS = ["Minimarket LF", "Local 1"];
-
     const activo = usuarios[jid] && usuarios[jid].activo;
     const esperandoUser = usuarios[jid] && usuarios[jid].esperandoUsuario;
 
-    if (lower === 'hola bot' && !activo && !esperandoUser) {
-      usuarios[jid] = { esperandoUsuario: true };
-      await sock.sendMessage(jid, { text: 'Decime tu usuario (sucursal) para activar el bot.' });
-      return;
+    // Activation: "hola bot" fast path + GPT for natural variants
+    if (!activo && !esperandoUser) {
+      const esActivacion = lower === 'hola bot' || /^(che|hey|ea?)\s*bot/.test(lower) || lower === 'bot' || lower.includes('activar');
+      if (esActivacion) {
+        usuarios[jid] = { esperandoUsuario: true };
+        const gpt = await interpretarGPT(texto, { estado: 'inactivo' });
+        await sock.sendMessage(jid, { text: gpt?.respuesta || 'Decime tu usuario (sucursal) para activar el bot.' });
+        return;
+      }
     }
 
     if (esperandoUser) {
+      if (/^(chau|gracias|adios?)\s*(bot)?$/.test(lower) || lower === 'terminamos') {
+        delete usuarios[jid];
+        await sock.sendMessage(jid, { text: 'Bueno, cuando quieras activar decime nomas.' });
+        return;
+      }
       const encontrada = SUCURSALES_VALIDAS.find(s => s.toLowerCase() === lower);
       if (encontrada) {
         usuarios[jid] = { activo: true, sucursal: encontrada };
-        await sock.sendMessage(jid, { text: `Usuario ${encontrada} reconocido. Bot activado. Mandame la foto de la factura.` });
+        const gpt = await interpretarGPT(texto, { estado: 'esperando_usuario', username: encontrada });
+        await sock.sendMessage(jid, { text: gpt?.respuesta || `Usuario ${encontrada} reconocido. Bot activado. Mandame la foto de la factura.` });
       } else {
-        await sock.sendMessage(jid, { text: `Usuario no existe.` });
+        const gpt = await interpretarGPT(texto, { estado: 'esperando_usuario' });
+        if (gpt?.intent === 'SET_USERNAME' && gpt.username) {
+          usuarios[jid] = { activo: true, sucursal: gpt.username };
+          await sock.sendMessage(jid, { text: gpt.respuesta || `Usuario ${gpt.username} reconocido. Bot activado.` });
+        } else {
+          await sock.sendMessage(jid, { text: gpt?.respuesta || 'Usuario no existe.' });
+        }
       }
       return;
     }
 
-    if (lower === 'chau bot') {
+    if (activo && (/^(chau|gracias|adios?)\s*(bot)?$/.test(lower) || lower === 'terminamos')) {
+      const gpt = await interpretarGPT(texto, { estado: 'activo' });
       delete usuarios[jid];
-      await sock.sendMessage(jid, { text: 'Bot desactivado.' });
+      await sock.sendMessage(jid, { text: gpt?.respuesta || 'Bot desactivado.' });
       return;
     }
 
-    if (usuarios[jid] && usuarios[jid].datos && !usuarios[jid].pendiente && /^[1-4]$/.test(texto)) {
-      usuarios[jid].pendiente = true;
+    // Re-activate options for any natural request when datos exist but pendiente is off
+    if (usuarios[jid] && usuarios[jid].datos && !usuarios[jid].pendiente && texto) {
+      const gpt = await interpretarGPT(texto, { estado: 'activo_con_datos', tieneDatos: true });
+      if (gpt && ['SHOW_DETAIL','GET_JSON','GET_PDF','SEND_TO_SYSTEM'].includes(gpt.intent)) {
+        usuarios[jid].pendiente = true;
+      }
     }
 
     if (!activo) return;
@@ -315,30 +381,42 @@ async function iniciarBot() {
       return;
     }
 
-    if (usuarios[jid] && usuarios[jid].pendiente && /^[1-4]$/.test(texto)) {
+    // Options: handle both numbers and natural language
+    if (usuarios[jid] && usuarios[jid].pendiente && texto) {
       const datos = usuarios[jid].datos;
-      const opcion = parseInt(texto);
+      let opcion = parseInt(texto);
+      let gptResponse = null;
 
-      await sock.sendMessage(jid, { text: 'Dame un segundo...' });
+      if (!/^[1-4]$/.test(texto)) {
+        const gpt = await interpretarGPT(texto, { estado: 'opciones', tieneDatos: true });
+        if (gpt && ['SHOW_DETAIL','GET_JSON','GET_PDF','SEND_TO_SYSTEM'].includes(gpt.intent)) {
+          opcion = { SHOW_DETAIL: 1, GET_JSON: 2, GET_PDF: 3, SEND_TO_SYSTEM: 4 }[gpt.intent];
+          gptResponse = gpt.respuesta;
+        }
+      }
+
+      if (!opcion || opcion < 1 || opcion > 4) return;
+
+      if (!gptResponse) await sock.sendMessage(jid, { text: 'Dame un segundo...' });
 
       try {
         switch (opcion) {
           case 1:
-            await sock.sendMessage(jid, { text: formatearDetalle(datos) });
+            await sock.sendMessage(jid, { text: gptResponse || formatearDetalle(datos) });
             break;
           case 2:
             await enviarJSON(sock, jid, datos);
             const jsonStr = JSON.stringify(datos, null, 2);
             const jsonTruncado = jsonStr.length > 4000 ? jsonStr.slice(0, 4000) + '\n...' : jsonStr;
-            await sock.sendMessage(jid, { text: `JSON:\n\`\`\`\n${jsonTruncado}\n\`\`\`` });
+            await sock.sendMessage(jid, { text: gptResponse || `JSON:\n\`\`\`\n${jsonTruncado}\n\`\`\`` });
             break;
           case 3:
             await enviarPDF(sock, jid, datos);
-            await sock.sendMessage(jid, { text: 'Ahi va el PDF.' });
+            if (gptResponse) await sock.sendMessage(jid, { text: gptResponse });
             break;
           case 4:
             const ok = await enviarASistema(datos);
-            await sock.sendMessage(jid, { text: ok ? 'Listo, ya quedo guardado en el sistema.' : 'No se pudo guardar, fijate si el sistema esta bien.' });
+            await sock.sendMessage(jid, { text: gptResponse || (ok ? 'Listo, ya quedo guardado en el sistema.' : 'No se pudo guardar, fijate si el sistema esta bien.') });
             delete usuarios[jid].pendiente;
             break;
         }
