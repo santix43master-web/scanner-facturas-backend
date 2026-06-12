@@ -215,7 +215,12 @@ function formatearResultado(datos) {
   texto += `Factura N°: ${datos.numeroFactura || 'Sin número'}\n`;
   texto += `Fecha: ${datos.fechaEmision || 'Sin fecha'}\n`;
   texto += `Total: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs\n`;
-  texto += `Artículos: ${(datos.items || []).length}\n\n`;
+  const cantItems = (datos.items || []).length;
+  texto += `Artículos: ${cantItems}\n`;
+  texto += `Fuente: ${datos.fuente || 'IA'}\n\n`;
+  if (datos.items && datos.items.length === 0 && datos.fuente?.includes('QR')) {
+    texto += `El QR no incluye los items. Mandame foto de la factura para completarlos.\n\n`;
+  }
   texto += `Decime qué querés hacer:\n`;
   texto += `1 - Ver detalle completo\n`;
   texto += `2 - Bajar JSON\n`;
@@ -565,12 +570,12 @@ async function iniciarBot() {
         const buffer = await descargarImagen(msg);
         const qrContent = await decodificarQR(buffer);
 
-        let datos;
+        let datos, origen = 'IA';
         if (qrContent) {
           datos = await procesarQR(qrContent);
-          if (datos.items && datos.items.length > 0) {
-            datos.fuente = 'SIFEN/KUDE QR';
-            await sock.sendMessage(jid, { text: 'QR detectado! Extraje los datos directo del SIFEN.' });
+          if (datos && !datos.error) {
+            origen = 'SIFEN/KUDE QR';
+            await sock.sendMessage(jid, { text: 'QR detectado! Extrayendo datos del SIFEN...' });
           } else {
             datos = await procesarFactura(buffer);
           }
@@ -578,11 +583,12 @@ async function iniciarBot() {
           datos = await procesarFactura(buffer);
         }
 
-        if (datos.error) {
-          await sock.sendMessage(jid, { text: `Algo salio mal: ${datos.error}` });
+        if (!datos || datos.error) {
+          await sock.sendMessage(jid, { text: `Algo salio mal: ${datos?.error || 'no se pudieron extraer datos'}` });
           return;
         }
 
+        datos.fuente = origen;
         usuarios[jid] = { ...usuarios[jid], datos, pendiente: true };
         await sock.sendMessage(jid, { text: formatearResultado(datos) });
       } catch (e) {
