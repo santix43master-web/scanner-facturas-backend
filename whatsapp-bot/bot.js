@@ -137,7 +137,8 @@ Reglas:
 - Si el usuario esta inactivo (no ha activado el bot):
   * NO respondas a saludos ni charlas casuales. Solo responde si quiere activar
   * Si quiere activar ("hola bot", "che bot", "quiero escanear", "activate", "empecemos") → ACTIVATE y pedí el usuario
-  * Cualquier otra cosa → UNKNOWN (el bot no responde)`;
+  * Cualquier otra cosa → UNKNOWN (el bot no responde)
+- Si el usuario dice "chau", "gracias", "terminamos" → DEACTIVATE + borra la sesion. Despues vuelve a estar inactivo y solo responde a "hola bot"`;
 
   const messages = [{ role: 'system', content: prompt }];
   for (const msg of hist) messages.push(msg);
@@ -488,13 +489,8 @@ async function iniciarBot() {
     const activo = usuarios[jid] && usuarios[jid].activo;
     const esperandoUser = usuarios[jid] && usuarios[jid].esperandoUsuario;
 
-    // Inactive: respond to anything via GPT
+    // Inactive: only respond to activation keywords
     if (!activo && !esperandoUser) {
-      if (msg.message?.imageMessage) {
-        usuarios[jid] = { esperandoUsuario: true };
-        await sock.sendMessage(jid, { text: 'Primero necesito tu usuario. Decime tu sucursal.' });
-        return;
-      }
       const gpt = await interpretarGPT(texto, { estado: 'inactivo' }, jid);
       if (gpt?.intent === 'ACTIVATE') {
         usuarios[jid] = { esperandoUsuario: true };
