@@ -5,8 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const OpenAI = require('openai');
-const sharp = require('sharp');
-const jsQR = require('jsqr');
+
 
 const SUCURSALES_VALIDAS = ["Minimarket LF", "Local 1"];
 
@@ -179,14 +178,6 @@ async function descargarImagen(msg) {
   return Buffer.concat(chunks);
 }
 
-async function decodificarQR(buffer) {
-  try {
-    const { data, info } = await sharp(buffer).raw().ensureAlpha().toBuffer({ resolveWithObject: true });
-    const code = jsQR(new Uint8ClampedArray(data), info.width, info.height);
-    return code?.data || null;
-  } catch { return null; }
-}
-
 async function procesarFactura(buffer) {
   const FormData = require('form-data');
   const form = new FormData();
@@ -195,15 +186,6 @@ async function procesarFactura(buffer) {
     method: 'POST',
     body: form,
     headers: form.getHeaders(),
-  });
-  return await res.json();
-}
-
-async function procesarQR(qrContent) {
-  const res = await fetch(`${BACKEND_URL}/procesar-qr`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ qr: qrContent }),
   });
   return await res.json();
 }
@@ -217,10 +199,7 @@ function formatearResultado(datos) {
   texto += `Total: ${Number(datos.totalGeneral || 0).toLocaleString()} Gs\n`;
   const cantItems = (datos.items || []).length;
   texto += `Artículos: ${cantItems}\n`;
-  texto += `Fuente: ${datos.fuente || 'IA'}\n\n`;
-  if (datos.items && datos.items.length === 0 && datos.fuente?.includes('QR')) {
-    texto += `El QR no incluye los items. Mandame foto de la factura para completarlos.\n\n`;
-  }
+  texto += `Fuente: R21 Scanner\n\n`;
   texto += `Decime qué querés hacer:\n`;
   texto += `1 - Ver detalle completo\n`;
   texto += `2 - Bajar JSON\n`;
@@ -561,17 +540,6 @@ async function iniciarBot() {
       }
     }
 
-    // Captcha flow: user says "listo" after resolving SIFEN captcha
-    if (usuarios[jid]?.esperandoCaptcha) {
-      if (/^(listo|ok|dale|ya|hecho|abri)/i.test(lower)) {
-        usuarios[jid].esperandoCaptcha = false;
-        await sock.sendMessage(jid, { text: 'Dale, segui nomas. Mandame la foto de la factura si queres que la procese.' });
-      } else {
-        await sock.sendMessage(jid, { text: 'Cuando veas la factura en el navegador, decime "listo" nomas.' });
-      }
-      return;
-    }
-
     if (!activo) return;
 
     if (msg.message?.imageMessage) {
@@ -579,34 +547,13 @@ async function iniciarBot() {
 
       try {
         const buffer = await descargarImagen(msg);
-        const qrContent = await decodificarQR(buffer);
-
-        // Detectar QR con link SIFEN (requiere captcha manual)
-        if (qrContent && qrContent.startsWith('http') && /[?&](dTotGralOpe|cItems|dFeEmiDE|dNumDoc)=/i.test(qrContent)) {
-          usuarios[jid].esperandoCaptcha = true;
-          await sock.sendMessage(jid, { text: `Detecte un enlace del SIFEN en el QR. Abri este link en tu navegador, resolve el captcha si aparece, y cuando veas la factura decime "listo":\n\n${qrContent}` });
-          return;
-        }
-
-        let datos, origen = 'IA';
-        if (qrContent) {
-          datos = await procesarQR(qrContent);
-          if (datos && !datos.error) {
-            origen = 'SIFEN/KUDE QR';
-            await sock.sendMessage(jid, { text: 'QR detectado! Extrayendo datos del SIFEN...' });
-          } else {
-            datos = await procesarFactura(buffer);
-          }
-        } else {
-          datos = await procesarFactura(buffer);
-        }
+        const datos = await procesarFactura(buffer);
 
         if (!datos || datos.error) {
           await sock.sendMessage(jid, { text: `Algo salio mal: ${datos?.error || 'no se pudieron extraer datos'}` });
           return;
         }
 
-        datos.fuente = origen;
         usuarios[jid] = { ...usuarios[jid], datos, pendiente: true };
         await sock.sendMessage(jid, { text: formatearResultado(datos) });
       } catch (e) {
