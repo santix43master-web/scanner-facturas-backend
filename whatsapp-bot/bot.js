@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const OpenAI = require('openai');
-const sharp = require('sharp');
+const Jimp = require('jimp');
 const jsQR = require('jsqr');
 
 const SUCURSALES_VALIDAS = ["Minimarket LF", "Local 1"];
@@ -181,8 +181,9 @@ async function descargarImagen(msg) {
 
 async function decodificarQR(buffer) {
   try {
-    const { data, info } = await sharp(buffer).raw().ensureAlpha().toBuffer({ resolveWithObject: true });
-    const code = jsQR(new Uint8ClampedArray(data), info.width, info.height);
+    const img = await Jimp.read(buffer);
+    const { data, width, height } = img.bitmap;
+    const code = jsQR(data, width, height);
     return code?.data || null;
   } catch { return null; }
 }
