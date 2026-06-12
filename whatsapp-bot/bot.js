@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const OpenAI = require('openai');
+const Jimp = require('jimp');
+const jsQR = require('jsqr');
 
 const SUCURSALES_VALIDAS = ["Minimarket LF", "Local 1"];
 
@@ -177,6 +179,15 @@ async function descargarImagen(msg) {
   return Buffer.concat(chunks);
 }
 
+async function decodificarQR(buffer) {
+  try {
+    const img = await Jimp.read(buffer);
+    const { data, width, height } = img.bitmap;
+    const code = jsQR(data, width, height);
+    return code?.data || null;
+  } catch { return null; }
+}
+
 async function procesarFactura(buffer) {
   const FormData = require('form-data');
   const form = new FormData();
@@ -185,6 +196,15 @@ async function procesarFactura(buffer) {
     method: 'POST',
     body: form,
     headers: form.getHeaders(),
+  });
+  return await res.json();
+}
+
+async function procesarQR(qrContent) {
+  const res = await fetch(`${BACKEND_URL}/procesar-qr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ qr: qrContent }),
   });
   return await res.json();
 }
@@ -544,7 +564,20 @@ async function iniciarBot() {
 
       try {
         const buffer = await descargarImagen(msg);
-        const datos = await procesarFactura(buffer);
+        const qrContent = await decodificarQR(buffer);
+
+        let datos;
+        if (qrContent) {
+          datos = await procesarQR(qrContent);
+          if (datos.items && datos.items.length > 0) {
+            datos.fuente = 'SIFEN/KUDE QR';
+            await sock.sendMessage(jid, { text: 'QR detectado! Extraje los datos directo del SIFEN.' });
+          } else {
+            datos = await procesarFactura(buffer);
+          }
+        } else {
+          datos = await procesarFactura(buffer);
+        }
 
         if (datos.error) {
           await sock.sendMessage(jid, { text: `Algo salio mal: ${datos.error}` });
