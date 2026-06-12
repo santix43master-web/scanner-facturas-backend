@@ -561,6 +561,17 @@ async function iniciarBot() {
       }
     }
 
+    // Captcha flow: user says "listo" after resolving SIFEN captcha
+    if (usuarios[jid]?.esperandoCaptcha) {
+      if (/^(listo|ok|dale|ya|hecho|abri)/i.test(lower)) {
+        usuarios[jid].esperandoCaptcha = false;
+        await sock.sendMessage(jid, { text: 'Dale, segui nomas. Mandame la foto de la factura si queres que la procese.' });
+      } else {
+        await sock.sendMessage(jid, { text: 'Cuando veas la factura en el navegador, decime "listo" nomas.' });
+      }
+      return;
+    }
+
     if (!activo) return;
 
     if (msg.message?.imageMessage) {
@@ -569,6 +580,13 @@ async function iniciarBot() {
       try {
         const buffer = await descargarImagen(msg);
         const qrContent = await decodificarQR(buffer);
+
+        // Detectar QR con link SIFEN (requiere captcha manual)
+        if (qrContent && qrContent.startsWith('http') && /[?&](dTotGralOpe|cItems|dFeEmiDE|dNumDoc)=/i.test(qrContent)) {
+          usuarios[jid].esperandoCaptcha = true;
+          await sock.sendMessage(jid, { text: `Detecte un enlace del SIFEN en el QR. Abri este link en tu navegador, resolve el captcha si aparece, y cuando veas la factura decime "listo":\n\n${qrContent}` });
+          return;
+        }
 
         let datos, origen = 'IA';
         if (qrContent) {
