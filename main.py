@@ -199,6 +199,64 @@ async def auth_cargar():
         return {"status": "error", "message": str(e)}
 
 
+@app.get("/buscar-producto/{codigo}")
+async def buscar_producto(codigo: str):
+    try:
+        resultados = []
+        for carpeta in os.listdir(interpretacion.OUTPUT_FOLDER):
+            ruta = os.path.join(interpretacion.OUTPUT_FOLDER, carpeta)
+            if not os.path.isdir(ruta): continue
+            for archivo in os.listdir(ruta):
+                if not archivo.endswith('.json'): continue
+                try:
+                    with open(os.path.join(ruta, archivo), 'r', encoding='utf-8') as f:
+                        datos = json.load(f)
+                    items = datos.get("items", [])
+                    for it in items:
+                        cb = str(it.get("codigo_barras", "") or it.get("codigoBarras", "") or "")
+                        desc = it.get("descripcion", "")
+                        if cb == codigo or cb == codigo.zfill(13) or cb == codigo.zfill(8):
+                            resultados.append({
+                                "descripcion": desc,
+                                "precio": it.get("precio_unitario", 0) or it.get("precioUnitario", 0),
+                                "vendedor": datos.get("nombreVendedor", "?"),
+                                "fecha": datos.get("fechaEmision", "?"),
+                                "factura": datos.get("numeroFactura", "?"),
+                            })
+                except: continue
+        resultados.sort(key=lambda r: r.get("fecha", ""), reverse=True)
+        return {"resultados": resultados}
+    except Exception as e:
+        return {"error": str(e), "resultados": []}
+
+
+@app.get("/historial/{sucursal}")
+async def obtener_historial(sucursal: str):
+    try:
+        ruta = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal.replace(" ", "_"))
+        if not os.path.exists(ruta):
+            return {"facturas": []}
+        facturas = []
+        for archivo in os.listdir(ruta):
+            if not archivo.endswith('.json'): continue
+            try:
+                with open(os.path.join(ruta, archivo), 'r', encoding='utf-8') as f:
+                    datos = json.load(f)
+                facturas.append({
+                    "id": archivo.replace('.json', ''),
+                    "vendedor": datos.get("nombreVendedor", "?"),
+                    "numero": datos.get("numeroFactura", "?"),
+                    "total": datos.get("totalGeneral", 0),
+                    "fecha": datos.get("fechaEmision", "?"),
+                    "items": len(datos.get("items", [])),
+                })
+            except: continue
+        facturas.sort(key=lambda f: f.get("fecha", ""), reverse=True)
+        return {"facturas": facturas}
+    except Exception as e:
+        return {"error": str(e), "facturas": []}
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)

@@ -73,6 +73,11 @@ export default function App() {
   const [captchaCargando, setCaptchaCargando] = useState(false);
   const [modalAgregar, setModalAgregar] = useState(false);
   const [cambiosPrecios, setCambiosPrecios] = useState([]);
+  const [barcodeActivo, setBarcodeActivo] = useState(false);
+  const [barcodeCargando, setBarcodeCargando] = useState(false);
+  const [preciosHistorial, setPreciosHistorial] = useState([]);
+  const [modalBarcodeManual, setModalBarcodeManual] = useState(false);
+  const [inputBarcode, setInputBarcode] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -84,6 +89,7 @@ export default function App() {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
       await ImagePicker.requestCameraPermissionsAsync();
       cargarHistorial();
+      if (sucursalGuardada) sincronizarHistorial();
     })();
   }, []);
 
@@ -106,6 +112,7 @@ export default function App() {
       await AsyncStorage.setItem('@sucursal_actual', sucursal);
       setMostrarLogin(false);
       setInputSucursal('');
+      sincronizarHistorial();
     } else {
       Alert.alert("Error", "Sucursal no reconocida");
     }
@@ -518,6 +525,56 @@ export default function App() {
     }
   };
 
+  const buscarPrecios = async (codigo) => {
+    if (!codigo) { Alert.alert("Error", "Ingresá un código"); return; }
+    setPreciosHistorial([]);
+    setBarcodeCargando(true);
+    try {
+      const res = await fetch(`${urlServidor}/buscar-producto/${encodeURIComponent(codigo)}`);
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      if (json.resultados && json.resultados.length > 0) {
+        setPreciosHistorial(json.resultados);
+      } else {
+        Alert.alert("Sin resultados", `No se encontraron precios para el código ${codigo}`);
+      }
+    } catch (e) {
+      Alert.alert("Error", `No se pudo buscar: ${e.message}`);
+    } finally {
+      setBarcodeCargando(false);
+    }
+  };
+
+  const escanearBarcode = async (codigo) => {
+    setBarcodeActivo(false);
+    await buscarPrecios(codigo);
+  };
+
+  const sincronizarHistorial = async () => {
+    try {
+      const res = await fetch(`${urlServidor}/historial/${encodeURIComponent(sucursalActual)}`);
+      const json = await res.json();
+      if (json.facturas && json.facturas.length > 0) {
+        const localStr = await AsyncStorage.getItem('@facturas_r21');
+        const local = localStr ? JSON.parse(localStr) : [];
+        const idsRemotos = new Set(json.facturas.map(f => f.id));
+        const sinDuplicar = local.filter(f => !idsRemotos.has(f.id));
+        const todos = [...json.facturas.map(f => ({
+          id: f.id,
+          fechaEscaneo: f.fecha || '?',
+          sucursal: sucursalActual,
+          empresa: f.vendedor,
+          rucVendedor: '',
+          rucComprador: '',
+          numero: f.numero,
+          monto: f.total || 0,
+        })), ...sinDuplicar];
+        setHistorial(todos);
+        await AsyncStorage.setItem('@facturas_r21', JSON.stringify(todos));
+      }
+    } catch {}
+  };
+
   const abrirCaptcha = () => {
     captchaResueltoRef.current = false;
     setCaptchaVisible(true);
@@ -761,6 +818,34 @@ export default function App() {
               <Text style={styles.btnQRText}>QR</Text>
               <Text style={styles.btnQRSub}>Escanear factura con QR</Text>
             </TouchableOpacity>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>O</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity 
+              style={styles.btnBarcode} 
+              onPress={() => { setBarcodeActivo(true); }}
+              disabled={cargando}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.btnBarcodeIcono}>≡</Text>
+              <Text style={styles.btnBarcodeText}>CÓDIGO DE BARRAS</Text>
+              <Text style={styles.btnBarcodeSub}>Escanear código para ver historial de precios</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.btnBarcodeManual} 
+              onPress={() => { setModalBarcodeManual(true); setInputBarcode(''); }}
+              disabled={cargando}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.btnBarcodeManualIcono}>⌨</Text>
+              <Text style={styles.btnBarcodeManualText}>INGRESAR CÓDIGO</Text>
+              <Text style={styles.btnBarcodeManualSub}>Tipear código de barras para buscar precios</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.previaContainer}>
@@ -947,6 +1032,28 @@ export default function App() {
             </TouchableOpacity>
           </View>
         )}
+
+        {preciosHistorial.length > 0 && (
+          <View style={styles.preciosSection}>
+            <Text style={styles.sectionTitulo}>Historial de Precios</Text>
+            {preciosHistorial.map((p, i) => (
+              <View key={i} style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardNumero}>
+                    <Text style={styles.cardNumeroText}>{i + 1}</Text>
+                  </View>
+                  <Text style={styles.cardDescripcion} numberOfLines={2}>{p.descripcion || 'Producto'}</Text>
+                </View>
+                <View style={styles.cardDetalles}>
+                  <Text style={styles.cardTag}>{p.vendedor}</Text>
+                  <Text style={styles.cardTag}>{p.fecha}</Text>
+                  <Text style={styles.cardPrecio}>{Number(p.precio).toLocaleString('es-PY')} Gs</Text>
+                </View>
+                <Text style={styles.cardSubtotal}>Factura N° {p.factura}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       {qrActivo && (
@@ -983,6 +1090,40 @@ export default function App() {
               setQrActivo(false);
               qrScaneado.current = false;
             }}>
+              <Text style={styles.qrCancelarText}>Cancelar</Text>
+            </TouchableOpacity>
+          </CameraView>
+        </View>
+      )}
+
+      {barcodeActivo && (
+        <View style={styles.qrOverlay}>
+          <CameraView
+            style={styles.qrCamera}
+            facing="back"
+            onBarcodeScanned={({ data }) => {
+              if (data) escanearBarcode(data);
+            }}
+            barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'code128', 'code39', 'itf14'] }}
+          >
+            <View style={styles.qrHeader}>
+              <Text style={styles.qrTitulo}>Escanea el código de barras</Text>
+              <Text style={styles.qrSub}>Buscá el código de barras del producto</Text>
+            </View>
+            <View style={styles.qrMarco}>
+              <View style={styles.qrEsquinaTL} />
+              <View style={styles.qrEsquinaTR} />
+              <View style={styles.qrEsquinaBL} />
+              <View style={styles.qrEsquinaBR} />
+            </View>
+            <View style={styles.barcodeInfo}>
+              {barcodeCargando ? (
+                <ActivityIndicator size="large" color="#00BCD4" />
+              ) : (
+                <Text style={styles.barcodeInfoText}>Apunta al código de barras del producto</Text>
+              )}
+            </View>
+            <TouchableOpacity style={styles.qrCancelar} onPress={() => { setBarcodeActivo(false); }}>
               <Text style={styles.qrCancelarText}>Cancelar</Text>
             </TouchableOpacity>
           </CameraView>
@@ -1093,6 +1234,46 @@ export default function App() {
         </View>
       </Modal>
 
+      <Modal
+        visible={modalBarcodeManual}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalBarcodeManual(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitulo}>Buscar por código de barras</Text>
+            <Text style={styles.modalSubtitulo}>Ingresá el código de barras del producto</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Código de barras"
+              placeholderTextColor="#90A4AE"
+              value={inputBarcode}
+              onChangeText={setInputBarcode}
+              autoFocus={true}
+              keyboardType="numeric"
+            />
+            <View style={styles.modalBotones}>
+              <TouchableOpacity 
+                style={styles.btnModalCancelar}
+                onPress={() => setModalBarcodeManual(false)}
+              >
+                <Text style={styles.btnModalTexto}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.btnModalConfirmar}
+                onPress={() => {
+                  setModalBarcodeManual(false);
+                  buscarPrecios(inputBarcode.trim());
+                }}
+              >
+                <Text style={styles.btnModalTextoConfirmar}>Buscar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {menuAbierto && (
         <TouchableOpacity 
           style={styles.capaOscura} 
@@ -1137,6 +1318,16 @@ export default function App() {
             onPress={() => Linking.openURL("https://wa.me/595981644728")}
           >
             <Text style={styles.drawerBtnTextSec}>Contactar Soporte</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.drawerBtnSync} 
+            onPress={() => {
+              sincronizarHistorial();
+              Alert.alert("Sincronizado", "Historial actualizado desde el servidor");
+            }}
+          >
+            <Text style={styles.drawerBtnTextSec}>Sincronizar Historial</Text>
           </TouchableOpacity>
 
           <Text style={styles.drawerSeccionTitulo}>Historial de Facturas</Text>
@@ -2114,5 +2305,80 @@ const styles = StyleSheet.create({
   precioCambioTexto: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  btnBarcode: {
+    backgroundColor: '#1B2838',
+    paddingVertical: 24,
+    borderRadius: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#66BB6A',
+  },
+  btnBarcodeIcono: {
+    fontSize: 36,
+    marginBottom: 8,
+    color: '#66BB6A',
+  },
+  btnBarcodeText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+    letterSpacing: 1,
+  },
+  btnBarcodeSub: {
+    color: '#78909C',
+    fontSize: 13,
+    marginTop: 6,
+  },
+  btnBarcodeManual: {
+    backgroundColor: '#1B2838',
+    paddingVertical: 24,
+    borderRadius: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFA726',
+    marginTop: 15,
+  },
+  btnBarcodeManualIcono: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  btnBarcodeManualText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+    letterSpacing: 1,
+  },
+  btnBarcodeManualSub: {
+    color: '#78909C',
+    fontSize: 13,
+    marginTop: 6,
+  },
+  barcodeInfo: {
+    position: 'absolute',
+    bottom: 100,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  barcodeInfoText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  preciosSection: {
+    width: '100%',
+    marginTop: 25,
+  },
+  drawerBtnSync: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginHorizontal: 15,
+    marginBottom: 8,
+    backgroundColor: '#1B2838',
+    borderWidth: 1,
+    borderColor: '#00BCD4',
   },
 });
