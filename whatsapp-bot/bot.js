@@ -135,10 +135,9 @@ Reglas:
 - Consultas de estadisticas: "cuanto gaste", "estadisticas", "historial", "facturas de", "mostrame facturas", "total del mes", "promedio", "cuanto tengo guardado" → STATS
 - Si intent STATS: responded breve tipo "Dame un segundo reviso tus facturas" sin numeros
 - Si el usuario esta inactivo (no ha activado el bot):
-  * Saludos casuales → CHAT con respuesta breve
+  * NO respondas a saludos ni charlas casuales. Solo responde si quiere activar
   * Si quiere activar ("hola bot", "che bot", "quiero escanear", "activate", "empecemos") → ACTIVATE y pedí el usuario
-  * Cualquier cosa que parezca que quiere usar el bot → ACTIVATE
-  * Si solo saluda → CHAT, respondé breve, ofrecé ayuda`;
+  * Cualquier otra cosa → UNKNOWN (el bot no responde)`;
 
   const messages = [{ role: 'system', content: prompt }];
   for (const msg of hist) messages.push(msg);
@@ -500,8 +499,6 @@ async function iniciarBot() {
       if (gpt?.intent === 'ACTIVATE') {
         usuarios[jid] = { esperandoUsuario: true };
         await sock.sendMessage(jid, { text: gpt.respuesta || 'Decime tu usuario (sucursal) para activar el bot.' });
-      } else if (gpt) {
-        await sock.sendMessage(jid, { text: gpt.respuesta || 'Hola! Si queres escanear una factura solo decime.' });
       }
       return;
     }
