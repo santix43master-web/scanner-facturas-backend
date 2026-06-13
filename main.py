@@ -12,6 +12,23 @@ import uvicorn
 
 import interpretacion
 
+def _guardar_resultado(resultado):
+    try:
+        sucursal = resultado.get("sucursal") or resultado.get("nombreVendedor", "General")
+        nombre_suc = sucursal.replace(" ", "_").replace("/", "_").replace("\\", "_")
+        ruta_suc = os.path.join(interpretacion.OUTPUT_FOLDER, nombre_suc)
+        os.makedirs(ruta_suc, exist_ok=True)
+        vendedor = resultado.get("nombreVendedor", "Desconocido")
+        v_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
+        nro = resultado.get("numeroFactura", "SIN_NUM")
+        n_limpio = re.sub(r'[\\/*?:"<>|]', '', nro).strip().replace(" ", "_")[:20]
+        ts = str(int(time.time()))
+        nombre = f"{v_limpio}_{n_limpio}_{ts}.json"
+        with open(os.path.join(ruta_suc, nombre), 'w', encoding='utf-8') as f:
+            json.dump(resultado, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"[guardar] No se pudo guardar: {e}")
+
 app = FastAPI()
 
 app.add_middleware(
@@ -59,22 +76,7 @@ async def procesar(factura: List[UploadFile] = File(...), sucursal: str = Form(N
                     item["precio_unitario"] = item.pop("precioUnitario")
 
         resultado["sucursal"] = sucursal or resultado.get("nombreVendedor", "General")
-
-        try:
-            nombre_suc = resultado["sucursal"].replace(" ", "_").replace("/", "_").replace("\\", "_")
-            ruta_suc = os.path.join(interpretacion.OUTPUT_FOLDER, nombre_suc)
-            os.makedirs(ruta_suc, exist_ok=True)
-            vendedor = resultado.get("nombreVendedor", "Desconocido")
-            v_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
-            nro = resultado.get("numeroFactura", "SIN_NUM")
-            n_limpio = re.sub(r'[\\/*?:"<>|]', '', nro).strip().replace(" ", "_")[:20]
-            ts = str(int(time.time()))
-            nombre = f"{v_limpio}_{n_limpio}_{ts}.json"
-            with open(os.path.join(ruta_suc, nombre), 'w', encoding='utf-8') as f:
-                json.dump(resultado, f, indent=4, ensure_ascii=False)
-        except Exception as save_err:
-            print(f"[procesar] No se pudo guardar: {save_err}")
-
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e)}
@@ -94,6 +96,8 @@ def procesar_qr(data: dict):
                 if "precioUnitario" in item:
                     item["precio_unitario"] = item.pop("precioUnitario")
 
+        resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e), "items": []}
@@ -113,6 +117,8 @@ def procesar_html_completo(data: dict):
             html=html, url=url, qr_params=qr_params,
             de_data=data.get("de_data"),
         )
+        resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e), "items": []}
