@@ -1233,16 +1233,16 @@ export default function App() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitulo}>Buscar por código de barras</Text>
-            <Text style={styles.modalSubtitulo}>Ingresá el código de barras del producto</Text>
+            <Text style={[styles.modalTitulo, { color: '#00BCD4' }]}>Buscar producto</Text>
+            <Text style={styles.modalSubtitulo}>Ingresá código o código de barras del producto</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Código de barras"
+              placeholder="Código o código de barras"
               placeholderTextColor="#90A4AE"
               value={inputBarcode}
               onChangeText={setInputBarcode}
               autoFocus={true}
-              keyboardType="numeric"
+              autoCapitalize="none"
             />
             <View style={styles.modalBotones}>
               <TouchableOpacity 
@@ -1325,7 +1325,7 @@ export default function App() {
           
           <TextInput
             style={styles.drawerBuscador}
-            placeholder="Buscar..."
+            placeholder="Buscar por vendedor, N° factura, fecha..."
             placeholderTextColor="#90A4AE"
             value={busqueda}
             onChangeText={setBusqueda}
@@ -1357,7 +1357,6 @@ export default function App() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   mainWrapper: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 20, alignItems: 'center', minHeight: '100%' },
@@ -1372,21 +1371,26 @@ const styles = StyleSheet.create({
   loginCard: {
     backgroundColor: '#1B2838',
     width: '100%',
-    borderRadius: 24,
+    borderRadius: 28,
     padding: 35,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#2A3F4F',
+    elevation: 20,
+    shadowColor: '#00BCD4',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
   },
   loginIcono: {
-    fontSize: 40,
+    fontSize: 42,
     fontWeight: 'bold',
     color: '#00BCD4',
-    letterSpacing: 6,
-    marginBottom: 5,
+    letterSpacing: 8,
+    marginBottom: 8,
   },
   loginTitulo: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 4,
@@ -1394,20 +1398,21 @@ const styles = StyleSheet.create({
   loginSubtitulo: {
     fontSize: 14,
     color: '#78909C',
-    marginBottom: 25,
+    marginBottom: 28,
+    letterSpacing: 1,
   },
   loginSeparator: {
-    width: 50,
-    height: 3,
+    width: 60,
+    height: 4,
     backgroundColor: '#00BCD4',
     borderRadius: 2,
-    marginBottom: 30,
+    marginBottom: 32,
   },
   inputLogin: {
     borderWidth: 1,
     borderColor: '#2A3F4F',
     padding: 16,
-    borderRadius: 14,
+    borderRadius: 16,
     marginBottom: 20,
     width: '100%',
     backgroundColor: '#0D1B2A',
@@ -1417,9 +1422,14 @@ const styles = StyleSheet.create({
   btnLogin: {
     backgroundColor: '#00BCD4',
     padding: 18,
-    borderRadius: 14,
+    borderRadius: 16,
     alignItems: 'center',
     width: '100%',
+    elevation: 8,
+    shadowColor: '#00BCD4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
   },
   btnLoginText: {
     color: '#0D1B2A',
@@ -1449,15 +1459,21 @@ const styles = StyleSheet.create({
   },
   badgeSucursal: {
     backgroundColor: '#00BCD4',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
+    elevation: 4,
+    shadowColor: '#00BCD4',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   badgeSucursalText: {
     color: '#0D1B2A',
     fontSize: 12,
     fontWeight: 'bold',
   },
+
   btnMenuHamburguesa: {
     width: 32,
     height: 24,
@@ -1474,14 +1490,19 @@ const styles = StyleSheet.create({
   menu: { width: '100%', marginTop: 30 },
   btnCamara: {
     backgroundColor: '#1B2838',
-    paddingVertical: 30,
-    borderRadius: 20,
+    paddingVertical: 32,
+    borderRadius: 24,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#00BCD4',
+    elevation: 8,
+    shadowColor: '#00BCD4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
   btnCamaraIcono: {
-    fontSize: 40,
+    fontSize: 44,
     marginBottom: 10,
   },
   btnCamaraText: {
@@ -1499,7 +1520,7 @@ const styles = StyleSheet.create({
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 25,
+    marginVertical: 22,
   },
   dividerLine: {
     flex: 1,
@@ -1515,19 +1536,24 @@ const styles = StyleSheet.create({
   btnGaleria: {
     backgroundColor: '#1B2838',
     paddingVertical: 28,
-    borderRadius: 20,
+    borderRadius: 24,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#546E7A',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   btnGaleriaIcono: {
-    fontSize: 36,
+    fontSize: 40,
     marginBottom: 10,
   },
   btnGaleriaText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 17,
     letterSpacing: 1,
   },
   btnGaleriaSub: {
@@ -1539,11 +1565,16 @@ const styles = StyleSheet.create({
   previaContainer: { width: '100%', alignItems: 'center' },
   previaWrapper: {
     width: '100%',
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
     borderWidth: 1,
     borderColor: '#2A3F4F',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
   },
   previa: {
     width: '100%',
@@ -1554,9 +1585,9 @@ const styles = StyleSheet.create({
     top: 12,
     left: 12,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
   },
   previaBadgeText: {
     color: '#00BCD4',
@@ -1584,6 +1615,11 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderRadius: 16,
     alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#00BCD4',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   btnChicoText: {
     color: '#FFFFFF',
@@ -1594,10 +1630,10 @@ const styles = StyleSheet.create({
 
   loadingOverlay: {
     marginTop: 40,
-    backgroundColor: 'rgba(0,188,212,0.15)',
-    paddingVertical: 25,
+    backgroundColor: 'rgba(0,188,212,0.12)',
+    paddingVertical: 28,
     paddingHorizontal: 30,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#00BCD4',
     alignItems: 'center',
@@ -1615,7 +1651,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   resultadosTitulo: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
     letterSpacing: 1,
@@ -1623,13 +1659,18 @@ const styles = StyleSheet.create({
 
   infoGrid: {
     backgroundColor: '#1B2838',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     borderWidth: 1,
     borderColor: '#2A3F4F',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   infoItem: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#2A3F4F',
   },
@@ -1638,7 +1679,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
     letterSpacing: 1,
-    marginBottom: 2,
+    marginBottom: 3,
   },
   infoValor: {
     color: '#FFFFFF',
@@ -1647,10 +1688,15 @@ const styles = StyleSheet.create({
 
   totalCard: {
     backgroundColor: '#00BCD4',
-    padding: 20,
-    borderRadius: 16,
+    padding: 22,
+    borderRadius: 20,
     alignItems: 'center',
     marginTop: 15,
+    elevation: 8,
+    shadowColor: '#00BCD4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
   },
   totalLabel: {
     color: '#0D1B2A',
@@ -1658,6 +1704,347 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 1,
     opacity: 0.8,
+  },
+  totalMonto: {
+    color: '#0D1B2A',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+
+  sectionTitulo: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginTop: 25,
+    marginBottom: 12,
+  },
+
+  card: {
+    backgroundColor: '#1B2838',
+    padding: 18,
+    borderRadius: 18,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#2A3F4F',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  cardNumero: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#00BCD4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  cardNumeroText: {
+    color: '#0D1B2A',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  cardDescripcion: {
+    flex: 1,
+    fontWeight: 'bold',
+    fontSize: 15,
+    color: '#FFFFFF',
+  },
+  cardDetalles: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+    marginLeft: 40,
+  },
+  cardTag: {
+    backgroundColor: '#2A3F4F',
+    color: '#B0BEC5',
+    fontSize: 11,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  cardPrecio: {
+    color: '#78909C',
+    fontSize: 13,
+    marginLeft: 40,
+  },
+  cardSubtotal: {
+    color: '#00BCD4',
+    fontWeight: 'bold',
+    fontSize: 15,
+    marginLeft: 40,
+    marginTop: 4,
+  },
+
+  noItemsCard: {
+    backgroundColor: '#1B2838',
+    padding: 28,
+    borderRadius: 18,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2A3F4F',
+  },
+  noItemsText: {
+    color: '#78909C',
+    fontSize: 14,
+  },
+
+  rowBotones: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  btnPDF: {
+    flex: 1,
+    backgroundColor: '#E53935',
+    paddingVertical: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#E53935',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  btnEnviar: {
+    flex: 1,
+    backgroundColor: '#00BCD4',
+    paddingVertical: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#00BCD4',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  btnCarpeta: {
+    backgroundColor: '#FF8F00',
+    paddingVertical: 20,
+    borderRadius: 16,
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10,
+    elevation: 6,
+    shadowColor: '#FF8F00',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  btnAccionText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+    letterSpacing: 1,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#1B2838',
+    borderRadius: 24,
+    padding: 28,
+    width: '85%',
+    borderWidth: 1,
+    borderColor: '#2A3F4F',
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+  },
+  modalTitulo: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#EF5350',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalSubtitulo: {
+    fontSize: 14,
+    color: '#78909C',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#2A3F4F',
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 16,
+    marginBottom: 20,
+    backgroundColor: '#0D1B2A',
+    color: '#FFFFFF',
+  },
+  modalBotones: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  btnModalCancelar: {
+    flex: 1,
+    backgroundColor: '#37474F',
+    padding: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  btnModalConfirmar: {
+    flex: 1,
+    backgroundColor: '#EF5350',
+    padding: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  btnModalTexto: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  btnModalTextoConfirmar: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+
+  capaOscura: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    zIndex: 99,
+  },
+  drawerMenu: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: '82%',
+    backgroundColor: '#1B2838',
+    zIndex: 100,
+    padding: 24,
+    paddingTop: 50,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  drawerTitulo: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: '#00BCD4',
+    letterSpacing: 4,
+  },
+  drawerCerrar: {
+    fontSize: 22,
+    color: '#78909C',
+    fontWeight: 'bold',
+  },
+
+  drawerResumen: {
+    backgroundColor: '#0D1B2A',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 22,
+    borderWidth: 1,
+    borderColor: '#00BCD4',
+    elevation: 4,
+    shadowColor: '#00BCD4',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  drawerResumenLabel: {
+    color: '#00BCD4',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  drawerResumenMonto: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginVertical: 4,
+  },
+  drawerResumenSub: {
+    color: '#78909C',
+    fontSize: 12,
+  },
+
+  drawerBtnPeligro: {
+    backgroundColor: '#EF5350',
+    padding: 15,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+    elevation: 3,
+    shadowColor: '#EF5350',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  drawerBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  drawerBtnSecundario: {
+    backgroundColor: '#37474F',
+    padding: 15,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  drawerBtnSoporte: {
+    backgroundColor: '#00695C',
+    padding: 15,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginBottom: 22,
+  },
+  drawerBtnTextSec: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+
+  drawerSeccionTitulo: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 10,
+    letterSpacing: 1,
+  },
+  drawerBuscador: {
+    backgroundColor: '#0D1B2A',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
   },
   totalMonto: {
     color: '#0D1B2A',
