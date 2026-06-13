@@ -78,6 +78,7 @@ export default function App() {
   const [preciosHistorial, setPreciosHistorial] = useState([]);
   const [modalBarcodeManual, setModalBarcodeManual] = useState(false);
   const [inputBarcode, setInputBarcode] = useState('');
+  const [tabActivo, setTabActivo] = useState('escanear');
 
   useEffect(() => {
     (async () => {
@@ -760,7 +761,26 @@ export default function App() {
           </View>
         </View>
 
-        {fotos.length === 0 ? (
+        <View style={styles.tabBar}>
+          <TouchableOpacity 
+            style={[styles.tabItem, tabActivo === 'escanear' && styles.tabItemActivo]} 
+            onPress={() => setTabActivo('escanear')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.tabIcono]}>📄</Text>
+            <Text style={[styles.tabText, tabActivo === 'escanear' && styles.tabTextActivo]}>Escanear</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tabItem, tabActivo === 'precios' && styles.tabItemActivo]} 
+            onPress={() => setTabActivo('precios')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.tabIcono]}>📊</Text>
+            <Text style={[styles.tabText, tabActivo === 'precios' && styles.tabTextActivo]}>Precios</Text>
+          </TouchableOpacity>
+        </View>
+
+        {tabActivo === 'escanear' && (
           <View style={styles.menu}>
             <TouchableOpacity 
               style={styles.btnCamara} 
@@ -810,33 +830,6 @@ export default function App() {
               <Text style={styles.btnQRSub}>Escanear factura con QR</Text>
             </TouchableOpacity>
 
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>O</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <TouchableOpacity 
-              style={styles.btnBarcode} 
-              onPress={() => { setBarcodeActivo(true); }}
-              disabled={cargando}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.btnBarcodeIcono}>≡</Text>
-              <Text style={styles.btnBarcodeText}>CÓDIGO DE BARRAS</Text>
-              <Text style={styles.btnBarcodeSub}>Escanear código para ver historial de precios</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.btnBarcodeManual} 
-              onPress={() => { setModalBarcodeManual(true); setInputBarcode(''); }}
-              disabled={cargando}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.btnBarcodeManualIcono}>⌨</Text>
-              <Text style={styles.btnBarcodeManualText}>INGRESAR CÓDIGO</Text>
-              <Text style={styles.btnBarcodeManualSub}>Tipear código de barras para buscar precios</Text>
-            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.previaContainer}>
@@ -1023,28 +1016,71 @@ export default function App() {
             </TouchableOpacity>
           </View>
         )}
+      )}
 
-        {preciosHistorial.length > 0 && (
-          <View style={styles.preciosSection}>
-            <Text style={styles.sectionTitulo}>Historial de Precios</Text>
-            {preciosHistorial.map((p, i) => (
-              <View key={i} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardNumero}>
-                    <Text style={styles.cardNumeroText}>{i + 1}</Text>
-                  </View>
-                  <Text style={styles.cardDescripcion} numberOfLines={2}>{p.descripcion || 'Producto'}</Text>
-                </View>
-                <View style={styles.cardDetalles}>
-                  <Text style={styles.cardTag}>{p.vendedor}</Text>
-                  <Text style={styles.cardTag}>{p.fecha}</Text>
-                  <Text style={styles.cardPrecio}>{Number(p.precio).toLocaleString('es-PY')} Gs</Text>
-                </View>
-                <Text style={styles.cardSubtotal}>Factura N° {p.factura}</Text>
-              </View>
-            ))}
+      {tabActivo === 'precios' && (
+        <View style={styles.menu}>
+          <TouchableOpacity 
+            style={styles.btnBarcode} 
+            onPress={() => { setBarcodeActivo(true); }}
+            disabled={cargando}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.btnBarcodeIcono}>≡</Text>
+            <Text style={styles.btnBarcodeText}>CÓDIGO DE BARRAS</Text>
+            <Text style={styles.btnBarcodeSub}>Escaneá el código con la cámara</Text>
+          </TouchableOpacity>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>O</Text>
+            <View style={styles.dividerLine} />
           </View>
-        )}
+
+          <TouchableOpacity 
+            style={styles.btnBarcodeManual} 
+            onPress={() => { setModalBarcodeManual(true); setInputBarcode(''); }}
+            disabled={cargando}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.btnBarcodeManualIcono}>⌨</Text>
+            <Text style={styles.btnBarcodeManualText}>INGRESAR CÓDIGO</Text>
+            <Text style={styles.btnBarcodeManualSub}>Tipeá código o código de barras</Text>
+          </TouchableOpacity>
+
+          {preciosHistorial.length > 0 && (
+            <View style={styles.preciosSection}>
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>RESULTADOS</Text>
+                <View style={styles.dividerLine} />
+              </View>
+              {preciosHistorial.map((p, i) => (
+                <View key={i} style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardNumero}>
+                      <Text style={styles.cardNumeroText}>{i + 1}</Text>
+                    </View>
+                    <Text style={styles.cardDescripcion} numberOfLines={2}>{p.descripcion || 'Producto'}</Text>
+                  </View>
+                  <View style={styles.cardDetalles}>
+                    <Text style={styles.cardTag}>{p.vendedor}</Text>
+                    <Text style={styles.cardTag}>{p.fecha}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginLeft: 40, marginTop: 6 }}>
+                    <Text style={{ color: '#00BCD4', fontWeight: 'bold', fontSize: 18 }}>
+                      {Number(p.precio).toLocaleString('es-PY')} Gs
+                    </Text>
+                    <Text style={{ color: '#78909C', fontSize: 12 }}>
+                      Factura N° {p.factura}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
       </ScrollView>
 
       {qrActivo && (
@@ -1441,6 +1477,46 @@ const styles = StyleSheet.create({
     color: '#546E7A',
     fontSize: 12,
     marginTop: 30,
+  },
+
+  tabBar: {
+    flexDirection: 'row',
+    width: '100%',
+    backgroundColor: '#1B2838',
+    borderRadius: 16,
+    padding: 4,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#2A3F4F',
+  },
+  tabItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  tabItemActivo: {
+    backgroundColor: '#00BCD4',
+    elevation: 4,
+    shadowColor: '#00BCD4',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  tabIcono: {
+    fontSize: 16,
+  },
+  tabText: {
+    color: '#78909C',
+    fontWeight: 'bold',
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  tabTextActivo: {
+    color: '#0D1B2A',
   },
 
   topBar: {
