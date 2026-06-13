@@ -28,5 +28,8 @@
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.16.0"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "eas-cli": "^20.1.0"
+  }
 }

@@ -13,7 +13,8 @@ import {
   Modal,
   Animated,
   Linking,
-  Vibration
+  Vibration,
+  AppState
 } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
@@ -24,7 +25,6 @@ import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import { WebView } from 'react-native-webview';
 import { actualizarPrecios } from './PriceTracker';
-import Network from 'expo-network';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -90,7 +90,7 @@ export default function App() {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
       await ImagePicker.requestCameraPermissionsAsync();
       cargarHistorial();
-      if (sucursalGuardada) sincronizarHistorial();
+      if (sucursalGuardada) sincronizarHistorial(sucursalGuardada);
     })();
   }, []);
 
@@ -103,6 +103,15 @@ export default function App() {
       }).start();
     }
   }, [mostrarLogin]);
+
+  useEffect(() => {
+    if (!sucursalActual) return;
+    const intervalo = setInterval(() => sincronizarHistorial(), 30000);
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active' && sucursalActual) sincronizarHistorial();
+    });
+    return () => { clearInterval(intervalo); sub.remove(); };
+  }, [sucursalActual]);
 
   const loginSucursal = async () => {
     const sucursal = inputSucursal.trim();
@@ -333,6 +342,7 @@ export default function App() {
           type: 'image/jpeg' 
         });
       }
+      formData.append('sucursal', sucursalActual);
 
       const res = await fetch(`${urlServidor}/procesar`, {
         method: 'POST',
@@ -499,7 +509,7 @@ export default function App() {
       const res = await fetch(`${urlServidor}/procesar-qr`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qr: contenidoLimpio }),
+        body: JSON.stringify({ qr: contenidoLimpio, sucursal: sucursalActual }),
       });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
@@ -542,9 +552,10 @@ export default function App() {
     await buscarPrecios(codigo);
   };
 
-  const sincronizarHistorial = async () => {
+  const sincronizarHistorial = async (sucursalOverride) => {
+    const sucursal = sucursalOverride || sucursalActual;
     try {
-      const res = await fetch(`${urlServidor}/historial/${encodeURIComponent(sucursalActual)}`);
+      const res = await fetch(`${urlServidor}/historial/${encodeURIComponent(sucursal)}`);
       const json = await res.json();
       if (json.facturas && json.facturas.length > 0) {
         const localStr = await AsyncStorage.getItem('@facturas_r21');
@@ -781,6 +792,8 @@ export default function App() {
         </View>
 
         {tabActivo === 'escanear' && (
+          <>
+          {fotos.length === 0 ? (
           <View style={styles.menu}>
             <TouchableOpacity 
               style={styles.btnCamara} 
@@ -1016,6 +1029,7 @@ export default function App() {
             </TouchableOpacity>
           </View>
         )}
+      </>
       )}
 
       {tabActivo === 'precios' && (
@@ -1639,51 +1653,12 @@ const styles = StyleSheet.create({
   },
 
   previaContainer: { width: '100%', alignItems: 'center' },
-  previaWrapper: {
-    width: '100%',
-    borderRadius: 20,
-    overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: '#2A3F4F',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-  },
-  previa: {
-    width: '100%',
-    height: 340,
-  },
-  previaBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
-  },
-  previaBadgeText: {
-    color: '#00BCD4',
-    fontSize: 11,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
 
   row: {
     flexDirection: 'row',
     gap: 12,
     width: '100%',
     marginTop: 18,
-  },
-  btnCancelar: {
-    flex: 1,
-    backgroundColor: '#37474F',
-    paddingVertical: 18,
-    borderRadius: 16,
-    alignItems: 'center',
   },
   btnProcesar: {
     flex: 1,
@@ -1781,223 +1756,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     opacity: 0.8,
   },
-  totalMonto: {
-    color: '#0D1B2A',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-
-  sectionTitulo: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 25,
-    marginBottom: 12,
-  },
-
-  card: {
-    backgroundColor: '#1B2838',
-    padding: 18,
-    borderRadius: 18,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#2A3F4F',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  cardNumero: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#00BCD4',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  cardNumeroText: {
-    color: '#0D1B2A',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  cardDescripcion: {
-    flex: 1,
-    fontWeight: 'bold',
-    fontSize: 15,
-    color: '#FFFFFF',
-  },
-  cardDetalles: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 8,
-    marginLeft: 40,
-  },
-  cardTag: {
-    backgroundColor: '#2A3F4F',
-    color: '#B0BEC5',
-    fontSize: 11,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  cardPrecio: {
-    color: '#78909C',
-    fontSize: 13,
-    marginLeft: 40,
-  },
-  cardSubtotal: {
-    color: '#00BCD4',
-    fontWeight: 'bold',
-    fontSize: 15,
-    marginLeft: 40,
-    marginTop: 4,
-  },
-
-  noItemsCard: {
-    backgroundColor: '#1B2838',
-    padding: 28,
-    borderRadius: 18,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#2A3F4F',
-  },
-  noItemsText: {
-    color: '#78909C',
-    fontSize: 14,
-  },
-
-  rowBotones: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-    marginTop: 20,
-    marginBottom: 30,
-  },
-  btnPDF: {
-    flex: 1,
-    backgroundColor: '#E53935',
-    paddingVertical: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#E53935',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  btnEnviar: {
-    flex: 1,
-    backgroundColor: '#00BCD4',
-    paddingVertical: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#00BCD4',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  btnCarpeta: {
-    backgroundColor: '#FF8F00',
-    paddingVertical: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 10,
-    elevation: 6,
-    shadowColor: '#FF8F00',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  btnAccionText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-    letterSpacing: 1,
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: '#1B2838',
-    borderRadius: 24,
-    padding: 28,
-    width: '85%',
-    borderWidth: 1,
-    borderColor: '#2A3F4F',
-    elevation: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-  },
-  modalTitulo: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#EF5350',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  modalSubtitulo: {
-    fontSize: 14,
-    color: '#78909C',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: '#2A3F4F',
-    borderRadius: 14,
-    padding: 14,
-    fontSize: 16,
-    marginBottom: 20,
-    backgroundColor: '#0D1B2A',
-    color: '#FFFFFF',
-  },
-  modalBotones: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  btnModalCancelar: {
-    flex: 1,
-    backgroundColor: '#37474F',
-    padding: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  btnModalConfirmar: {
-    flex: 1,
-    backgroundColor: '#EF5350',
-    padding: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  btnModalTexto: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  btnModalTextoConfirmar: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-
   capaOscura: {
     position: 'absolute',
     top: 0,

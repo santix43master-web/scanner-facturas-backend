@@ -5,11 +5,29 @@ import re
 import shutil
 from datetime import datetime
 from typing import List
-from fastapi import FastAPI, File, UploadFile
+import time
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 import interpretacion
+
+def _guardar_resultado(resultado):
+    try:
+        sucursal = resultado.get("sucursal") or resultado.get("nombreVendedor", "General")
+        nombre_suc = sucursal.replace(" ", "_").replace("/", "_").replace("\\", "_")
+        ruta_suc = os.path.join(interpretacion.OUTPUT_FOLDER, nombre_suc)
+        os.makedirs(ruta_suc, exist_ok=True)
+        vendedor = resultado.get("nombreVendedor", "Desconocido")
+        v_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
+        nro = resultado.get("numeroFactura", "SIN_NUM")
+        n_limpio = re.sub(r'[\\/*?:"<>|]', '', nro).strip().replace(" ", "_")[:20]
+        ts = str(int(time.time()))
+        nombre = f"{v_limpio}_{n_limpio}_{ts}.json"
+        with open(os.path.join(ruta_suc, nombre), 'w', encoding='utf-8') as f:
+            json.dump(resultado, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"[guardar] No se pudo guardar: {e}")
 
 app = FastAPI()
 
@@ -41,15 +59,13 @@ def status():
     }
 
 @app.post("/procesar")
-async def procesar(factura: List[UploadFile] = File(...)):
+async def procesar(factura: List[UploadFile] = File(...), sucursal: str = Form(None)):
     try:
         imagenes_b64 = []
         for i, f in enumerate(factura):
             img_bytes = await f.read()
             b64 = base64.b64encode(img_bytes).decode("utf-8")
             imagenes_b64.append(b64)
-            print(f"[DEBUG] Imagen {i+1}: {len(img_bytes)} bytes, base64={len(b64)} chars")
-        print(f"[DEBUG] Total imágenes recibidas: {len(imagenes_b64)}")
         resultado = interpretacion.extraer_datos_factura(imagenes_b64)
 
         if "items" in resultado and isinstance(resultado["items"], list):
@@ -59,6 +75,8 @@ async def procesar(factura: List[UploadFile] = File(...)):
                 if "precioUnitario" in item:
                     item["precio_unitario"] = item.pop("precioUnitario")
 
+        resultado["sucursal"] = sucursal or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e)}
@@ -78,6 +96,8 @@ def procesar_qr(data: dict):
                 if "precioUnitario" in item:
                     item["precio_unitario"] = item.pop("precioUnitario")
 
+        resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e), "items": []}
@@ -97,6 +117,8 @@ def procesar_html_completo(data: dict):
             html=html, url=url, qr_params=qr_params,
             de_data=data.get("de_data"),
         )
+        resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e), "items": []}
@@ -214,8 +236,9 @@ async def buscar_producto(codigo: str):
                     items = datos.get("items", [])
                     for it in items:
                         cb = str(it.get("codigo_barras", "") or it.get("codigoBarras", "") or "")
+                        c_int = str(it.get("codigo", "") or "")
                         desc = it.get("descripcion", "")
-                        if cb == codigo or cb == codigo.zfill(13) or cb == codigo.zfill(8):
+                        if cb == codigo or cb == codigo.zfill(13) or cb == codigo.zfill(8) or c_int == codigo:
                             resultados.append({
                                 "descripcion": desc,
                                 "precio": it.get("precio_unitario", 0) or it.get("precioUnitario", 0),
