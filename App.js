@@ -421,15 +421,6 @@ export default function App() {
     }
 
     try {
-      const networkState = await Network.getNetworkStateAsync();
-      if (!networkState.isConnected || networkState.type !== Network.NetworkStateType.WIFI) {
-        Alert.alert(
-          "Error de conexión",
-          "No estás conectado a WiFi.\n\nPara enviar a la carpeta compartida necesitás estar en la red WiFi local.\n\nConectate a la red WiFi y volvé a intentar.\n\nSi el problema persiste, contactá al soporte."
-        );
-        return;
-      }
-
       setCargando(true);
       const datosConSucursal = {
         ...datosFactura,
@@ -437,7 +428,7 @@ export default function App() {
         fechaEnvio: new Date().toISOString()
       };
 
-      const res = await fetch(`http://192.168.100.100:8080/guardar-compartido`, {
+      const res = await fetch(`https://snooze-chafe-bullwhip.ngrok-free.dev/guardar-compartido`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
