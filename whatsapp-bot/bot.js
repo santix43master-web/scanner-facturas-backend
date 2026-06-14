@@ -112,7 +112,7 @@ Contexto: ${JSON.stringify(contexto)}
 
 Respondé SOLO con un JSON sin markdown:
 {
-  "intent": "SET_USERNAME | SHOW_DETAIL | GET_JSON | GET_PDF | SEND_TO_SYSTEM | SEND_TO_LOCAL | STATS | PRICE_SEARCH | DEACTIVATE | CHAT | ACTIVATE | UNKNOWN",
+  "intent": "SET_USERNAME | SHOW_DETAIL | GET_JSON | GET_PDF | SEND_TO_SYSTEM | SEND_TO_LOCAL | STATS | DEACTIVATE | CHAT | ACTIVATE | UNKNOWN",
   "respuesta": "tu respuesta en español, breve, natural, sin emojis",
   "username": "solo si intent SET_USERNAME"
 }
@@ -137,8 +137,6 @@ Reglas:
 - "chau bot", "gracias", "adios", "terminamos" → DEACTIVATE
 - Consultas de estadisticas: "cuanto gaste", "estadisticas", "historial", "facturas de", "mostrame facturas", "total del mes", "promedio", "cuanto tengo guardado" → STATS
 - Si intent STATS: responded breve tipo "Dame un segundo reviso tus facturas" sin numeros
-- Busqueda de precio de producto: "cuanto sale", "precio de", "buscame", "cuanto cuesta", "encontrame", "precio", "costo", "cual es el costo de", "a cuanto", "cuanto vale" seguido de un producto → PRICE_SEARCH
-- Si intent PRICE_SEARCH: responded breve tipo "Dame un segundo busco..."
 - Si el usuario esta inactivo (no ha activado el bot):
   * NO respondas a nada. Silencio total hasta que pida activar
   * Si quiere activar ("hola bot", "che bot", "quiero escanear", "activate", "empecemos") → ACTIVATE y pedí el usuario
@@ -690,59 +688,6 @@ async function iniciarBot() {
         return;
       }
 
-      if (gpt?.intent === 'PRICE_SEARCH') {
-        await sock.sendMessage(jid, { text: 'Dame un segundo, busco...' });
-        const termino = texto.replace(/^(cuanto sale|precio de|buscame|cuanto cuesta|encontrame|precio|decime el precio de|cual es el precio de|que precio tiene|que precio tiene el|sabes cuanto sale|costo de|cual es el costo de|a cuanto|cuanto vale)\s*/i, '').replace(/^(el |la |los |las |un |una |unos |unas )/i, '').trim();
-        if (!termino) {
-          await sock.sendMessage(jid, { text: 'Decime el producto que queres buscar.' });
-          return;
-        }
-        try {
-          const busq = termino.toLowerCase();
-          const suc = usuarios[jid]?.sucursal || 'WhatsApp';
-          const listRes = await fetch(`${BACKEND_URL}/listar/${encodeURIComponent(suc.replace(' ', '_'))}`);
-          const { archivos = [] } = await listRes.json();
-          const resultados = [];
-          for (const nombre of archivos.slice(-30)) {
-            try {
-              const r = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(suc.replace(' ', '_'))}/${encodeURIComponent(nombre)}`);
-              const datos = await r.json();
-              if (datos.items) for (const it of datos.items) {
-                const desc = (it.descripcion || '').toLowerCase();
-                if (desc.includes(busq)) {
-                  resultados.push({
-                    descripcion: it.descripcion,
-                    precio: it.precio_unitario || it.precioUnitario || 0,
-                    vendedor: datos.nombreVendedor || '?',
-                    fecha: datos.fechaEmision || '?',
-                  });
-                }
-              }
-            } catch {}
-          }
-          if (resultados.length === 0) {
-            await sock.sendMessage(jid, { text: `No encontre nada para "${termino}" en tus facturas.` });
-          } else {
-            const unicos = new Map();
-            for (const r of resultados) {
-              const key = r.descripcion.toLowerCase().trim();
-              if (!unicos.has(key)) unicos.set(key, r);
-            }
-            let msj = `Resultados para "${termino}":\n\n`;
-            [...unicos.values()].slice(0, 5).forEach((r, i) => {
-              msj += `${i+1}. ${r.descripcion}\n`;
-              msj += `   Precio: ${Number(r.precio).toLocaleString()} Gs\n`;
-              msj += `   ${r.vendedor} - ${r.fecha}\n\n`;
-            });
-            if (unicos.size > 5) msj += `... y ${unicos.size - 5} mas`;
-            msj += `Fuente: R21 Scanner`;
-            await sock.sendMessage(jid, { text: msj });
-          }
-        } catch (e) {
-          await sock.sendMessage(jid, { text: `No pude buscar: ${e.message}` });
-        }
-        return;
-      }
       // Fallback: si GPT respondió algo (CHAT, etc.) y no entró en ningún otro handler
       if (gpt?.respuesta) {
         await sock.sendMessage(jid, { text: gpt.respuesta });
