@@ -11,7 +11,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install
 
-COPY bot.js .
+COPY bot.js dashboard.html ./
 
 EXPOSE 3000
 
