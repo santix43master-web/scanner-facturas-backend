@@ -257,6 +257,33 @@ h1{color:#1a237e;margin-bottom:8px}
     }
   }
 
+  if (url === '/api/eliminar/' && req.method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
+      try {
+        const { sucursal, archivo } = JSON.parse(body);
+        const skey = sucursal.replace(' ', '_');
+        const nombre = archivo;
+        // llama al backend que borra el archivo al leerlo
+        let resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(skey)}/${encodeURIComponent(nombre)}`);
+        let data = await resp.json();
+        if (data.error) {
+          resp = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
+          data = await resp.json();
+        }
+        // saca del cache local
+        if (facturasDB[skey]) { delete facturasDB[skey][nombre]; guardarFacturasDB(); }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ ok: true }));
+      } catch {
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ error: 'Error al eliminar' }));
+      }
+    });
+    return;
+  }
+
   if (url === '/api/status') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     return res.end(JSON.stringify({ status: estadoConexion, qr: !!ultimoQR, bot: 'Facturas R21 WhatsApp Bot' }));

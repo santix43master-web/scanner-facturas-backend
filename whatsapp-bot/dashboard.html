@@ -366,7 +366,7 @@ function renderizarFacturas() {
   const pagina = filtradas.slice(inicio, inicio + porPagina);
 
   document.getElementById('lista-facturas').innerHTML = pagina.length
-    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th></th></tr>${pagina.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td><td><a href="#" onclick="verDetalle(event,'${f.id||''}')" class="btn btn-ghost btn-small">Ver</a></td></tr>`).join('')}</table>`
+    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th></th></tr>${pagina.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td><td style="display:flex;gap:4px"><a href="#" onclick="verDetalle(event,'${f.id||''}')" class="btn btn-ghost btn-small">Ver</a><a href="#" onclick="eliminarFactura('${f.id||''}','','${sucursal}'); return false" class="btn btn-ghost btn-small" style="color:#EF5350">🗑</a></td></tr>`).join('')}</table>`
     : '<div class="vacio">No se encontraron facturas</div>';
 
   // pagination controls
@@ -389,6 +389,26 @@ function renderizarFacturas() {
 function irPagina(p) { paginaActual = p; renderizarFacturas(); }
 
 function filtrarFacturas() { paginaActual = 1; renderizarFacturas(); }
+
+async function eliminarFactura(id, nombre, suc) {
+  if (!confirm(`¿Eliminar factura ${id || nombre}? No se puede deshacer.`)) return;
+  const res = await fetch('/api/eliminar/', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sucursal: suc || sucursal, archivo: nombre || (id + '.json') }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    if (cache) {
+      const n = nombre || (id + '.json');
+      if (cache.facturas[n]) delete cache.facturas[n];
+      cache.resumen = cache.resumen.filter(r => r.id !== id);
+      cache.archivos = cache.archivos.filter(a => a !== n);
+    }
+    cargarFacturas();
+  } else {
+    alert('Error al eliminar');
+  }
+}
 
 async function verDetalle(e, id) {
   e.preventDefault();
@@ -414,6 +434,7 @@ async function verDetalle(e, id) {
       <a href="/api/descargar/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" class="btn btn-primary">⬇ JSON</a>
       <a href="/pdf/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" class="btn btn-primary">⬇ PDF</a>
       <a href="#" onclick="vistaPreviaPDF('${sucursal}','${encodeURIComponent(nombre)}'); return false;" class="btn btn-ghost">👁 Vista Previa</a>
+      <a href="#" onclick="if(confirm('Eliminar? No se puede deshacer.')){eliminarFactura('${id}','${nombre}','${sucursal}')}; return false;" class="btn btn-ghost" style="color:#EF5350">🗑 Eliminar</a>
     </div>`;
 }
 
@@ -549,6 +570,7 @@ async function cargarArchivos() {
       <a href="/pdf/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary btn-small">⬇ PDF</a>
       <a href="/ver-json/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost btn-small">👁 Ver</a>
       <a href="/pdf-view/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost btn-small">📄 Vista Previa</a>
+      <a href="#" onclick="eliminarFactura('','${a.replace(/'/g,"\\'")}','${sucursal}'); return false;" class="btn btn-ghost btn-small" style="color:#EF5350">🗑</a>
     </td></tr>`).join('')}</table>`;
 }
 </script>
