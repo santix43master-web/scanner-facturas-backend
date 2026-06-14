@@ -20,6 +20,17 @@ let estadoConexion = 'desconectado';
 const server = http.createServer(async (req, res) => {
   const url = req.url;
 
+  if (url === '/') {
+    try {
+      const html = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      return res.end(html);
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ status: estadoConexion, qr: !!ultimoQR, bot: 'Facturas R21 WhatsApp Bot' }));
+    }
+  }
+
   if (url === '/qr') {
     const qrLink = ultimoQR ? `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(ultimoQR)}` : '';
     res.writeHead(200, { 'Content-Type': 'text/html' });
