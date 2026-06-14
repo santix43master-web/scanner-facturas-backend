@@ -283,7 +283,7 @@ Contexto: ${JSON.stringify(contexto)}
 
 Respondé SOLO con un JSON sin markdown:
 {
-  "intent": "SET_USERNAME | SHOW_DETAIL | GET_JSON | GET_PDF | SEND_TO_SYSTEM | SEND_TO_LOCAL | STATS | DEACTIVATE | CHAT | ACTIVATE | UNKNOWN",
+  "intent": "SET_USERNAME | SHOW_DETAIL | GET_JSON | GET_PDF | SEND_TO_SYSTEM | SEND_TO_LOCAL | STATS | DEACTIVATE | CHAT | ACTIVATE | GET_LINK | UNKNOWN",
   "respuesta": "tu respuesta en español, breve, natural, sin emojis",
   "username": "solo si intent SET_USERNAME"
 }
@@ -306,6 +306,7 @@ Reglas:
   "4", "enviar", "sistema", "guardar", "mandar al sistema" → SEND_TO_SYSTEM
   "5", "carpeta", "compartida", "local", "enviar a carpeta" → SEND_TO_LOCAL
 - "chau bot", "gracias", "adios", "terminamos" → DEACTIVATE
+- "link", "pagina", "dashboard", "web", "url", "pagina web", "donde veo", "como entro", "quiero ver la pagina", "abrir dashboard" → GET_LINK, responded: "Claro, el dashboard está en https://whatsapp-facturas-bot.onrender.com . Guardate el link."
 - Consultas de estadisticas: "cuanto gaste", "estadisticas", "historial", "facturas de", "mostrame facturas", "total del mes", "promedio", "cuanto tengo guardado" → STATS
 - Si intent STATS: responded breve tipo "Dame un segundo reviso tus facturas" sin numeros
 - Si el usuario esta inactivo (no ha activado el bot):
@@ -858,6 +859,10 @@ async function iniciarBot() {
     // Stats / historial queries + fallback for active users
     if (activo && texto) {
       const gpt = await interpretarGPT(texto, { estado: 'activo', puedeConsultarStats: true }, jid);
+      if (gpt?.intent === 'GET_LINK') {
+        await sock.sendMessage(jid, { text: gpt.respuesta || 'El dashboard está en https://whatsapp-facturas-bot.onrender.com' });
+        return;
+      }
       if (gpt?.intent === 'STATS') {
         await sock.sendMessage(jid, { text: 'Dame un segundo, voy a buscar...' });
         try {
