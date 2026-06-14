@@ -135,7 +135,7 @@ function showTab(name) {
   document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
   if (name === 'dashboard') cargarDashboard();
   if (name === 'facturas') cargarFacturas();
-  if (name === 'precios') { if (document.getElementById('search-producto').value) buscarProducto(); }
+  if (name === 'precios') { cargarPrecios(); }
   if (name === 'archivos') cargarArchivos();
 }
 
@@ -259,35 +259,42 @@ async function verDetalle(e, nombre) {
 }
 
 // Precios
+let todosProductos = [];
 let timerPrecios = null;
-function buscarProducto() {
-  clearTimeout(timerPrecios);
-  const q = document.getElementById('search-producto').value.trim();
-  if (!q) { document.getElementById('resultados-precios').innerHTML = ''; return; }
-  timerPrecios = setTimeout(async () => {
-    document.getElementById('resultados-precios').innerHTML = '<div class="loading">Buscando...</div>';
+
+async function cargarPrecios() {
+  document.getElementById('resultados-precios').innerHTML = '<div class="loading">Cargando productos...</div>';
   const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
-    if (!data || !data.archivos) { document.getElementById('resultados-precios').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
-    const busq = q.toLowerCase();
-    const resultados = [];
-    for (const a of data.archivos.slice(-50)) {
-      const f = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(a));
-      if (!f || !f.items) continue;
-      for (const it of f.items) {
-        if ((it.descripcion||'').toLowerCase().includes(busq)) {
-          resultados.push({
-            descripcion: it.descripcion, precio: it.precio_unitario || it.precioUnitario || 0,
-            vendedor: f.nombreVendedor||'?', fecha: f.fechaEmision||'?'
-          });
-        }
-      }
+  if (!data || !data.archivos) { document.getElementById('resultados-precios').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
+  todosProductos = [];
+  for (const a of data.archivos.slice(-50)) {
+    const f = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(a));
+    if (!f || !f.items) continue;
+    for (const it of f.items) {
+      todosProductos.push({
+        descripcion: it.descripcion, precio: it.precio_unitario || it.precioUnitario || 0,
+        vendedor: f.nombreVendedor||'?', fecha: f.fechaEmision||'?'
+      });
     }
-    const unicos = new Map();
-    for (const r of resultados) { const k = r.descripcion.toLowerCase().trim(); if (!unicos.has(k)) unicos.set(k, r); }
-    document.getElementById('resultados-precios').innerHTML = unicos.size
-      ? `<table><tr><th>Producto</th><th>Precio</th><th>Vendedor</th><th>Fecha</th></tr>${[...unicos.values()].map(r => `<tr><td>${r.descripcion}</td><td class="precio">${n(r.precio)}</td><td>${r.vendedor}</td><td class="fecha">${r.fecha}</td></tr>`).join('')}</table>`
-      : '<div class="vacio">No se encontraron productos</div>';
-  }, 400);
+  }
+  const unicos = new Map();
+  for (const r of todosProductos) { const k = r.descripcion.toLowerCase().trim(); if (!unicos.has(k)) unicos.set(k, r); }
+  mostrarPrecios(unicos);
+}
+
+function mostrarPrecios(unicos) {
+  const q = document.getElementById('search-producto').value.toLowerCase();
+  const filtrados = q ? [...unicos.values()].filter(r => r.descripcion.toLowerCase().includes(q)) : [...unicos.values()];
+  document.getElementById('resultados-precios').innerHTML = filtrados.length
+    ? `<table><tr><th>Producto</th><th>Precio</th><th>Vendedor</th><th>Fecha</th></tr>${filtrados.map(r => `<tr><td>${r.descripcion}</td><td class="precio">${n(r.precio)}</td><td>${r.vendedor}</td><td class="fecha">${r.fecha}</td></tr>`).join('')}</table>`
+    : '<div class="vacio">No se encontraron productos</div>';
+}
+
+function buscarProducto() {
+  if (todosProductos.length === 0) { cargarPrecios(); return; }
+  const unicos = new Map();
+  for (const r of todosProductos) { const k = r.descripcion.toLowerCase().trim(); if (!unicos.has(k)) unicos.set(k, r); }
+  mostrarPrecios(unicos);
 }
 
 // Archivos
