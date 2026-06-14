@@ -132,6 +132,15 @@ function ingresar() {
 
 async function cargarTodo() {
   cache = { archivos: [], facturas: {} };
+  // Primero intenta del bot (no destructivo)
+  const botData = await fetchJSON('/api/facturas/' + sucursal);
+  if (botData && Object.keys(botData).length > 0) {
+    cache.archivos = Object.keys(botData);
+    cache.facturas = botData;
+    cargarDashboard();
+    return;
+  }
+  // Fallback al backend (consume archivos una sola vez)
   const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
   if (!data || !data.archivos) { cache = null; return; }
   cache.archivos = data.archivos;

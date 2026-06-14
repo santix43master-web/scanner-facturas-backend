@@ -17,6 +17,8 @@ const AUTH_DIR = './auth_info';
 let ultimoQR = null;
 let estadoConexion = 'desconectado';
 
+const facturasDB = {};
+
 const server = http.createServer(async (req, res) => {
   const url = req.url;
 
@@ -61,6 +63,12 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
       res.writeHead(500);
       return res.end('{"error":"Error al obtener archivo"}');
     }
+  }
+
+  if (url.startsWith('/api/facturas/')) {
+    const s = decodeURIComponent(url.slice(14));
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify(facturasDB[s] || {}));
   }
 
   if (url.startsWith('/pdf/')) {
@@ -621,6 +629,17 @@ async function iniciarBot() {
       try {
         const buffer = await descargarImagen(msg);
         const datos = await procesarFactura(buffer, usuarios[jid]?.sucursal);
+
+        if (datos && !datos.error) {
+          const dbSuc = (usuarios[jid]?.sucursal || 'General').replace(' ', '_');
+          if (!facturasDB[dbSuc]) facturasDB[dbSuc] = {};
+          const v = (datos.nombreVendedor || 'Desconocido').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
+          const n = (datos.numeroFactura || 'SIN_NUM').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20);
+          const ts = Date.now();
+          const fname = `${v}_${n}_${ts}.json`;
+          facturasDB[dbSuc][fname] = datos;
+          cacheSuc = dbSuc;
+        }
 
         if (!datos || datos.error) {
           await sock.sendMessage(jid, { text: `Algo salio mal: ${datos?.error || 'no se pudieron extraer datos'}` });
