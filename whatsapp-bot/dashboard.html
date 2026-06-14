@@ -116,6 +116,8 @@ let sucursal = '';
 
 const SUCURSALES = ['Minimarket LF', 'Local 1'];
 
+let cache = null; // { archivos: [], facturas: {} }
+
 function ingresar() {
   const val = document.getElementById('sucursal-input').value.trim();
   const err = document.getElementById('login-error');
@@ -125,6 +127,18 @@ function ingresar() {
   sucursal = encontrada;
   document.getElementById('login-overlay').style.display = 'none';
   document.getElementById('nav-sucursal').textContent = encontrada;
+  cargarTodo();
+}
+
+async function cargarTodo() {
+  cache = { archivos: [], facturas: {} };
+  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
+  if (!data || !data.archivos) { cache = null; return; }
+  cache.archivos = data.archivos;
+  for (const a of data.archivos) {
+    const f = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(a));
+    if (f) { f._nombre = a; cache.facturas[a] = f; }
+  }
   cargarDashboard();
 }
 
@@ -133,6 +147,7 @@ function showTab(name) {
   document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
+  if (!cache && name !== 'dashboard') { cargarTodo(); return; }
   if (name === 'dashboard') cargarDashboard();
   if (name === 'facturas') cargarFacturas();
   if (name === 'precios') { cargarPrecios(); }
@@ -152,20 +167,17 @@ let chartVendedor = null, chartMes = null;
 
 // Dashboard
 async function cargarDashboard() {
-  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
-  if (!data || !data.archivos) { document.getElementById('resumen-cards').innerHTML = '<div class="vacio">No hay datos</div>'; return; }
-  const archivos = data.archivos || [];
+  if (!cache) { document.getElementById('resumen-cards').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
+  const facturas = Object.values(cache.facturas);
+  const archivos = cache.archivos;
   document.getElementById('resumen-cards').innerHTML = `
     <div class="card"><div class="label">Facturas</div><div class="value">${archivos.length}</div></div>
     <div class="card"><div class="label">Total General</div><div class="value" id="total-general">...</div></div>
     <div class="card"><div class="label">Promedio</div><div class="value" id="promedio">...</div></div>
     <div class="card"><div class="label">Top Vendedor</div><div class="value" id="top-vendedor">...</div><div class="sub" id="top-monto"></div></div>`;
 
-  let total = 0; let facturas = []; let porVendedor = {}; let porMes = {};
-  for (const a of archivos.slice(-50)) {
-    const f = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(a));
-    if (!f) continue;
-    facturas.push(f);
+  let total = 0; let porVendedor = {}; let porMes = {};
+  for (const f of facturas) {
     const monto = Number(f.totalGeneral || 0);
     total += monto;
     const v = f.nombreVendedor || 'Desconocido';
@@ -213,14 +225,8 @@ async function cargarDashboard() {
 
 // Facturas
 async function cargarFacturas() {
-  document.getElementById('lista-facturas').innerHTML = '<div class="loading">Cargando...</div>';
-  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
-  if (!data || !data.archivos) { document.getElementById('lista-facturas').innerHTML = '<div class="vacio">No hay facturas</div>'; return; }
-  todasFacturas = [];
-  for (const a of data.archivos) {
-    const f = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(a));
-    if (f) { f._nombre = a; todasFacturas.push(f); }
-  }
+  if (!cache) { document.getElementById('lista-facturas').innerHTML = '<div class="vacio">No hay facturas</div>'; return; }
+  todasFacturas = Object.values(cache.facturas);
   todasFacturas.sort((a,b) => (b.fechaEmision||'').localeCompare(a.fechaEmision||''));
   mostrarFacturas(todasFacturas);
 }
@@ -243,7 +249,7 @@ function filtrarFacturas() {
 
 async function verDetalle(e, nombre) {
   e.preventDefault();
-  const data = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(nombre));
+  const data = cache?.facturas?.[nombre];
   if (!data) return;
   const items = data.items || [];
   document.getElementById('lista-facturas').innerHTML = `
@@ -272,12 +278,10 @@ let timerPrecios = null;
 
 async function cargarPrecios() {
   document.getElementById('resultados-precios').innerHTML = '<div class="loading">Cargando productos...</div>';
-  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
-  if (!data || !data.archivos) { document.getElementById('resultados-precios').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
+  if (!cache) { document.getElementById('resultados-precios').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
   todosProductos = [];
-  for (const a of data.archivos.slice(-50)) {
-    const f = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(a));
-    if (!f || !f.items) continue;
+  for (const f of Object.values(cache.facturas)) {
+    if (!f.items) continue;
     for (const it of f.items) {
       todosProductos.push({
         descripcion: it.descripcion, precio: it.precio_unitario || it.precioUnitario || 0,
@@ -308,10 +312,9 @@ function buscarProducto() {
 // Archivos
 async function cargarArchivos() {
   document.getElementById('lista-archivos').innerHTML = '<div class="loading">Cargando...</div>';
-  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
-  if (!data || !data.archivos) { document.getElementById('lista-archivos').innerHTML = '<div class="vacio">No hay archivos</div>'; return; }
+  if (!cache) { document.getElementById('lista-archivos').innerHTML = '<div class="vacio">No hay archivos</div>'; return; }
   document.getElementById('lista-archivos').innerHTML =
-    `<table><tr><th>Archivo</th><th></th></tr>${data.archivos.map(a => `
+    `<table><tr><th>Archivo</th><th></th></tr>${cache.archivos.map(a => `
       <tr><td>${a}</td>
       <td style="text-align:right">
       <a href="${BACKEND}/descargar/${sucursal}/${encodeURIComponent(a)}" target="_blank" style="color:#1a237e;font-size:12px;margin-right:10px">⬇ JSON</a>
