@@ -191,10 +191,11 @@ async function descargarImagen(msg) {
   return Buffer.concat(chunks);
 }
 
-async function procesarFactura(buffer) {
+async function procesarFactura(buffer, sucursal) {
   const FormData = require('form-data');
   const form = new FormData();
   form.append('factura', buffer, { filename: 'factura.jpg', contentType: 'image/jpeg' });
+  if (sucursal) form.append('sucursal', sucursal);
   const res = await fetch(`${BACKEND_URL}/procesar`, {
     method: 'POST',
     body: form,
@@ -600,7 +601,7 @@ async function iniciarBot() {
 
       try {
         const buffer = await descargarImagen(msg);
-        const datos = await procesarFactura(buffer);
+        const datos = await procesarFactura(buffer, usuarios[jid]?.sucursal);
 
         if (!datos || datos.error) {
           await sock.sendMessage(jid, { text: `Algo salio mal: ${datos?.error || 'no se pudieron extraer datos'}` });
