@@ -253,43 +253,6 @@ async def buscar_producto(codigo: str):
         return {"error": str(e), "resultados": []}
 
 
-@app.get("/precio-producto/{nombre}")
-async def precio_producto(nombre: str):
-    try:
-        busq = nombre.lower().strip()
-        resultados = []
-        for carpeta in os.listdir(interpretacion.OUTPUT_FOLDER):
-            ruta = os.path.join(interpretacion.OUTPUT_FOLDER, carpeta)
-            if not os.path.isdir(ruta): continue
-            for archivo in os.listdir(ruta):
-                if not archivo.endswith('.json'): continue
-                try:
-                    with open(os.path.join(ruta, archivo), 'r', encoding='utf-8') as f:
-                        datos = json.load(f)
-                    items = datos.get("items", [])
-                    for it in items:
-                        desc = it.get("descripcion", "") or ""
-                        if busq in desc.lower():
-                            resultados.append({
-                                "descripcion": desc,
-                                "precio": it.get("precio_unitario", 0) or it.get("precioUnitario", 0),
-                                "vendedor": datos.get("nombreVendedor", "?"),
-                                "fecha": datos.get("fechaEmision", "?"),
-                                "factura": datos.get("numeroFactura", "?"),
-                            })
-                except: continue
-        resultados.sort(key=lambda r: r.get("fecha", ""), reverse=True)
-        # agrupar por descripcion exacta, quedarse con el mas reciente
-        unicos = {}
-        for r in resultados:
-            key = r["descripcion"].lower().strip()
-            if key not in unicos:
-                unicos[key] = r
-        return {"resultados": list(unicos.values())}
-    except Exception as e:
-        return {"error": str(e), "resultados": []}
-
-
 @app.get("/historial/{sucursal}")
 async def obtener_historial(sucursal: str):
     try:

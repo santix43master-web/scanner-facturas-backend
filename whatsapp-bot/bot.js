@@ -693,18 +693,42 @@ async function iniciarBot() {
           return;
         }
         try {
-          const res = await fetch(`${BACKEND_URL}/precio-producto/${encodeURIComponent(termino)}`);
-          const data = await res.json();
-          if (!data.resultados || data.resultados.length === 0) {
+          const busq = termino.toLowerCase();
+          const listRes = await fetch(`${BACKEND_URL}/listar/WhatsApp`);
+          const { archivos = [] } = await listRes.json();
+          const resultados = [];
+          for (const nombre of archivos.slice(-30)) {
+            try {
+              const r = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
+              const datos = await r.json();
+              if (datos.items) for (const it of datos.items) {
+                const desc = (it.descripcion || '').toLowerCase();
+                if (desc.includes(busq)) {
+                  resultados.push({
+                    descripcion: it.descripcion,
+                    precio: it.precio_unitario || it.precioUnitario || 0,
+                    vendedor: datos.nombreVendedor || '?',
+                    fecha: datos.fechaEmision || '?',
+                  });
+                }
+              }
+            } catch {}
+          }
+          if (resultados.length === 0) {
             await sock.sendMessage(jid, { text: `No encontre nada para "${termino}".` });
           } else {
+            const unicos = new Map();
+            for (const r of resultados) {
+              const key = r.descripcion.toLowerCase().trim();
+              if (!unicos.has(key)) unicos.set(key, r);
+            }
             let msj = `Resultados para "${termino}":\n\n`;
-            data.resultados.slice(0, 5).forEach((r, i) => {
+            [...unicos.values()].slice(0, 5).forEach((r, i) => {
               msj += `${i+1}. ${r.descripcion}\n`;
               msj += `   Precio: ${Number(r.precio).toLocaleString()} Gs\n`;
               msj += `   ${r.vendedor} - ${r.fecha}\n\n`;
             });
-            if (data.resultados.length > 5) msj += `... y ${data.resultados.length - 5} mas`;
+            if (unicos.size > 5) msj += `... y ${unicos.size - 5} mas`;
             msj += `Fuente: R21 Scanner`;
             await sock.sendMessage(jid, { text: msj });
           }
