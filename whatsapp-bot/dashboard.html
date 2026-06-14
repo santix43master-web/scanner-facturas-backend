@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Facturas R21 - Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
 @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -62,6 +63,13 @@ tr:hover td{background:rgba(0,188,212,.05)}
 .search input{width:100%;padding:10px 14px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:8px;font-size:14px;outline:0;color:#fff;transition:all .3s}
 .search input:focus{border-color:#00BCD4;box-shadow:0 0 12px rgba(0,188,212,.1)}
 .search input::placeholder{color:#546E7A}
+.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;animation:fadeIn .5s ease}
+.filter-bar label{color:#78909C;font-size:12px;font-weight:600}
+.filter-bar input[type=date]{padding:8px 12px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:8px;font-size:13px;outline:0;color:#fff;transition:all .3s;color-scheme:dark}
+.filter-bar input[type=date]:focus{border-color:#00BCD4;box-shadow:0 0 12px rgba(0,188,212,.1)}
+.filter-bar input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:pointer}
+.filter-bar .btn-clear{color:#78909C;background:#1B2838;border:1px solid #2A3F4F;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;transition:all .3s}
+.filter-bar .btn-clear:hover{background:#2A3F4F;color:#B0BEC5}
 .precio{color:#4DD0E1;font-weight:600}
 .fecha{color:#546E7A;font-size:12px}
 .loading{text-align:center;padding:36px;color:#78909C;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -137,6 +145,14 @@ tr:hover td{background:rgba(0,188,212,.05)}
 </div>
 
 <div id="tab-dashboard" class="tab-content active">
+<div class="filter-bar" id="filtro-dashboard">
+<label>Desde:</label>
+<input type="date" id="fecha-dsde" onchange="filtrarDashboard()">
+<label>Hasta:</label>
+<input type="date" id="fecha-hasta" onchange="filtrarDashboard()">
+<button class="btn-clear" onclick="limpiarFiltrosDashboard()">✕ Limpiar</button>
+<button class="btn-clear" onclick="exportarExcel()" style="color:#4DD0E1;border-color:#4DD0E1">⬇ Excel</button>
+</div>
 <div class="cards" id="resumen-cards"></div>
 <div class="grid2">
 <div class="section"><h2>📈 Gastos por Vendedor</h2><div class="chart-container"><canvas id="chart-vendedor"></canvas></div></div>
@@ -146,6 +162,13 @@ tr:hover td{background:rgba(0,188,212,.05)}
 </div>
 
 <div id="tab-facturas" class="tab-content">
+<div class="filter-bar">
+<label>Desde:</label>
+<input type="date" id="f-factura-dsde" onchange="filtrarFacturas()">
+<label>Hasta:</label>
+<input type="date" id="f-factura-hasta" onchange="filtrarFacturas()">
+<button class="btn-clear" onclick="limpiarFiltrosFacturas()">✕ Limpiar</button>
+</div>
 <div class="search"><input type="text" id="search-factura" placeholder="🔍 Buscar por vendedor, número..." oninput="filtrarFacturas()"></div>
 <div id="lista-facturas"></div>
 <div class="pagination" id="pagination-facturas"></div>
@@ -284,11 +307,23 @@ async function fetchJSON(url) {
 
 function n(n) { return Number(n || 0).toLocaleString() + ' Gs'; }
 
+function getFiltroFechas(prefix) {
+  const dsde = document.getElementById(prefix + '-dsde')?.value;
+  const hasta = document.getElementById(prefix + '-hasta')?.value;
+  return function(f) {
+    if (!f.fecha || f.fecha === '?') return !dsde && !hasta;
+    if (dsde && f.fecha < dsde) return false;
+    if (hasta && f.fecha > hasta) return false;
+    return true;
+  };
+}
+
 let chartVendedor = null, chartMes = null;
 
 async function cargarDashboard() {
   if (!cache) { document.getElementById('resumen-cards').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
-  const facturas = cache.resumen;
+  const filtroFecha = getFiltroFechas('fecha');
+  const facturas = cache.resumen.filter(filtroFecha);
   document.getElementById('resumen-cards').innerHTML = `
     <div class="card"><div class="icon">🧾</div><div class="label">Facturas</div><div class="value">${facturas.length}</div></div>
     <div class="card"><div class="icon">💰</div><div class="label">Total General</div><div class="value" id="total-general">...</div></div>
@@ -341,6 +376,14 @@ async function cargarDashboard() {
     : '<div class="vacio">No hay facturas</div>';
 }
 
+function filtrarDashboard() { cargarDashboard(); }
+
+function limpiarFiltrosDashboard() {
+  document.getElementById('fecha-dsde').value = '';
+  document.getElementById('fecha-hasta').value = '';
+  cargarDashboard();
+}
+
 // --- FACTURAS con paginacion ---
 function cargarFacturas() {
   if (!cache) { document.getElementById('lista-facturas').innerHTML = '<div class="vacio">No hay facturas</div>'; return; }
@@ -352,9 +395,10 @@ function cargarFacturas() {
 
 function renderizarFacturas() {
   const q = document.getElementById('search-factura').value.toLowerCase();
-  let filtradas = todasFacturas;
+  const filtroFecha = getFiltroFechas('f-factura');
+  let filtradas = todasFacturas.filter(filtroFecha);
   if (q) {
-    filtradas = todasFacturas.filter(f =>
+    filtradas = filtradas.filter(f =>
       (f.vendedor||'').toLowerCase().includes(q) ||
       (f.numero||'').toLowerCase().includes(q) ||
       (f.fecha||'').includes(q)
@@ -389,6 +433,14 @@ function renderizarFacturas() {
 function irPagina(p) { paginaActual = p; renderizarFacturas(); }
 
 function filtrarFacturas() { paginaActual = 1; renderizarFacturas(); }
+
+function limpiarFiltrosFacturas() {
+  document.getElementById('f-factura-dsde').value = '';
+  document.getElementById('f-factura-hasta').value = '';
+  document.getElementById('search-factura').value = '';
+  paginaActual = 1;
+  renderizarFacturas();
+}
 
 async function eliminarFactura(id, nombre, suc) {
   if (!confirm(`¿Eliminar factura ${id || nombre}? No se puede deshacer.`)) return;
@@ -443,6 +495,37 @@ function vistaPreviaPDF(suc, nom) {
   document.getElementById('pdf-modal').style.display = 'flex';
   document.getElementById('pdf-modal-title').textContent = 'Vista previa - ' + decodeURIComponent(nom);
   document.getElementById('pdf-iframe').src = '/pdf-view/' + suc + '/' + nom + '#view=FitH';
+}
+
+function exportarExcel() {
+  if (!cache || cache.resumen.length === 0) { alert('No hay datos para exportar'); return; }
+  const filtroFecha = getFiltroFechas('fecha');
+  const facturas = cache.resumen.filter(filtroFecha).sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+  const rows = facturas.map(f => ({
+    Vendedor: f.vendedor||'?', 'N° Factura': f.numero||'?', 'Total Gs': Number(f.total||0),
+    Fecha: f.fecha||'?', Items: f.items||0
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Facturas');
+  // sheet 2: detalle items
+  const itemsRows = [];
+  for (const f of cache.resumen) {
+    const fd = cache.facturas[f.id+'.json'];
+    if (!fd || !fd.items) continue;
+    for (const it of fd.items) {
+      itemsRows.push({
+        Factura: f.numero||'?', Fecha: f.fecha||'?', Vendedor: f.vendedor||'?',
+        Producto: it.descripcion||'?', Codigo: it.codigo||it.codigo_barras||'-',
+        Cantidad: it.cantidad||1, 'Precio Gs': Number(it.precio_unitario||0), 'Subtotal Gs': Number(it.subtotal||0)
+      });
+    }
+  }
+  if (itemsRows.length) {
+    const ws2 = XLSX.utils.json_to_sheet(itemsRows);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Detalle');
+  }
+  XLSX.writeFile(wb, `Facturas_${sucursal.replace(' ','_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 function cerrarPDFPreview() {
