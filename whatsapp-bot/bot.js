@@ -76,8 +76,22 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
     const s = decodeURIComponent(parts[0]);
     const nombre = decodeURIComponent(parts.slice(1).join('/'));
     try {
-      const resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
-      const data = await resp.json();
+      let data;
+      if (facturasDB[s] && facturasDB[s][nombre]) {
+        data = facturasDB[s][nombre];
+      } else {
+        let resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
+        data = await resp.json();
+        if (data.error) {
+          resp = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
+          data = await resp.json();
+        }
+        if (data && !data.error) {
+          if (!facturasDB[s]) facturasDB[s] = {};
+          facturasDB[s][nombre] = data;
+        }
+      }
+      if (!data || data.error) { res.writeHead(404); return res.end('{"error":"No encontrado"}'); }
       const buffer = await generarPDFBuffer(data);
       const nom = `${(data.nombreVendedor || 'factura').replace(/[^a-zA-Z0-9]/g, '_')}_${data.numeroFactura || 'sin_num'}.pdf`;
       res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${nom}"` });
