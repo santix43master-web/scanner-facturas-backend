@@ -139,7 +139,7 @@ Reglas:
 - Si intent STATS: responded breve tipo "Dame un segundo reviso tus facturas" sin numeros
 - Si el usuario esta inactivo (no ha activado el bot):
   * NO respondas a nada. Silencio total hasta que pida activar
-  * Si quiere activar ("hola bot", "che bot", "quiero escanear", "activate", "empecemos") → ACTIVATE y pedí el usuario
+   * Si quiere activar ("hola bot") → ACTIVATE y pedí el usuario
   * Cualquier otra cosa → UNKNOWN (el bot no responde)
 - Si el usuario dice "chau", "gracias", "terminamos" → DEACTIVATE + borra la sesion. Despues vuelve a estar inactivo.`;
 
@@ -531,7 +531,7 @@ async function iniciarBot() {
 
     // Inactive: only respond to activation keywords
     if (!activo && !esperandoUser) {
-      if (/^(hola bot|che bot|activate|empecemos|quiero escanear)\b/i.test(lower)) {
+      if (/^hola bot\b/i.test(lower)) {
         usuarios[jid] = { esperandoUsuario: true };
         await sock.sendMessage(jid, { text: 'Che, decime tu usuario (sucursal) para activar el bot.' });
         return;
