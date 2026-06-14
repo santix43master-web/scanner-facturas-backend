@@ -157,6 +157,38 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
     }
   }
 
+  if (url.startsWith('/pdf-view/')) {
+    const parts = url.slice(10).split('/');
+    const skey = decodeURIComponent(parts[0]).replace(' ', '_');
+    const nombre = decodeURIComponent(parts.slice(1).join('/'));
+    try {
+      let data;
+      if (facturasDB[skey] && facturasDB[skey][nombre]) {
+        data = facturasDB[skey][nombre];
+      } else {
+        let resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(skey)}/${encodeURIComponent(nombre)}`);
+        data = await resp.json();
+        if (data.error) {
+          resp = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
+          data = await resp.json();
+        }
+        if (data && !data.error) {
+          if (!facturasDB[skey]) facturasDB[skey] = {};
+          facturasDB[skey][nombre] = data;
+          guardarFacturasDB();
+        }
+      }
+      if (!data || data.error) { res.writeHead(404); return res.end('{"error":"No encontrado"}'); }
+      const buffer = await generarPDFBuffer(data);
+      const nom = `${(data.nombreVendedor || 'factura').replace(/[^a-zA-Z0-9]/g, '_')}_${data.numeroFactura || 'sin_num'}.pdf`;
+      res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${nom}"` });
+      return res.end(buffer);
+    } catch {
+      res.writeHead(500);
+      return res.end('{"error":"Error al generar PDF"}');
+    }
+  }
+
   if (url === '/archivos') {
     try {
       const resp = await fetch(`${BACKEND_URL}/listar/WhatsApp`);

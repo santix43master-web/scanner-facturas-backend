@@ -19,6 +19,7 @@ body{background:#0D1B2A;min-height:100vh;color:#e0e0e0}
 .nav a:hover{background:#1B2838;border-color:#2A3F4F;color:#B0BEC5}
 .nav a.active{background:#1B2838;border-color:#00BCD4;color:#00BCD4}
 .nav .suc{font-size:12px;color:#00BCD4;margin-left:auto;padding:4px 12px;background:#1B2838;border-radius:8px;border:1px solid #2A3F4F}
+.nav .badge{font-size:11px;color:#546E7A;background:#1B2838;padding:4px 10px;border-radius:8px;border:1px solid #2A3F4F;margin-left:6px}
 #login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:999;animation:fadeIn .4s ease}
 #login-box{background:#1B2838;border-radius:16px;padding:36px;width:90%;max-width:360px;text-align:center;border:1px solid #2A3F4F;box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 40px rgba(0,188,212,.08);animation:slideDown .6s ease}
 #login-box h2{font-size:26px;font-weight:800;color:#00BCD4;margin-bottom:4px}
@@ -71,15 +72,35 @@ tr:hover td{background:rgba(0,188,212,.05)}
 .detalle-card h4{color:#00BCD4;margin-bottom:8px;font-size:14px}
 .detalle-card .info{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#CFD8DC}
 .detalle-card .info span{color:#78909C}
-.btn{display:inline-block;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;transition:all .3s;cursor:pointer}
+.btn{display:inline-block;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;transition:all .3s;cursor:pointer;border:0}
 .btn-primary{background:#00BCD4;color:#0D1B2A;box-shadow:0 4px 12px rgba(0,188,212,.2)}
 .btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,188,212,.3)}
 .btn-ghost{color:#78909C;background:#1B2838;border:1px solid #2A3F4F}
 .btn-ghost:hover{background:#2A3F4F;color:#B0BEC5;transform:translateY(-1px)}
+.btn-small{padding:4px 10px;font-size:11px}
 .footer{text-align:center;padding:24px 20px;color:#546E7A;font-size:13px;border-top:1px solid #2A3F4F;margin-top:24px;animation:fadeIn .8s ease}
 .footer a{color:#00BCD4;text-decoration:none;font-weight:600}
 .footer a:hover{color:#4DD0E1}
 .footer .heart{color:#EF5350;display:inline-block;animation:pulse 1.5s ease infinite}
+.pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+.pagination .page-btn{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .3s;background:#1B2838;color:#78909C;border:1px solid #2A3F4F}
+.pagination .page-btn:hover{background:#2A3F4F;color:#B0BEC5}
+.pagination .page-btn.active{background:#00BCD4;color:#0D1B2A;border-color:#00BCD4}
+.pagination .page-info{color:#546E7A;font-size:13px}
+.producto-link{color:#4DD0E1;cursor:pointer;text-decoration:underline;text-decoration-style:dotted}
+.producto-link:hover{color:#00BCD4}
+.historial-container{background:rgba(0,188,212,.04);border-radius:10px;padding:16px;margin-top:10px;border:1px solid rgba(0,188,212,.12)}
+.historial-container h4{color:#00BCD4;margin-bottom:10px;font-size:14px}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:999;animation:fadeIn .3s ease}
+.modal-content{background:#1B2838;border-radius:16px;padding:20px;width:90%;max-width:800px;max-height:90vh;display:flex;flex-direction:column;border:1px solid #2A3F4F;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-content .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.modal-content .modal-header h3{color:#00BCD4;font-size:16px}
+.modal-content .modal-close{background:0;border:0;color:#78909C;font-size:22px;cursor:pointer;padding:0 4px}
+.modal-content .modal-close:hover{color:#EF5350}
+.modal-content iframe{flex:1;width:100%;min-height:500px;border:0;border-radius:8px;background:#fff}
+.refresh-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:6px;animation:glow 2s ease infinite}
+.refresh-indicator.active{background:#00BCD4}
+.refresh-indicator.paused{background:#546E7A;animation:none}
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-track{background:#0D1B2A}
 ::-webkit-scrollbar-thumb{background:#2A3F4F;border-radius:3px}
@@ -103,6 +124,9 @@ tr:hover td{background:rgba(0,188,212,.05)}
 <a href="#" onclick="showTab('precios')">Precios</a>
 <a href="#" onclick="showTab('archivos')">Archivos</a>
 <span class="suc" id="nav-sucursal"></span>
+<span class="badge" id="refresh-badge" title="Auto-actualización cada 30s">
+<span class="refresh-indicator active" id="refresh-dot"></span> <span id="refresh-label">Auto</span>
+</span>
 </nav>
 <div class="container">
 <div class="tabs">
@@ -124,11 +148,13 @@ tr:hover td{background:rgba(0,188,212,.05)}
 <div id="tab-facturas" class="tab-content">
 <div class="search"><input type="text" id="search-factura" placeholder="🔍 Buscar por vendedor, número..." oninput="filtrarFacturas()"></div>
 <div id="lista-facturas"></div>
+<div class="pagination" id="pagination-facturas"></div>
 </div>
 
 <div id="tab-precios" class="tab-content">
 <div class="search"><input type="text" id="search-producto" placeholder="🔍 Buscar producto..." oninput="buscarProducto()"></div>
 <div id="resultados-precios"></div>
+<div id="historial-precio" style="display:none"></div>
 </div>
 
 <div id="tab-archivos" class="tab-content">
@@ -140,14 +166,28 @@ tr:hover td{background:rgba(0,188,212,.05)}
 Hecho con <span class="heart">❤️</span> · ¿Necesitás ayuda? <a href="https://wa.me/595981644728">0981 644 728</a>
 </div>
 
+<div class="modal-overlay" id="pdf-modal">
+<div class="modal-content">
+<div class="modal-header">
+<h3 id="pdf-modal-title">Vista previa</h3>
+<button class="modal-close" onclick="cerrarPDFPreview()">&times;</button>
+</div>
+<iframe id="pdf-iframe"></iframe>
+</div>
+</div>
+
 <script>
 const BACKEND = 'https://scanner-facturas-backend.onrender.com';
 let todasFacturas = [];
 let sucursal = '';
-
 const SUCURSALES = ['Minimarket LF', 'Local 1'];
-
 let cache = null;
+let autoRefreshInterval = null;
+let autoRefreshOn = true;
+const REFRESH_MS = 30000;
+// paginacion
+let paginaActual = 1;
+let porPagina = 20;
 
 function ingresar() {
   const val = document.getElementById('sucursal-input').value.trim();
@@ -159,6 +199,35 @@ function ingresar() {
   document.getElementById('login-overlay').style.display = 'none';
   document.getElementById('nav-sucursal').textContent = '📍 ' + encontrada;
   cargarTodo();
+  iniciarAutoRefresh();
+}
+
+function toggleAutoRefresh() {
+  autoRefreshOn = !autoRefreshOn;
+  const dot = document.getElementById('refresh-dot');
+  const label = document.getElementById('refresh-label');
+  if (autoRefreshOn) {
+    dot.className = 'refresh-indicator active';
+    label.textContent = 'Auto';
+    if (document.getElementById('tab-dashboard').classList.contains('active')) {
+      cargarTodo();
+    }
+  } else {
+    dot.className = 'refresh-indicator paused';
+    label.textContent = 'Pausado';
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+  }
+}
+
+function iniciarAutoRefresh() {
+  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+  autoRefreshInterval = setInterval(() => {
+    if (!autoRefreshOn) return;
+    if (document.getElementById('tab-dashboard').classList.contains('active')) {
+      cargarTodo();
+    }
+  }, REFRESH_MS);
 }
 
 async function cargarTodo() {
@@ -182,7 +251,8 @@ async function cargarTodo() {
       }
     }
   }
-  cargarDashboard();
+  if (document.getElementById('tab-dashboard').classList.contains('active')) cargarDashboard();
+  if (document.getElementById('tab-facturas').classList.contains('active')) { cargarFacturas(); }
 }
 
 async function obtenerFactura(nombre) {
@@ -200,18 +270,16 @@ function showTab(name) {
   document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
   const link = document.querySelector(`.nav a[onclick*="'${name}'"]`);
   if (link) link.classList.add('active');
+  document.getElementById('historial-precio').style.display = 'none';
   if (!cache && name !== 'dashboard') { cargarTodo(); return; }
   if (name === 'dashboard') cargarDashboard();
-  if (name === 'facturas') cargarFacturas();
+  if (name === 'facturas') { paginaActual = 1; cargarFacturas(); }
   if (name === 'precios') { cargarPrecios(); }
   if (name === 'archivos') cargarArchivos();
 }
 
 async function fetchJSON(url) {
-  try {
-    const r = await fetch(url);
-    return await r.json();
-  } catch { return null; }
+  try { const r = await fetch(url); return await r.json(); } catch { return null; }
 }
 
 function n(n) { return Number(n || 0).toLocaleString() + ' Gs'; }
@@ -273,28 +341,54 @@ async function cargarDashboard() {
     : '<div class="vacio">No hay facturas</div>';
 }
 
-async function cargarFacturas() {
+// --- FACTURAS con paginacion ---
+function cargarFacturas() {
   if (!cache) { document.getElementById('lista-facturas').innerHTML = '<div class="vacio">No hay facturas</div>'; return; }
   todasFacturas = cache.resumen;
   todasFacturas.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
-  mostrarFacturas(todasFacturas);
+  paginaActual = 1;
+  renderizarFacturas();
 }
 
-function mostrarFacturas(lista) {
-  document.getElementById('lista-facturas').innerHTML = lista.length
-    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th></th></tr>${lista.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td><td><a href="#" onclick="verDetalle(event,'${f.id||''}')" class="btn btn-ghost" style="padding:3px 10px;font-size:11px">Ver</a></td></tr>`).join('')}</table>`
-    : '<div class="vacio">No se encontraron facturas</div>';
-}
-
-function filtrarFacturas() {
+function renderizarFacturas() {
   const q = document.getElementById('search-factura').value.toLowerCase();
-  const filtradas = todasFacturas.filter(f =>
-    (f.vendedor||'').toLowerCase().includes(q) ||
-    (f.numero||'').toLowerCase().includes(q) ||
-    (f.fecha||'').includes(q)
-  );
-  mostrarFacturas(filtradas);
+  let filtradas = todasFacturas;
+  if (q) {
+    filtradas = todasFacturas.filter(f =>
+      (f.vendedor||'').toLowerCase().includes(q) ||
+      (f.numero||'').toLowerCase().includes(q) ||
+      (f.fecha||'').includes(q)
+    );
+  }
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / porPagina));
+  if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+  const inicio = (paginaActual - 1) * porPagina;
+  const pagina = filtradas.slice(inicio, inicio + porPagina);
+
+  document.getElementById('lista-facturas').innerHTML = pagina.length
+    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th></th></tr>${pagina.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td><td><a href="#" onclick="verDetalle(event,'${f.id||''}')" class="btn btn-ghost btn-small">Ver</a></td></tr>`).join('')}</table>`
+    : '<div class="vacio">No se encontraron facturas</div>';
+
+  // pagination controls
+  let pagHTML = '';
+  if (totalPaginas > 1) {
+    if (paginaActual > 1) pagHTML += `<span class="page-btn" onclick="irPagina(${paginaActual-1})">← Anterior</span>`;
+    const start = Math.max(1, paginaActual - 2);
+    const end = Math.min(totalPaginas, paginaActual + 2);
+    if (start > 1) pagHTML += `<span class="page-btn" onclick="irPagina(1)">1</span>${start > 2 ? '<span class="page-info">...</span>' : ''}`;
+    for (let i = start; i <= end; i++) pagHTML += `<span class="page-btn ${i===paginaActual?'active':''}" onclick="irPagina(${i})">${i}</span>`;
+    if (end < totalPaginas) pagHTML += `${end < totalPaginas-1 ? '<span class="page-info">...</span>' : ''}<span class="page-btn" onclick="irPagina(${totalPaginas})">${totalPaginas}</span>`;
+    if (paginaActual < totalPaginas) pagHTML += `<span class="page-btn" onclick="irPagina(${paginaActual+1})">Siguiente →</span>`;
+    pagHTML += `<span class="page-info">${filtradas.length} facturas</span>`;
+  } else if (filtradas.length > 0) {
+    pagHTML = `<span class="page-info">${filtradas.length} facturas</span>`;
+  }
+  document.getElementById('pagination-facturas').innerHTML = pagHTML;
 }
+
+function irPagina(p) { paginaActual = p; renderizarFacturas(); }
+
+function filtrarFacturas() { paginaActual = 1; renderizarFacturas(); }
 
 async function verDetalle(e, id) {
   e.preventDefault();
@@ -319,27 +413,45 @@ async function verDetalle(e, id) {
       <a href="#" onclick="cargarFacturas(); return false;" class="btn btn-ghost">← Volver</a>
       <a href="/api/descargar/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" class="btn btn-primary">⬇ JSON</a>
       <a href="/pdf/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" class="btn btn-primary">⬇ PDF</a>
+      <a href="#" onclick="vistaPreviaPDF('${sucursal}','${encodeURIComponent(nombre)}'); return false;" class="btn btn-ghost">👁 Vista Previa</a>
     </div>`;
 }
 
+// --- PDF Preview ---
+function vistaPreviaPDF(suc, nom) {
+  document.getElementById('pdf-modal').style.display = 'flex';
+  document.getElementById('pdf-modal-title').textContent = 'Vista previa - ' + decodeURIComponent(nom);
+  document.getElementById('pdf-iframe').src = '/pdf-view/' + suc + '/' + nom + '#view=FitH';
+}
+
+function cerrarPDFPreview() {
+  document.getElementById('pdf-modal').style.display = 'none';
+  document.getElementById('pdf-iframe').src = '';
+}
+
+// --- PRECIOS con historial ---
 let todosProductos = [];
-let timerPrecios = null;
 
 async function cargarPrecios() {
   document.getElementById('resultados-precios').innerHTML = '<div class="loading">Cargando productos...</div>';
+  document.getElementById('historial-precio').style.display = 'none';
   if (!cache) { document.getElementById('resultados-precios').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
   todosProductos = [];
-  for (const f of Object.values(cache.facturas)) {
+  for (const [fname, f] of Object.entries(cache.facturas)) {
     if (!f.items) continue;
     for (const it of f.items) {
       todosProductos.push({
-        descripcion: it.descripcion, precio: it.precio_unitario || it.precioUnitario || 0,
-        vendedor: f.nombreVendedor||'?', fecha: f.fechaEmision||'?'
+        descripcion: it.descripcion || '?', precio: Number(it.precio_unitario || it.precioUnitario || 0),
+        vendedor: f.nombreVendedor||'?', fecha: f.fechaEmision||'?',
+        factura: f.numeroFactura||'?', facturaId: fname
       });
     }
   }
   const unicos = new Map();
-  for (const r of todosProductos) { const k = r.descripcion.toLowerCase().trim(); if (!unicos.has(k)) unicos.set(k, r); }
+  for (const r of todosProductos) {
+    const k = r.descripcion.toLowerCase().trim();
+    if (!unicos.has(k)) unicos.set(k, { ...r, cantidad: 1 });
+  }
   mostrarPrecios(unicos);
 }
 
@@ -347,17 +459,85 @@ function mostrarPrecios(unicos) {
   const q = document.getElementById('search-producto').value.toLowerCase();
   const filtrados = q ? [...unicos.values()].filter(r => r.descripcion.toLowerCase().includes(q)) : [...unicos.values()];
   document.getElementById('resultados-precios').innerHTML = filtrados.length
-    ? `<table><tr><th>Producto</th><th>Precio</th><th>Vendedor</th><th>Fecha</th></tr>${filtrados.map(r => `<tr><td>${r.descripcion}</td><td class="precio">${n(r.precio)}</td><td>${r.vendedor}</td><td class="fecha">${r.fecha}</td></tr>`).join('')}</table>`
+    ? `<table><tr><th>Producto</th><th>Precio</th><th>Vendedor</th><th>Fecha</th><th></th></tr>${filtrados.map(r => `<tr><td><span class="producto-link" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}')">${r.descripcion}</span></td><td class="precio">${n(r.precio)}</td><td>${r.vendedor}</td><td class="fecha">${r.fecha}</td><td><a href="#" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}'); return false;" class="btn btn-ghost btn-small">📈 Historial</a></td></tr>`).join('')}</table>`
     : '<div class="vacio">No se encontraron productos</div>';
 }
 
 function buscarProducto() {
   if (todosProductos.length === 0) { cargarPrecios(); return; }
   const unicos = new Map();
-  for (const r of todosProductos) { const k = r.descripcion.toLowerCase().trim(); if (!unicos.has(k)) unicos.set(k, r); }
+  for (const r of todosProductos) {
+    const k = r.descripcion.toLowerCase().trim();
+    if (!unicos.has(k)) unicos.set(k, { ...r, cantidad: 1 });
+  }
   mostrarPrecios(unicos);
 }
 
+function verHistorial(descripcion) {
+  const ocurrencias = todosProductos
+    .filter(r => r.descripcion.toLowerCase().trim() === descripcion.toLowerCase().trim())
+    .sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+
+  if (ocurrencias.length === 0) return;
+
+  const div = document.getElementById('historial-precio');
+  div.style.display = 'block';
+
+  const ultPrecio = ocurrencias[ocurrencias.length-1].precio;
+  const primerPrecio = ocurrencias[0].precio;
+  const dif = ultPrecio - primerPrecio;
+  const difStr = dif > 0 ? `↑ +${dif.toLocaleString()}` : dif < 0 ? `↓ ${dif.toLocaleString()}` : 'Sin cambios';
+
+  div.innerHTML = `
+    <div class="historial-container">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <h4 style="margin:0">📈 ${descripcion}</h4>
+        <div>
+          <span style="color:#78909C;font-size:12px">1er: ${n(primerPrecio)} · Últ: ${n(ultPrecio)} · </span>
+          <span style="font-size:13px;font-weight:700;color:${dif>0?'#EF5350':dif<0?'#66BB6A':'#78909C'}">${difStr}</span>
+          <button onclick="document.getElementById('historial-precio').style.display='none'" class="btn btn-ghost btn-small" style="margin-left:10px">Cerrar</button>
+        </div>
+      </div>
+      <table><tr><th>Fecha</th><th>Factura</th><th>Vendedor</th><th>Precio</th></tr>
+      ${ocurrencias.map(r => `<tr><td class="fecha">${r.fecha}</td><td>${r.factura}</td><td>${r.vendedor}</td><td class="precio">${n(r.precio)}</td></tr>`).join('')}
+      </table>
+      <div style="margin-top:12px;position:relative;height:180px">
+        <canvas id="chart-historial-precio"></canvas>
+      </div>
+    </div>`;
+
+  // chart
+  setTimeout(() => {
+    const c = document.getElementById('chart-historial-precio');
+    if (!c) return;
+    new Chart(c, {
+      type: 'line',
+      data: {
+        labels: ocurrencias.map(r => r.fecha),
+        datasets: [{
+          label: 'Precio',
+          data: ocurrencias.map(r => r.precio),
+          borderColor: '#00BCD4',
+          backgroundColor: 'rgba(0,188,212,.1)',
+          fill: true,
+          tension: .3,
+          pointBackgroundColor: '#00BCD4',
+          pointRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: false, ticks: { color: '#546E7A', callback: v => v.toLocaleString() } },
+          x: { ticks: { color: '#546E7A', maxTicksLimit: 8, maxRotation: 45 } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }, 50);
+}
+
+// --- ARCHIVOS ---
 async function cargarArchivos() {
   document.getElementById('lista-archivos').innerHTML = '<div class="loading">Cargando...</div>';
   if (!cache) { document.getElementById('lista-archivos').innerHTML = '<div class="vacio">No hay archivos</div>'; return; }
@@ -365,9 +545,10 @@ async function cargarArchivos() {
     `<table><tr><th>Archivo</th><th></th></tr>${cache.archivos.map(a => `
       <tr><td>${a}</td>
       <td style="text-align:right">
-      <a href="/api/descargar/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary" style="padding:3px 10px;font-size:11px;margin-right:4px">⬇ JSON</a>
-      <a href="/pdf/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary" style="padding:3px 10px;font-size:11px;margin-right:4px">⬇ PDF</a>
-      <a href="/ver-json/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost" style="padding:3px 10px;font-size:11px">👁 Ver</a>
+      <a href="/api/descargar/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary btn-small">⬇ JSON</a>
+      <a href="/pdf/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary btn-small">⬇ PDF</a>
+      <a href="/ver-json/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost btn-small">👁 Ver</a>
+      <a href="/pdf-view/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost btn-small">📄 Vista Previa</a>
     </td></tr>`).join('')}</table>`;
 }
 </script>
