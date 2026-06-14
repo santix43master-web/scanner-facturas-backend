@@ -192,7 +192,45 @@ async def descargar(sucursal: str, nombre_archivo: str):
         return {"error": str(e)}
 
 
-AUTH_FILE = os.path.join(interpretacion.OUTPUT_FOLDER, "auth_whatsapp.json")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+SUPABASE_TABLE = "auth"
+
+
+async def _supabase_guardar(data: str):
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise Exception("SUPABASE_URL o SUPABASE_KEY no configurados")
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates",
+            },
+            json={"id": 1, "data": data},
+        )
+        resp.raise_for_status()
+
+
+async def _supabase_cargar():
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise Exception("SUPABASE_URL o SUPABASE_KEY no configurados")
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}",
+            params={"id": "eq.1", "select": "data"},
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+            },
+        )
+        resp.raise_for_status()
+        rows = resp.json()
+        if not rows:
+            return None
+        return rows[0].get("data")
 
 
 @app.post("/auth-guardar")
@@ -201,9 +239,7 @@ async def auth_guardar(datos: dict):
         contenido = datos.get("auth", "")
         if not contenido:
             return {"status": "error", "message": "auth vacio"}
-        os.makedirs(interpretacion.OUTPUT_FOLDER, exist_ok=True)
-        with open(AUTH_FILE, "w", encoding="utf-8") as f:
-            json.dump({"auth": contenido}, f)
+        await _supabase_guardar(contenido)
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -212,11 +248,10 @@ async def auth_guardar(datos: dict):
 @app.get("/auth-cargar")
 async def auth_cargar():
     try:
-        if not os.path.exists(AUTH_FILE):
+        contenido = await _supabase_cargar()
+        if contenido is None:
             return {"status": "error", "message": "no hay auth guardado"}
-        with open(AUTH_FILE, "r", encoding="utf-8") as f:
-            datos = json.load(f)
-        return {"status": "ok", "auth": datos.get("auth", "")}
+        return {"status": "ok", "auth": contenido}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
