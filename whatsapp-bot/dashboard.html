@@ -150,7 +150,7 @@ function n(n) { return Number(n || 0).toLocaleString() + ' Gs'; }
 
 // Dashboard
 async function cargarDashboard() {
-  const data = await fetchJSON(BACKEND + '/listar/' + sucursal');
+  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
   if (!data || !data.archivos) { document.getElementById('resumen-cards').innerHTML = '<div class="vacio">No hay datos</div>'; return; }
   const archivos = data.archivos || [];
   document.getElementById('resumen-cards').innerHTML = `
@@ -210,7 +210,7 @@ async function cargarDashboard() {
 // Facturas
 async function cargarFacturas() {
   document.getElementById('lista-facturas').innerHTML = '<div class="loading">Cargando...</div>';
-  const data = await fetchJSON(BACKEND + '/listar/' + sucursal');
+  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
   if (!data || !data.archivos) { document.getElementById('lista-facturas').innerHTML = '<div class="vacio">No hay facturas</div>'; return; }
   todasFacturas = [];
   for (const a of data.archivos) {
@@ -304,7 +304,7 @@ function buscarProducto() {
 // Archivos
 async function cargarArchivos() {
   document.getElementById('lista-archivos').innerHTML = '<div class="loading">Cargando...</div>';
-  const data = await fetchJSON(BACKEND + '/listar/' + sucursal');
+  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
   if (!data || !data.archivos) { document.getElementById('lista-archivos').innerHTML = '<div class="vacio">No hay archivos</div>'; return; }
   document.getElementById('lista-archivos').innerHTML =
     `<table><tr><th>Archivo</th><th></th></tr>${data.archivos.map(a => `
