@@ -18,6 +18,45 @@ let ultimoQR = null;
 let estadoConexion = 'desconectado';
 
 const facturasDB = {};
+let saveTimeout = null;
+function guardarFacturasDB() {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    await supabaseGuardarFacturas(facturasDB);
+  }, 2000);
+}
+
+async function supabaseGuardarFacturas(data) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify({ id: 2, data: JSON.stringify(data) }),
+    });
+  } catch (e) {
+    console.log('Error guardando facturasDB:', e.message);
+  }
+}
+
+async function supabaseCargarFacturas() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.2&select=data`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (rows && rows.length > 0 && rows[0].data) return JSON.parse(rows[0].data);
+    }
+  } catch (e) {
+    console.log('Error cargando facturasDB:', e.message);
+  }
+  return null;
+}
 
 const server = http.createServer(async (req, res) => {
   const url = req.url;
@@ -68,6 +107,7 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
         if (data && !data.error) {
           if (!facturasDB[skey]) facturasDB[skey] = {};
           facturasDB[skey][nombre] = data;
+          guardarFacturasDB();
         }
       }
       if (data.error) { res.writeHead(404); return res.end('{"error":"No encontrado"}'); }
@@ -103,6 +143,7 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
         if (data && !data.error) {
           if (!facturasDB[skey]) facturasDB[skey] = {};
           facturasDB[skey][nombre] = data;
+          guardarFacturasDB();
         }
       }
       if (!data || data.error) { res.writeHead(404); return res.end('{"error":"No encontrado"}'); }
@@ -174,6 +215,7 @@ h1{color:#1a237e;margin-bottom:8px}
       if (data && !data.error) {
         if (!facturasDB[skey]) facturasDB[skey] = {};
         facturasDB[skey][nombre] = data;
+        guardarFacturasDB();
       }
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       return res.end(JSON.stringify(data));
@@ -600,6 +642,11 @@ async function verificarAlertasPrecio(items) {
 }
 
 async function iniciarBot() {
+  const savedFacturas = await supabaseCargarFacturas();
+  if (savedFacturas) {
+    Object.assign(facturasDB, savedFacturas);
+    console.log('FacturasDB cargado de Supabase');
+  }
   await cargarAuthRemoto();
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const sock = makeWASocket({
@@ -697,6 +744,7 @@ async function iniciarBot() {
           const ts = Date.now();
           const fname = `${v}_${n}_${ts}.json`;
           facturasDB[dbSuc][fname] = datos;
+          guardarFacturasDB();
           cacheSuc = dbSuc;
         }
 
