@@ -148,6 +148,8 @@ async function fetchJSON(url) {
 
 function n(n) { return Number(n || 0).toLocaleString() + ' Gs'; }
 
+let chartVendedor = null, chartMes = null;
+
 // Dashboard
 async function cargarDashboard() {
   const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
@@ -182,7 +184,8 @@ async function cargarDashboard() {
     document.getElementById('top-monto').textContent = n(sortedV[0][1]);
   }
 
-  new Chart(document.getElementById('chart-vendedor'), {
+  if (chartVendedor) chartVendedor.destroy();
+  chartVendedor = new Chart(document.getElementById('chart-vendedor'), {
     type: 'doughnut',
     data: {
       labels: sortedV.slice(0,6).map(e => e[0]),
@@ -192,7 +195,8 @@ async function cargarDashboard() {
   });
 
   const sortedM = Object.entries(porMes).sort((a,b) => a[0].localeCompare(b[0]));
-  new Chart(document.getElementById('chart-mes'), {
+  if (chartMes) chartMes.destroy();
+  chartMes = new Chart(document.getElementById('chart-mes'), {
     type: 'bar',
     data: {
       labels: sortedM.map(e => e[0]),
