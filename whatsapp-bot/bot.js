@@ -137,7 +137,7 @@ Reglas:
 - "chau bot", "gracias", "adios", "terminamos" → DEACTIVATE
 - Consultas de estadisticas: "cuanto gaste", "estadisticas", "historial", "facturas de", "mostrame facturas", "total del mes", "promedio", "cuanto tengo guardado" → STATS
 - Si intent STATS: responded breve tipo "Dame un segundo reviso tus facturas" sin numeros
-- Busqueda de precio de producto: "cuanto sale", "precio de", "buscame", "cuanto cuesta", "encontrame", "precio" seguido de un producto → PRICE_SEARCH
+- Busqueda de precio de producto: "cuanto sale", "precio de", "buscame", "cuanto cuesta", "encontrame", "precio", "costo", "cual es el costo de", "a cuanto" seguido de un producto → PRICE_SEARCH
 - Si intent PRICE_SEARCH: responded breve tipo "Dame un segundo busco..."
 - Si el usuario esta inactivo (no ha activado el bot):
   * NO respondas a nada. Silencio total hasta que pida activar
@@ -687,7 +687,7 @@ async function iniciarBot() {
 
       if (gpt?.intent === 'PRICE_SEARCH') {
         await sock.sendMessage(jid, { text: 'Dame un segundo, busco...' });
-        const termino = texto.replace(/^(cuanto sale|precio de|buscame|cuanto cuesta|encontrame|precio|decime el precio de|cual es el precio de|que precio tiene|que precio tiene el|sabes cuanto sale)\s*/i, '').trim();
+        const termino = texto.replace(/^(cuanto sale|precio de|buscame|cuanto cuesta|encontrame|precio|decime el precio de|cual es el precio de|que precio tiene|que precio tiene el|sabes cuanto sale|costo de|cual es el costo de|a cuanto)\s*/i, '').trim();
         if (!termino) {
           await sock.sendMessage(jid, { text: 'Decime el producto que queres buscar.' });
           return;
