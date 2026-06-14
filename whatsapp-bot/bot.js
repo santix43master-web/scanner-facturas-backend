@@ -112,7 +112,7 @@ Contexto: ${JSON.stringify(contexto)}
 
 Respondé SOLO con un JSON sin markdown:
 {
-  "intent": "SET_USERNAME | SHOW_DETAIL | GET_JSON | GET_PDF | SEND_TO_SYSTEM | SEND_TO_LOCAL | STATS | DEACTIVATE | CHAT | ACTIVATE | UNKNOWN",
+  "intent": "SET_USERNAME | SHOW_DETAIL | GET_JSON | GET_PDF | SEND_TO_SYSTEM | SEND_TO_LOCAL | STATS | PRICE_SEARCH | DEACTIVATE | CHAT | ACTIVATE | UNKNOWN",
   "respuesta": "tu respuesta en español, breve, natural, sin emojis",
   "username": "solo si intent SET_USERNAME"
 }
@@ -137,6 +137,8 @@ Reglas:
 - "chau bot", "gracias", "adios", "terminamos" → DEACTIVATE
 - Consultas de estadisticas: "cuanto gaste", "estadisticas", "historial", "facturas de", "mostrame facturas", "total del mes", "promedio", "cuanto tengo guardado" → STATS
 - Si intent STATS: responded breve tipo "Dame un segundo reviso tus facturas" sin numeros
+- Busqueda de precio de producto: "cuanto sale", "precio de", "buscame", "cuanto cuesta", "encontrame", "precio" seguido de un producto → PRICE_SEARCH
+- Si intent PRICE_SEARCH: responded breve tipo "Dame un segundo busco..."
 - Si el usuario esta inactivo (no ha activado el bot):
   * NO respondas a nada. Silencio total hasta que pida activar
   * Si quiere activar ("hola bot", "che bot", "quiero escanear", "activate", "empecemos") → ACTIVATE y pedí el usuario
@@ -679,6 +681,35 @@ async function iniciarBot() {
           }
         } catch (e) {
           await sock.sendMessage(jid, { text: `No pude consultar las estadisticas: ${e.message}` });
+        }
+        return;
+      }
+
+      if (gpt?.intent === 'PRICE_SEARCH') {
+        await sock.sendMessage(jid, { text: 'Dame un segundo, busco...' });
+        const termino = texto.replace(/^(cuanto sale|precio de|buscame|cuanto cuesta|encontrame|precio)\s*/i, '').trim();
+        if (!termino) {
+          await sock.sendMessage(jid, { text: 'Decime el producto que queres buscar.' });
+          return;
+        }
+        try {
+          const res = await fetch(`${BACKEND_URL}/precio-producto/${encodeURIComponent(termino)}`);
+          const data = await res.json();
+          if (!data.resultados || data.resultados.length === 0) {
+            await sock.sendMessage(jid, { text: `No encontre nada para "${termino}".` });
+          } else {
+            let msj = `Resultados para "${termino}":\n\n`;
+            data.resultados.slice(0, 5).forEach((r, i) => {
+              msj += `${i+1}. ${r.descripcion}\n`;
+              msj += `   Precio: ${Number(r.precio).toLocaleString()} Gs\n`;
+              msj += `   ${r.vendedor} - ${r.fecha}\n\n`;
+            });
+            if (data.resultados.length > 5) msj += `... y ${data.resultados.length - 5} mas`;
+            msj += `Fuente: R21 Scanner`;
+            await sock.sendMessage(jid, { text: msj });
+          }
+        } catch (e) {
+          await sock.sendMessage(jid, { text: `No pude buscar: ${e.message}` });
         }
         return;
       }
