@@ -533,6 +533,11 @@ async function iniciarBot() {
 
     // Inactive: only respond to activation keywords
     if (!activo && !esperandoUser) {
+      if (/^(hola bot|che bot|activate|empecemos|quiero escanear)\b/i.test(lower)) {
+        usuarios[jid] = { esperandoUsuario: true };
+        await sock.sendMessage(jid, { text: 'Che, decime tu usuario (sucursal) para activar el bot.' });
+        return;
+      }
       const gpt = await interpretarGPT(texto, { estado: 'inactivo' }, jid);
       if (gpt?.intent === 'ACTIVATE') {
         usuarios[jid] = { esperandoUsuario: true };
