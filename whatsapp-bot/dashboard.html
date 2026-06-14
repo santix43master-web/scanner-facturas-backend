@@ -122,7 +122,7 @@ function ingresar() {
   const encontrada = SUCURSALES.find(s => s.toLowerCase() === val.toLowerCase());
   if (!encontrada) { err.textContent = 'Esa sucursal no existe'; err.style.display = 'block'; return; }
   err.style.display = 'none';
-  sucursal = encontrada.replace(' ', '_');
+  sucursal = encontrada;
   document.getElementById('login-overlay').style.display = 'none';
   document.getElementById('nav-sucursal').textContent = encontrada;
   cargarDashboard();

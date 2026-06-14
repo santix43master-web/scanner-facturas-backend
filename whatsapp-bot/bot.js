@@ -50,8 +50,8 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
 
   if (url.startsWith('/ver-json/')) {
     const parts = url.slice(10).split('/');
-    const s = parts[0];
-    const nombre = parts.slice(1).join('/');
+    const s = decodeURIComponent(parts[0]);
+    const nombre = decodeURIComponent(parts.slice(1).join('/'));
     try {
       const resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
       const data = await resp.json();
@@ -65,8 +65,8 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
 
   if (url.startsWith('/pdf/')) {
     const parts = url.slice(5).split('/');
-    const s = parts[0];
-    const nombre = parts.slice(1).join('/');
+    const s = decodeURIComponent(parts[0]);
+    const nombre = decodeURIComponent(parts.slice(1).join('/'));
     try {
       const resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
       const data = await resp.json();
