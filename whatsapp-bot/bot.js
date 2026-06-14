@@ -79,7 +79,6 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
       return res.end('{"error":"Error al generar PDF"}');
     }
   }
-  }
 
   if (url === '/archivos') {
     try {
