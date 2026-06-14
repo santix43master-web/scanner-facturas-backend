@@ -672,12 +672,9 @@ async function iniciarBot() {
       guardarAuthRemoto();
     }
     if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
-      console.log(`❌ Conexión cerrada${shouldReconnect ? ', reconectando en 5s...' : ', sesión inválida.'}`);
+      console.log('❌ Conexión cerrada, reconectando en 5s...');
       estadoConexion = 'desconectado';
-      if (shouldReconnect) {
-        setTimeout(iniciarBot, 5000);
-      }
+      setTimeout(iniciarBot, 5000);
     }
   });
 }
