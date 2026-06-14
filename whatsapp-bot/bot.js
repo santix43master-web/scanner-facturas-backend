@@ -137,8 +137,12 @@ h1{color:#1a237e;margin-bottom:8px}
     }
     // proxy del backend (consume y cachea)
     try {
-      const resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
-      const data = await resp.json();
+      let resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
+      let data = await resp.json();
+      if (data.error) {
+        resp = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
+        data = await resp.json();
+      }
       if (data && !data.error) {
         if (!facturasDB[s]) facturasDB[s] = {};
         facturasDB[s][nombre] = data;
