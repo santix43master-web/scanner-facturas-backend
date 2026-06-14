@@ -687,7 +687,7 @@ async function iniciarBot() {
 
       if (gpt?.intent === 'PRICE_SEARCH') {
         await sock.sendMessage(jid, { text: 'Dame un segundo, busco...' });
-        const termino = texto.replace(/^(cuanto sale|precio de|buscame|cuanto cuesta|encontrame|precio)\s*/i, '').trim();
+        const termino = texto.replace(/^(cuanto sale|precio de|buscame|cuanto cuesta|encontrame|precio|decime el precio de|cual es el precio de|que precio tiene|que precio tiene el|sabes cuanto sale)\s*/i, '').trim();
         if (!termino) {
           await sock.sendMessage(jid, { text: 'Decime el producto que queres buscar.' });
           return;
