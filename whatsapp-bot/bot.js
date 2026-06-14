@@ -694,12 +694,13 @@ async function iniciarBot() {
         }
         try {
           const busq = termino.toLowerCase();
-          const listRes = await fetch(`${BACKEND_URL}/listar/WhatsApp`);
+          const suc = usuarios[jid]?.sucursal || 'WhatsApp';
+          const listRes = await fetch(`${BACKEND_URL}/listar/${encodeURIComponent(suc.replace(' ', '_'))}`);
           const { archivos = [] } = await listRes.json();
           const resultados = [];
           for (const nombre of archivos.slice(-30)) {
             try {
-              const r = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
+              const r = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(suc.replace(' ', '_'))}/${encodeURIComponent(nombre)}`);
               const datos = await r.json();
               if (datos.items) for (const it of datos.items) {
                 const desc = (it.descripcion || '').toLowerCase();
@@ -715,7 +716,7 @@ async function iniciarBot() {
             } catch {}
           }
           if (resultados.length === 0) {
-            await sock.sendMessage(jid, { text: `No encontre nada para "${termino}".` });
+            await sock.sendMessage(jid, { text: `No encontre nada para "${termino}" en tus facturas.` });
           } else {
             const unicos = new Map();
             for (const r of resultados) {
