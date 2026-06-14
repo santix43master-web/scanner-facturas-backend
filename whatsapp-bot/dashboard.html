@@ -146,30 +146,11 @@ async function fetchJSON(url) {
   } catch { return null; }
 }
 
-async function fetchSucursal(path) {
-  const r1 = await fetchJSON(BACKEND + path.replace('{sucursal}', sucursal));
-  const r2 = await fetchJSON(BACKEND + path.replace('{sucursal}', 'WhatsApp'));
-  const a1 = r1?.archivos || [];
-  const a2 = r2?.archivos || [];
-  return { archivos: [...new Set([...a1, ...a2])] };
-}
-
-async function fetchDescargar(nombre) {
-  const r1 = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(nombre));
-  if (r1 && !r1.error) return r1;
-  return await fetchJSON(BACKEND + '/descargar/WhatsApp/' + encodeURIComponent(nombre));
-}
-  try {
-    const r = await fetch(url);
-    return await r.json();
-  } catch { return null; }
-}
-
 function n(n) { return Number(n || 0).toLocaleString() + ' Gs'; }
 
 // Dashboard
 async function cargarDashboard() {
-  const data = await fetchSucursal('/listar/{sucursal}');
+  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
   if (!data || !data.archivos) { document.getElementById('resumen-cards').innerHTML = '<div class="vacio">No hay datos</div>'; return; }
   const archivos = data.archivos || [];
   document.getElementById('resumen-cards').innerHTML = `
@@ -180,7 +161,7 @@ async function cargarDashboard() {
 
   let total = 0; let facturas = []; let porVendedor = {}; let porMes = {};
   for (const a of archivos.slice(-50)) {
-    const f = await fetchDescargar(a);
+    const f = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(a));
     if (!f) continue;
     facturas.push(f);
     const monto = Number(f.totalGeneral || 0);
@@ -229,11 +210,11 @@ async function cargarDashboard() {
 // Facturas
 async function cargarFacturas() {
   document.getElementById('lista-facturas').innerHTML = '<div class="loading">Cargando...</div>';
-  const data = await fetchSucursal('/listar/{sucursal}');
+  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
   if (!data || !data.archivos) { document.getElementById('lista-facturas').innerHTML = '<div class="vacio">No hay facturas</div>'; return; }
   todasFacturas = [];
   for (const a of data.archivos) {
-    const f = await fetchDescargar(a);
+    const f = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(a));
     if (f) { f._nombre = a; todasFacturas.push(f); }
   }
   todasFacturas.sort((a,b) => (b.fechaEmision||'').localeCompare(a.fechaEmision||''));
@@ -258,7 +239,7 @@ function filtrarFacturas() {
 
 async function verDetalle(e, nombre) {
   e.preventDefault();
-  const data = await fetchDescargar(nombre);
+  const data = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(nombre));
   if (!data) return;
   const items = data.items || [];
   document.getElementById('lista-facturas').innerHTML = `
@@ -287,11 +268,11 @@ let timerPrecios = null;
 
 async function cargarPrecios() {
   document.getElementById('resultados-precios').innerHTML = '<div class="loading">Cargando productos...</div>';
-  const data = await fetchSucursal('/listar/{sucursal}');
+  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
   if (!data || !data.archivos) { document.getElementById('resultados-precios').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
   todosProductos = [];
   for (const a of data.archivos.slice(-50)) {
-    const f = await fetchDescargar(a);
+    const f = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(a));
     if (!f || !f.items) continue;
     for (const it of f.items) {
       todosProductos.push({
@@ -323,7 +304,7 @@ function buscarProducto() {
 // Archivos
 async function cargarArchivos() {
   document.getElementById('lista-archivos').innerHTML = '<div class="loading">Cargando...</div>';
-  const data = await fetchSucursal('/listar/{sucursal}');
+  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
   if (!data || !data.archivos) { document.getElementById('lista-archivos').innerHTML = '<div class="vacio">No hay archivos</div>'; return; }
   document.getElementById('lista-archivos').innerHTML =
     `<table><tr><th>Archivo</th><th></th></tr>${data.archivos.map(a => `
