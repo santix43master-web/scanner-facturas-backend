@@ -52,11 +52,25 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
 
   if (url.startsWith('/ver-json/')) {
     const parts = url.slice(10).split('/');
-    const s = decodeURIComponent(parts[0]);
+    const skey = decodeURIComponent(parts[0]).replace(' ', '_');
     const nombre = decodeURIComponent(parts.slice(1).join('/'));
     try {
-      const resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
-      const data = await resp.json();
+      let data;
+      if (facturasDB[skey] && facturasDB[skey][nombre]) {
+        data = facturasDB[skey][nombre];
+      } else {
+        let resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(skey)}/${encodeURIComponent(nombre)}`);
+        data = await resp.json();
+        if (data.error) {
+          resp = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
+          data = await resp.json();
+        }
+        if (data && !data.error) {
+          if (!facturasDB[skey]) facturasDB[skey] = {};
+          facturasDB[skey][nombre] = data;
+        }
+      }
+      if (data.error) { res.writeHead(404); return res.end('{"error":"No encontrado"}'); }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify(data, null, 2));
     } catch {
@@ -66,29 +80,29 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
   }
 
   if (url.startsWith('/api/facturas/')) {
-    const s = decodeURIComponent(url.slice(14));
+    const s = decodeURIComponent(url.slice(14)).replace(' ', '_');
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     return res.end(JSON.stringify(facturasDB[s] || {}));
   }
 
   if (url.startsWith('/pdf/')) {
     const parts = url.slice(5).split('/');
-    const s = decodeURIComponent(parts[0]);
+    const skey = decodeURIComponent(parts[0]).replace(' ', '_');
     const nombre = decodeURIComponent(parts.slice(1).join('/'));
     try {
       let data;
-      if (facturasDB[s] && facturasDB[s][nombre]) {
-        data = facturasDB[s][nombre];
+      if (facturasDB[skey] && facturasDB[skey][nombre]) {
+        data = facturasDB[skey][nombre];
       } else {
-        let resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
+        let resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(skey)}/${encodeURIComponent(nombre)}`);
         data = await resp.json();
         if (data.error) {
           resp = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
           data = await resp.json();
         }
         if (data && !data.error) {
-          if (!facturasDB[s]) facturasDB[s] = {};
-          facturasDB[s][nombre] = data;
+          if (!facturasDB[skey]) facturasDB[skey] = {};
+          facturasDB[skey][nombre] = data;
         }
       }
       if (!data || data.error) { res.writeHead(404); return res.end('{"error":"No encontrado"}'); }
@@ -142,24 +156,24 @@ h1{color:#1a237e;margin-bottom:8px}
 
   if (url.startsWith('/api/descargar/')) {
     const parts = url.slice(15).split('/');
-    const s = decodeURIComponent(parts[0]);
+    const skey = decodeURIComponent(parts[0]).replace(' ', '_');
     const nombre = decodeURIComponent(parts.slice(1).join('/'));
     // busca en cache del bot primero
-    if (facturasDB[s] && facturasDB[s][nombre]) {
+    if (facturasDB[skey] && facturasDB[skey][nombre]) {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      return res.end(JSON.stringify(facturasDB[s][nombre]));
+      return res.end(JSON.stringify(facturasDB[skey][nombre]));
     }
     // proxy del backend (consume y cachea)
     try {
-      let resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
+      let resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(skey)}/${encodeURIComponent(nombre)}`);
       let data = await resp.json();
       if (data.error) {
         resp = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
         data = await resp.json();
       }
       if (data && !data.error) {
-        if (!facturasDB[s]) facturasDB[s] = {};
-        facturasDB[s][nombre] = data;
+        if (!facturasDB[skey]) facturasDB[skey] = {};
+        facturasDB[skey][nombre] = data;
       }
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       return res.end(JSON.stringify(data));

@@ -132,14 +132,28 @@ function ingresar() {
 
 async function cargarTodo() {
   cache = { archivos: [], facturas: {}, resumen: [] };
-  const hist = await fetchJSON(BACKEND + '/historial/' + sucursal);
+  const enc = encodeURIComponent(sucursal);
+  const hist = await fetchJSON(BACKEND + '/historial/' + enc);
   cache.resumen = hist?.facturas || [];
   cache.archivos = (hist?.facturas || []).map(f => f.id + '.json');
-  const botData = await fetchJSON('/api/facturas/' + sucursal);
+  const botData = await fetchJSON('/api/facturas/' + enc);
   if (botData) {
     for (const k of Object.keys(botData)) {
-      if (!cache.archivos.includes(k)) cache.archivos.push(k);
-      cache.facturas[k] = botData[k];
+      const arch = k;
+      if (!cache.archivos.includes(arch)) cache.archivos.push(arch);
+      cache.facturas[arch] = botData[k];
+      // agregar al resumen si no viene del historial
+      if (!cache.resumen.find(r => r.id === k.replace('.json',''))) {
+        const d = botData[k];
+        cache.resumen.push({
+          id: k.replace('.json',''),
+          vendedor: d.nombreVendedor || '?',
+          numero: d.numeroFactura || '?',
+          total: d.totalGeneral || 0,
+          fecha: d.fechaEmision || '?',
+          items: (d.items||[]).length,
+        });
+      }
     }
   }
   cargarDashboard();
