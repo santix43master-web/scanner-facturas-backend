@@ -19,6 +19,8 @@ body{background:#f0f2f5;color:#333}
 #login-box p{color:#78909c;font-size:14px;margin-bottom:20px}
 #login-box select{width:100%;padding:12px 16px;border:2px solid #e0e0e0;border-radius:10px;font-size:15px;outline:0;margin-bottom:16px;background:#fff;cursor:pointer}
 #login-box select:focus{border-color:#1a237e}
+#login-box input{width:100%;padding:12px 16px;border:2px solid #e0e0e0;border-radius:10px;font-size:15px;outline:0;margin-bottom:16px;background:#fff}
+#login-box input:focus{border-color:#1a237e}
 #login-box button{width:100%;padding:12px;background:#1a237e;color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer}
 #login-box button:hover{background:#283593}
 #login-box .error{color:#e74c3c;font-size:13px;margin-top:8px;display:none}
@@ -62,13 +64,9 @@ tr:hover{background:#f5f7ff}
 <div id="login-box">
 <h2>Facturas R21</h2>
 <p>Seleccioná tu sucursal para ver las facturas</p>
-<select id="sucursal-select">
-<option value="">Elegí una sucursal...</option>
-<option value="Minimarket_LF">Minimarket LF</option>
-<option value="Local_1">Local 1</option>
-</select>
+<input type="text" id="sucursal-input" placeholder="Ej: Minimarket LF, Local 1" onkeydown="if(event.key==='Enter')ingresar()">
 <button onclick="ingresar()">Entrar</button>
-<div class="error" id="login-error">Seleccioná una sucursal</div>
+<div class="error" id="login-error"></div>
 </div>
 </div>
 <nav class="nav">
@@ -116,12 +114,17 @@ const BACKEND = 'https://scanner-facturas-backend.onrender.com';
 let todasFacturas = [];
 let sucursal = '';
 
+const SUCURSALES = ['Minimarket LF', 'Local 1'];
+
 function ingresar() {
-  const val = document.getElementById('sucursal-select').value;
-  if (!val) { document.getElementById('login-error').style.display = 'block'; return; }
-  sucursal = val;
+  const val = document.getElementById('sucursal-input').value.trim();
+  const err = document.getElementById('login-error');
+  const encontrada = SUCURSALES.find(s => s.toLowerCase() === val.toLowerCase());
+  if (!encontrada) { err.textContent = 'Esa sucursal no existe'; err.style.display = 'block'; return; }
+  err.style.display = 'none';
+  sucursal = encontrada.replace(' ', '_');
   document.getElementById('login-overlay').style.display = 'none';
-  document.getElementById('nav-sucursal').textContent = sucursal.replace('_', ' ');
+  document.getElementById('nav-sucursal').textContent = encontrada;
   cargarDashboard();
 }
 
