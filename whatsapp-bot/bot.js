@@ -49,9 +49,11 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
   }
 
   if (url.startsWith('/ver-json/')) {
-    const nombre = decodeURIComponent(url.slice(10));
+    const parts = url.slice(10).split('/');
+    const s = parts[0];
+    const nombre = parts.slice(1).join('/');
     try {
-      const resp = await fetch(`${BACKEND_URL}/descargar/WhatsApp/${encodeURIComponent(nombre)}`);
+      const resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
       const data = await resp.json();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify(data, null, 2));
@@ -59,6 +61,24 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
       res.writeHead(500);
       return res.end('{"error":"Error al obtener archivo"}');
     }
+  }
+
+  if (url.startsWith('/pdf/')) {
+    const parts = url.slice(5).split('/');
+    const s = parts[0];
+    const nombre = parts.slice(1).join('/');
+    try {
+      const resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
+      const data = await resp.json();
+      const buffer = await generarPDFBuffer(data);
+      const nom = `${(data.nombreVendedor || 'factura').replace(/[^a-zA-Z0-9]/g, '_')}_${data.numeroFactura || 'sin_num'}.pdf`;
+      res.writeHead(200, { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${nom}"` });
+      return res.end(buffer);
+    } catch {
+      res.writeHead(500);
+      return res.end('{"error":"Error al generar PDF"}');
+    }
+  }
   }
 
   if (url === '/archivos') {

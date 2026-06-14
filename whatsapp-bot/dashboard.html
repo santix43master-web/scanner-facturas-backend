@@ -255,7 +255,11 @@ async function verDetalle(e, nombre) {
     <table><tr><th>#</th><th>Código</th><th>Descripción</th><th>Cant</th><th>Precio</th><th>Subtotal</th></tr>
     ${items.map((it,i) => `<tr><td>${i+1}</td><td>${it.codigo||it.codigo_barras||'-'}</td><td>${it.descripcion||'?'}</td><td>${it.cantidad||1}</td><td class="precio">${n(it.precio_unitario)}</td><td class="precio">${n(it.subtotal)}</td></tr>`).join('')}
     </table>
-    <div style="margin-top:12px"><a href="#" onclick="cargarFacturas(); return false;" style="color:#1a237e">← Volver</a></div>`;
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <a href="#" onclick="cargarFacturas(); return false;" style="color:#1a237e;font-size:13px">← Volver</a>
+      <a href="${BACKEND}/descargar/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" style="color:#1a237e;font-size:13px">⬇ JSON</a>
+      <a href="/pdf/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" style="color:#1a237e;font-size:13px">⬇ PDF</a>
+    </div>`;
 }
 
 // Precios
@@ -306,8 +310,9 @@ async function cargarArchivos() {
     `<table><tr><th>Archivo</th><th></th></tr>${data.archivos.map(a => `
       <tr><td>${a}</td>
       <td style="text-align:right">
-        <a href="${BACKEND}/descargar/${sucursal}/${encodeURIComponent(a)}" target="_blank" style="color:#1a237e;font-size:12px;margin-right:10px">⬇ JSON</a>
-        <a href="/ver-json/${encodeURIComponent(a)}" target="_blank" style="color:#1a237e;font-size:12px">👁 Ver</a>
+      <a href="${BACKEND}/descargar/${sucursal}/${encodeURIComponent(a)}" target="_blank" style="color:#1a237e;font-size:12px;margin-right:10px">⬇ JSON</a>
+        <a href="/pdf/${sucursal}/${encodeURIComponent(a)}" target="_blank" style="color:#1a237e;font-size:12px;margin-right:10px">⬇ PDF</a>
+        <a href="/ver-json/${sucursal}/${encodeURIComponent(a)}" target="_blank" style="color:#1a237e;font-size:12px">👁 Ver</a>
       </td></tr>`).join('')}</table>`;
 }
 
