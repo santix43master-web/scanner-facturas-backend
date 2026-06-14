@@ -116,7 +116,7 @@ let sucursal = '';
 
 const SUCURSALES = ['Minimarket LF', 'Local 1'];
 
-let cache = null; // { archivos: [], facturas: {} }
+let cache = null; // { archivos: [], facturas: {}, resumen: [] }
 
 function ingresar() {
   const val = document.getElementById('sucursal-input').value.trim();
@@ -131,24 +131,24 @@ function ingresar() {
 }
 
 async function cargarTodo() {
-  cache = { archivos: [], facturas: {} };
-  // Primero intenta del bot (no destructivo)
+  cache = { archivos: [], facturas: {}, resumen: [] };
+  // Resumen desde backend (no destructivo)
+  const hist = await fetchJSON(BACKEND + '/historial/' + sucursal);
+  cache.resumen = hist?.facturas || [];
+  // Datos completos desde el bot (cache)
   const botData = await fetchJSON('/api/facturas/' + sucursal);
-  if (botData && Object.keys(botData).length > 0) {
+  if (botData) {
     cache.archivos = Object.keys(botData);
     cache.facturas = botData;
-    cargarDashboard();
-    return;
-  }
-  // Fallback al backend (consume archivos una sola vez)
-  const data = await fetchJSON(BACKEND + '/listar/' + sucursal);
-  if (!data || !data.archivos) { cache = null; return; }
-  cache.archivos = data.archivos;
-  for (const a of data.archivos) {
-    const f = await fetchJSON(BACKEND + '/descargar/' + sucursal + '/' + encodeURIComponent(a));
-    if (f) { f._nombre = a; cache.facturas[a] = f; }
   }
   cargarDashboard();
+}
+
+async function obtenerFactura(nombre) {
+  if (cache.facturas[nombre]) return cache.facturas[nombre];
+  const f = await fetchJSON('/api/descargar/' + sucursal + '/' + encodeURIComponent(nombre));
+  if (f && !f.error) { f._nombre = nombre; cache.facturas[nombre] = f; }
+  return f;
 }
 
 function showTab(name) {
@@ -177,21 +177,19 @@ let chartVendedor = null, chartMes = null;
 // Dashboard
 async function cargarDashboard() {
   if (!cache) { document.getElementById('resumen-cards').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
-  const facturas = Object.values(cache.facturas);
-  const archivos = cache.archivos;
+  const facturas = cache.resumen;
   document.getElementById('resumen-cards').innerHTML = `
-    <div class="card"><div class="label">Facturas</div><div class="value">${archivos.length}</div></div>
+    <div class="card"><div class="label">Facturas</div><div class="value">${facturas.length}</div></div>
     <div class="card"><div class="label">Total General</div><div class="value" id="total-general">...</div></div>
     <div class="card"><div class="label">Promedio</div><div class="value" id="promedio">...</div></div>
     <div class="card"><div class="label">Top Vendedor</div><div class="value" id="top-vendedor">...</div><div class="sub" id="top-monto"></div></div>`;
 
   let total = 0; let porVendedor = {}; let porMes = {};
   for (const f of facturas) {
-    const monto = Number(f.totalGeneral || 0);
+    const monto = Number(f.total || 0);
     total += monto;
-    const v = f.nombreVendedor || 'Desconocido';
-    porVendedor[v] = (porVendedor[v] || 0) + monto;
-    const mes = f.fechaEmision ? f.fechaEmision.slice(0,7) : '?';
+    porVendedor[f.vendedor || 'Desconocido'] = (porVendedor[f.vendedor || 'Desconocido'] || 0) + monto;
+    const mes = f.fecha ? f.fecha.slice(0,7) : '?';
     porMes[mes] = (porMes[mes] || 0) + monto;
   }
 
@@ -226,39 +224,40 @@ async function cargarDashboard() {
     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } }, plugins: { legend: { display: false } } }
   });
 
-  const ultimas = facturas.sort((a,b) => (b.fechaEmision||'').localeCompare(a.fechaEmision||'')).slice(0,10);
+  const ultimas = facturas.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'')).slice(0,10);
   document.getElementById('ultimas-facturas').innerHTML = ultimas.length
-    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th></tr>${ultimas.map(f => `<tr><td>${f.nombreVendedor||'?'}</td><td>${f.numeroFactura||'?'}</td><td class="precio">${n(f.totalGeneral)}</td><td class="fecha">${f.fechaEmision||'?'}</td><td>${(f.items||[]).length}</td></tr>`).join('')}</table>`
+    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th></tr>${ultimas.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td></tr>`).join('')}</table>`
     : '<div class="vacio">No hay facturas</div>';
 }
 
 // Facturas
 async function cargarFacturas() {
   if (!cache) { document.getElementById('lista-facturas').innerHTML = '<div class="vacio">No hay facturas</div>'; return; }
-  todasFacturas = Object.values(cache.facturas);
-  todasFacturas.sort((a,b) => (b.fechaEmision||'').localeCompare(a.fechaEmision||''));
+  todasFacturas = cache.resumen;
+  todasFacturas.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
   mostrarFacturas(todasFacturas);
 }
 
 function mostrarFacturas(lista) {
   document.getElementById('lista-facturas').innerHTML = lista.length
-    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th></th></tr>${lista.map(f => `<tr><td>${f.nombreVendedor||'?'}</td><td>${f.numeroFactura||'?'}</td><td class="precio">${n(f.totalGeneral)}</td><td class="fecha">${f.fechaEmision||'?'}</td><td>${(f.items||[]).length}</td><td><a href="#" onclick="verDetalle(event,'${f._nombre||''}')" style="color:#1a237e;font-size:12px">Ver</a></td></tr>`).join('')}</table>`
+    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th></th></tr>${lista.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td><td><a href="#" onclick="verDetalle(event,'${f.id||''}')" style="color:#1a237e;font-size:12px">Ver</a></td></tr>`).join('')}</table>`
     : '<div class="vacio">No se encontraron facturas</div>';
 }
 
 function filtrarFacturas() {
   const q = document.getElementById('search-factura').value.toLowerCase();
   const filtradas = todasFacturas.filter(f =>
-    (f.nombreVendedor||'').toLowerCase().includes(q) ||
-    (f.numeroFactura||'').toLowerCase().includes(q) ||
-    (f.fechaEmision||'').includes(q)
+    (f.vendedor||'').toLowerCase().includes(q) ||
+    (f.numero||'').toLowerCase().includes(q) ||
+    (f.fecha||'').includes(q)
   );
   mostrarFacturas(filtradas);
 }
 
-async function verDetalle(e, nombre) {
+async function verDetalle(e, id) {
   e.preventDefault();
-  const data = cache?.facturas?.[nombre];
+  const nombre = id + '.json';
+  const data = await obtenerFactura(nombre);
   if (!data) return;
   const items = data.items || [];
   document.getElementById('lista-facturas').innerHTML = `

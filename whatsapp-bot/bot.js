@@ -126,8 +126,35 @@ h1{color:#1a237e;margin-bottom:8px}
     }
   }
 
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ status: estadoConexion, qr: !!ultimoQR, bot: 'Facturas R21 WhatsApp Bot', archivos: 'https://whatsapp-facturas-bot.onrender.com/archivos' }));
+  if (url.startsWith('/api/descargar/')) {
+    const parts = url.slice(15).split('/');
+    const s = decodeURIComponent(parts[0]);
+    const nombre = decodeURIComponent(parts.slice(1).join('/'));
+    // busca en cache del bot primero
+    if (facturasDB[s] && facturasDB[s][nombre]) {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify(facturasDB[s][nombre]));
+    }
+    // proxy del backend (consume y cachea)
+    try {
+      const resp = await fetch(`${BACKEND_URL}/descargar/${encodeURIComponent(s)}/${encodeURIComponent(nombre)}`);
+      const data = await resp.json();
+      if (data && !data.error) {
+        if (!facturasDB[s]) facturasDB[s] = {};
+        facturasDB[s][nombre] = data;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify(data));
+    } catch {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end('{"error":"Error al obtener archivo"}');
+    }
+  }
+
+  if (url === '/api/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    return res.end(JSON.stringify({ status: estadoConexion, qr: !!ultimoQR, bot: 'Facturas R21 WhatsApp Bot' }));
+  }
 });
 server.listen(PORT, () => console.log(`✅ HTTP server on port ${PORT}`));
 
