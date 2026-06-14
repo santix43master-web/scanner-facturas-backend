@@ -363,19 +363,58 @@ async function enviarALocal(datos) {
   return res.ok;
 }
 
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
+const SUPABASE_TABLE = 'auth';
+
+async function supabaseGuardar(data) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    // fallback: guardar en el backend
+    const res = await fetch(`${BACKEND_URL}/auth-guardar`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auth: data }),
+    });
+    return res.ok;
+  }
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates',
+    },
+    body: JSON.stringify({ id: 1, data }),
+  });
+  return res.ok;
+}
+
+async function supabaseCargar() {
+  if (SUPABASE_URL && SUPABASE_KEY) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.1&select=data`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (rows && rows.length > 0 && rows[0].data) return rows[0].data;
+    }
+  }
+  // fallback: cargar del backend
+  const res = await fetch(`${BACKEND_URL}/auth-cargar`);
+  const data = await res.json();
+  if (data.status === 'ok' && data.auth) return data.auth;
+  return null;
+}
+
 async function cargarAuthRemoto() {
   try {
-    const res = await fetch(`${BACKEND_URL}/auth-cargar`);
-    const data = await res.json();
-    if (data.status === 'ok' && data.auth) {
-      const archivos = JSON.parse(data.auth);
-      if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
-      for (const [nombre, contenido] of Object.entries(archivos)) {
-        fs.writeFileSync(path.join(AUTH_DIR, nombre), Buffer.from(contenido, 'base64'));
-      }
-      console.log('Auth cargado del backend');
-      return true;
+    const authStr = await supabaseCargar();
+    if (!authStr) return false;
+    const archivos = JSON.parse(authStr);
+    if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
+    for (const [nombre, contenido] of Object.entries(archivos)) {
+      fs.writeFileSync(path.join(AUTH_DIR, nombre), Buffer.from(contenido, 'base64'));
     }
+    console.log('Auth cargado de Supabase/backend');
+    return true;
   } catch (e) {
     console.log('No hay auth remoto:', e.message);
   }
@@ -389,12 +428,8 @@ async function guardarAuthRemoto() {
     for (const f of fs.readdirSync(AUTH_DIR)) {
       archivos[f] = fs.readFileSync(path.join(AUTH_DIR, f)).toString('base64');
     }
-    await fetch(`${BACKEND_URL}/auth-guardar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auth: JSON.stringify(archivos) }),
-    });
-    console.log('Auth guardado en el backend');
+    const ok = await supabaseGuardar(JSON.stringify(archivos));
+    console.log(ok ? 'Auth guardado en Supabase' : 'Error guardando auth');
   } catch (e) {
     console.log('Error guardando auth remoto:', e.message);
   }
