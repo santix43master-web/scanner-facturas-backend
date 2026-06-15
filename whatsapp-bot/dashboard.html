@@ -256,7 +256,8 @@ function iniciarAutoRefresh() {
 async function cargarTodo() {
   cache = { archivos: [], facturas: {}, resumen: [] };
   const enc = encodeURIComponent(sucursal);
-  const hist = await fetchJSON(BACKEND + '/historial/' + enc);
+  const encBackend = encodeURIComponent(sucursal.replace(' ', '_'));
+  const hist = await fetchJSON(BACKEND + '/historial/' + encBackend);
   cache.resumen = hist?.facturas || [];
   cache.archivos = (hist?.facturas || []).map(f => f.id + '.json');
   const botData = await fetchJSON('/api/facturas/' + enc);
