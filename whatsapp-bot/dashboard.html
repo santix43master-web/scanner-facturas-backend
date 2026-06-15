@@ -167,6 +167,10 @@ tr:hover td{background:rgba(0,188,212,.05)}
 <input type="date" id="f-factura-dsde" onchange="filtrarFacturas()">
 <label>Hasta:</label>
 <input type="date" id="f-factura-hasta" onchange="filtrarFacturas()">
+<label>Usuario:</label>
+<select id="filtro-usuario" onchange="filtrarFacturas()" style="padding:7px 10px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:8px;font-size:13px;color:#fff;outline:0">
+<option value="">Todos</option>
+</select>
 <button class="btn-clear" onclick="limpiarFiltrosFacturas()">✕ Limpiar</button>
 </div>
 <div class="search"><input type="text" id="search-factura" placeholder="🔍 Buscar por vendedor, número..." oninput="filtrarFacturas()"></div>
@@ -258,7 +262,7 @@ async function cargarTodo() {
   const enc = encodeURIComponent(sucursal);
   const encBackend = encodeURIComponent(sucursal.replace(' ', '_'));
   const hist = await fetchJSON(BACKEND + '/historial/' + encBackend);
-  cache.resumen = hist?.facturas || [];
+  cache.resumen = (hist?.facturas || []).map(f => ({ ...f, usuario: f.usuario || '-' }));
   cache.archivos = (hist?.facturas || []).map(f => f.id + '.json');
   const botData = await fetchJSON('/api/facturas/' + enc);
   if (botData) {
@@ -271,6 +275,7 @@ async function cargarTodo() {
           id: k.replace('.json',''), vendedor: d.nombreVendedor || '?',
           numero: d.numeroFactura || '?', total: d.totalGeneral || 0,
           fecha: d.fechaEmision || '?', items: (d.items||[]).length,
+          usuario: d._usuario || '-',
         });
       }
     }
@@ -390,6 +395,11 @@ function cargarFacturas() {
   if (!cache) { document.getElementById('lista-facturas').innerHTML = '<div class="vacio">No hay facturas</div>'; return; }
   todasFacturas = cache.resumen;
   todasFacturas.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+  const select = document.getElementById('filtro-usuario');
+  const actual = select.value;
+  const users = [...new Set(todasFacturas.map(f => f.usuario).filter(Boolean))].sort();
+  select.innerHTML = '<option value="">Todos</option>' + users.map(u => `<option value="${u}">${u}</option>`).join('');
+  if (users.includes(actual)) select.value = actual;
   paginaActual = 1;
   renderizarFacturas();
 }
@@ -397,7 +407,9 @@ function cargarFacturas() {
 function renderizarFacturas() {
   const q = document.getElementById('search-factura').value.toLowerCase();
   const filtroFecha = getFiltroFechas('f-factura');
+  const filtroUser = document.getElementById('filtro-usuario').value;
   let filtradas = todasFacturas.filter(filtroFecha);
+  if (filtroUser) filtradas = filtradas.filter(f => f.usuario === filtroUser);
   if (q) {
     filtradas = filtradas.filter(f =>
       (f.vendedor||'').toLowerCase().includes(q) ||
@@ -411,7 +423,7 @@ function renderizarFacturas() {
   const pagina = filtradas.slice(inicio, inicio + porPagina);
 
   document.getElementById('lista-facturas').innerHTML = pagina.length
-    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th></th></tr>${pagina.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td><td style="display:flex;gap:4px"><a href="#" onclick="verDetalle(event,'${f.id||''}')" class="btn btn-ghost btn-small">Ver</a><a href="#" onclick="eliminarFactura('${f.id||''}','','${sucursal}'); return false" class="btn btn-ghost btn-small" style="color:#EF5350">🗑</a></td></tr>`).join('')}</table>`
+    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th>Usuario</th><th></th></tr>${pagina.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td><td style="font-size:12px;color:#78909C">${f.usuario||'-'}</td><td style="display:flex;gap:4px"><a href="#" onclick="verDetalle(event,'${f.id||''}')" class="btn btn-ghost btn-small">Ver</a><a href="#" onclick="eliminarFactura('${f.id||''}','','${sucursal}'); return false" class="btn btn-ghost btn-small" style="color:#EF5350">🗑</a></td></tr>`).join('')}</table>`
     : '<div class="vacio">No se encontraron facturas</div>';
 
   // pagination controls
@@ -439,6 +451,7 @@ function limpiarFiltrosFacturas() {
   document.getElementById('f-factura-dsde').value = '';
   document.getElementById('f-factura-hasta').value = '';
   document.getElementById('search-factura').value = '';
+  document.getElementById('filtro-usuario').value = '';
   paginaActual = 1;
   renderizarFacturas();
 }

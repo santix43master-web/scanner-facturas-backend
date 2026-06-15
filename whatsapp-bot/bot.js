@@ -803,6 +803,7 @@ async function iniciarBot() {
           const n = (datos.numeroFactura || 'SIN_NUM').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20);
           const ts = Date.now();
           const fname = `${v}_${n}_${ts}.json`;
+          datos._usuario = jid.split('@')[0].replace(/[^0-9]/g, '');
           facturasDB[dbSuc][fname] = datos;
           guardarFacturasDB();
           cacheSuc = dbSuc;
