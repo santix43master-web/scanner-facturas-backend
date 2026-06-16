@@ -6,188 +6,136 @@
 <title>Facturas R21 - Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',system-ui,-apple-system,sans-serif}
-@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(30px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes slideDown{from{opacity:0;transform:translateY(-30px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-@keyframes pulseGlow{0%,100%{box-shadow:0 0 20px rgba(0,188,212,.2)}50%{box-shadow:0 0 40px rgba(0,188,212,.4)}}
 @keyframes spin{to{transform:rotate(360deg)}}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-@keyframes blob{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(30px,-30px) scale(1.1)}50%{transform:translate(-20px,20px) scale(.9)}75%{transform:translate(20px,30px) scale(1.05)}}
-@keyframes borderGlow{0%,100%{border-color:rgba(0,188,212,.3)}50%{border-color:rgba(0,188,212,.7)}}
-
-body{background:#0a1628;min-height:100vh;color:#e0e0e0;overflow-x:hidden;position:relative}
-body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 20% 50%,rgba(0,188,212,.06) 0%,transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(77,208,225,.04) 0%,transparent 50%),radial-gradient(ellipse at 50% 80%,rgba(0,188,212,.03) 0%,transparent 50%);pointer-events:none;z-index:0;animation:gradientShift 20s ease infinite}
-body::after{content:'';position:fixed;top:0;left:0;width:100%;height:100%;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300bcd4' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.5}
-
-/* Floating orbs */
-.orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;filter:blur(80px)}
-.orb-1{width:500px;height:500px;background:rgba(0,188,212,.08);top:-100px;right:-100px;animation:blob 15s ease infinite}
-.orb-2{width:400px;height:400px;background:rgba(77,208,225,.06);bottom:-80px;left:-80px;animation:blob 20s ease infinite reverse}
-.orb-3{width:300px;height:300px;background:rgba(0,188,212,.04);top:50%;left:50%;transform:translate(-50%,-50%);animation:blob 18s ease infinite}
-
-.nav{background:rgba(10,22,40,.85);backdrop-filter:blur(24px) saturate(1.2);-webkit-backdrop-filter:blur(24px) saturate(1.2);border-bottom:1px solid rgba(0,188,212,.12);padding:16px 28px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:100;animation:slideDown .6s cubic-bezier(.16,1,.3,1)}
-.nav-logo{display:flex;align-items:center;gap:10px}
-.nav-logo .icon{width:34px;height:34px;background:linear-gradient(135deg,#00BCD4,#4DD0E1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#0a1628;box-shadow:0 4px 15px rgba(0,188,212,.3)}
-.nav h1{font-size:18px;font-weight:800;background:linear-gradient(135deg,#00BCD4,#80DEEA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.nav a{color:#546E7A;text-decoration:none;font-size:12px;font-weight:600;padding:7px 16px;border-radius:10px;background:transparent;transition:all .3s cubic-bezier(.16,1,.3,1);border:1px solid transparent;letter-spacing:.2px}
-.nav a:hover{background:rgba(0,188,212,.08);border-color:rgba(0,188,212,.15);color:#B0BEC5;transform:translateY(-1px)}
-.nav a.active{background:rgba(0,188,212,.12);border-color:rgba(0,188,212,.25);color:#00BCD4;box-shadow:0 0 20px rgba(0,188,212,.08)}
-.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.nav .suc{font-size:11px;font-weight:600;color:#4DD0E1;padding:5px 14px;background:rgba(0,188,212,.08);border-radius:8px;border:1px solid rgba(0,188,212,.15);letter-spacing:.3px;text-transform:uppercase}
-.nav .badge{font-size:11px;color:#546E7A;background:rgba(27,40,56,.7);padding:5px 12px;border-radius:8px;border:1px solid rgba(42,63,79,.5);display:flex;align-items:center;gap:6px;cursor:pointer;transition:all .3s}
-.nav .badge:hover{background:rgba(27,40,56,1);border-color:#546E7A}
-
-#login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,22,40,.85);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;z-index:999;animation:fadeIn .5s ease}
-#login-box{background:linear-gradient(145deg,rgba(27,40,56,.95),rgba(13,27,42,.98));border-radius:20px;padding:44px 40px 36px;width:90%;max-width:380px;text-align:center;border:1px solid rgba(0,188,212,.15);box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 60px rgba(0,188,212,.05);animation:fadeUp .6s cubic-bezier(.16,1,.3,1);position:relative;overflow:hidden}
-#login-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#00BCD4,#4DD0E1,#80DEEA,transparent);background-size:200% 100%;animation:shimmer 3s linear infinite}
-#login-box .logo{width:56px;height:56px;background:linear-gradient(135deg,#00BCD4,#4DD0E1);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#0a1628;margin:0 auto 16px;box-shadow:0 8px 30px rgba(0,188,212,.3);animation:float 4s ease infinite}
-#login-box h2{font-size:24px;font-weight:800;color:#fff;margin-bottom:4px}
-#login-box .sub{color:#546E7A;font-size:13px;margin-bottom:28px}
-#login-box input{width:100%;padding:13px 18px;background:rgba(13,27,42,.8);border:1px solid rgba(42,63,79,.6);border-radius:12px;font-size:14px;outline:0;color:#fff;transition:all .3s;margin-bottom:14px}
-#login-box input:focus{border-color:#00BCD4;box-shadow:0 0 20px rgba(0,188,212,.12),inset 0 0 20px rgba(0,188,212,.03)}
-#login-box input::placeholder{color:#3a5068}
-#login-box button{width:100%;padding:14px;background:linear-gradient(135deg,#00BCD4,#26C6DA);color:#0a1628;border:0;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:all .3s cubic-bezier(.16,1,.3,1);box-shadow:0 6px 25px rgba(0,188,212,.25);position:relative;overflow:hidden}
-#login-box button::after{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,transparent 30%,rgba(255,255,255,.1) 50%,transparent 70%);opacity:0;transition:opacity .5s}
-#login-box button:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,188,212,.35)}
-#login-box button:hover::after{opacity:1}
-#login-box .error{color:#EF5350;font-size:13px;margin-top:10px;display:none;background:rgba(239,83,80,.08);padding:8px 12px;border-radius:8px;border:1px solid rgba(239,83,80,.15)}
-
-.container{max-width:1260px;margin:0 auto;padding:24px 24px 40px;position:relative;z-index:1}
-.tabs{margin-bottom:20px;display:flex;gap:4px;flex-wrap:wrap;animation:fadeIn .7s ease;background:rgba(27,40,56,.4);border-radius:14px;padding:4px;border:1px solid rgba(42,63,79,.3)}
-.tab{padding:10px 22px;cursor:pointer;border-radius:10px;font-size:12px;font-weight:600;color:#546E7A;background:transparent;border:0;transition:all .4s cubic-bezier(.16,1,.3,1);letter-spacing:.3px}
-.tab:hover{color:#B0BEC5;background:rgba(0,188,212,.05)}
-.tab.active{background:linear-gradient(135deg,rgba(0,188,212,.15),rgba(77,208,225,.08));color:#00BCD4;box-shadow:0 0 20px rgba(0,188,212,.06)}
-.tab-content{display:none;animation:fadeUp .5s cubic-bezier(.16,1,.3,1)}
+@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(0,188,212,.2)}50%{box-shadow:0 0 25px rgba(0,188,212,.4)}}
+body{background:#0D1B2A;min-height:100vh;color:#e0e0e0}
+.nav{background:rgba(13,27,42,.95);backdrop-filter:blur(16px);border-bottom:1px solid #2A3F4F;padding:14px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:0;z-index:100;animation:slideDown .5s ease}
+.nav h1{font-size:19px;font-weight:700;color:#00BCD4}
+.nav a{color:#78909C;text-decoration:none;font-size:13px;padding:6px 14px;border-radius:8px;background:transparent;transition:all .3s;border:1px solid transparent}
+.nav a:hover{background:#1B2838;border-color:#2A3F4F;color:#B0BEC5}
+.nav a.active{background:#1B2838;border-color:#00BCD4;color:#00BCD4}
+.nav .suc{font-size:12px;color:#00BCD4;margin-left:auto;padding:4px 12px;background:#1B2838;border-radius:8px;border:1px solid #2A3F4F}
+.nav .badge{font-size:11px;color:#546E7A;background:#1B2838;padding:4px 10px;border-radius:8px;border:1px solid #2A3F4F;margin-left:6px}
+#login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:999;animation:fadeIn .4s ease}
+#login-box{background:#1B2838;border-radius:16px;padding:36px;width:90%;max-width:360px;text-align:center;border:1px solid #2A3F4F;box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 40px rgba(0,188,212,.08);animation:slideDown .6s ease}
+#login-box h2{font-size:26px;font-weight:800;color:#00BCD4;margin-bottom:4px}
+#login-box .sub{color:#78909C;font-size:14px;margin-bottom:24px}
+#login-box input{width:100%;padding:12px 16px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:10px;font-size:15px;outline:0;color:#fff;transition:all .3s;margin-bottom:14px}
+#login-box input:focus{border-color:#00BCD4;box-shadow:0 0 15px rgba(0,188,212,.15)}
+#login-box input::placeholder{color:#546E7A}
+#login-box button{width:100%;padding:13px;background:#00BCD4;color:#0D1B2A;border:0;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .3s;box-shadow:0 4px 15px rgba(0,188,212,.25)}
+#login-box button:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,188,212,.35)}
+#login-box .error{color:#EF5350;font-size:13px;margin-top:8px;display:none}
+.container{max-width:1200px;margin:0 auto;padding:20px;position:relative;z-index:1}
+.tabs{margin-bottom:16px;display:flex;gap:4px;flex-wrap:wrap;animation:fadeIn .6s ease}
+.tab{padding:8px 18px;cursor:pointer;border-radius:8px;font-size:13px;font-weight:600;color:#78909C;background:#1B2838;border:1px solid #2A3F4F;transition:all .3s}
+.tab:hover{background:#2A3F4F;color:#B0BEC5}
+.tab.active{background:#0D1B2A;color:#00BCD4;border-color:#00BCD4;box-shadow:0 0 15px rgba(0,188,212,.1)}
+.tab-content{display:none;animation:fadeIn .4s ease}
 .tab-content.active{display:block}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:22px}
-.card{background:linear-gradient(145deg,rgba(27,40,56,.7),rgba(13,27,42,.5));border-radius:16px;padding:24px;border:1px solid rgba(42,63,79,.4);transition:all .4s cubic-bezier(.16,1,.3,1);animation:fadeUp .6s cubic-bezier(.16,1,.3,1) backwards;position:relative;overflow:hidden;backdrop-filter:blur(8px)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+.card{background:#1B2838;border-radius:12px;padding:20px;border:1px solid #2A3F4F;transition:all .3s;animation:fadeIn .5s ease backwards;position:relative;overflow:hidden}
 .card:nth-child(1){animation-delay:.05s}
 .card:nth-child(2){animation-delay:.1s}
 .card:nth-child(3){animation-delay:.15s}
 .card:nth-child(4){animation-delay:.2s}
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#00BCD4,#4DD0E1,transparent);opacity:0;transition:opacity .4s}
-.card::after{content:'';position:absolute;top:-50%;right:-50%;width:100%;height:100%;background:radial-gradient(circle,rgba(0,188,212,.04) 0%,transparent 70%);opacity:0;transition:opacity .5s}
-.card:hover{transform:translateY(-5px) scale(1.01);border-color:rgba(0,188,212,.3);box-shadow:0 20px 60px rgba(0,0,0,.3),0 0 30px rgba(0,188,212,.06)}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00BCD4,#4DD0E1,#80DEEA);opacity:0;transition:opacity .3s}
 .card:hover::before{opacity:1}
-.card:hover::after{opacity:1}
-.card .icon{font-size:28px;position:absolute;top:14px;right:18px;opacity:.1;transition:all .4s}
-.card:hover .icon{opacity:.2;transform:scale(1.2) rotate(-5deg)}
-.card .label{font-size:10px;color:#546E7A;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px;font-weight:600}
-.card .value{font-size:26px;font-weight:800;color:#FFFFFF;line-height:1.2}
-.card .sub{font-size:12px;color:#3a5068;margin-top:3px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+.card:hover{transform:translateY(-3px);border-color:#00BCD4;box-shadow:0 8px 30px rgba(0,0,0,.3),0 0 20px rgba(0,188,212,.08)}
+.card .icon{font-size:24px;position:absolute;top:12px;right:14px;opacity:.12}
+.card .label{font-size:11px;color:#78909C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.card .value{font-size:24px;font-weight:800;color:#FFFFFF}
+.card .sub{font-size:12px;color:#546E7A;margin-top:2px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
 @media(max-width:768px){.grid2{grid-template-columns:1fr}}
-.section{background:linear-gradient(145deg,rgba(27,40,56,.7),rgba(13,27,42,.5));border-radius:16px;padding:22px;border:1px solid rgba(42,63,79,.4);margin-bottom:16px;animation:fadeUp .5s ease;backdrop-filter:blur(8px);transition:all .3s}
-.section:hover{border-color:rgba(0,188,212,.12)}
-.section h2{font-size:13px;font-weight:700;color:#4DD0E1;margin-bottom:16px;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-transform:uppercase}
+.section{background:#1B2838;border-radius:12px;padding:20px;border:1px solid #2A3F4F;margin-bottom:14px;animation:fadeIn .5s ease}
+.section h2{font-size:14px;font-weight:700;color:#00BCD4;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;padding:12px 10px;color:#546E7A;font-weight:600;border-bottom:1px solid rgba(42,63,79,.5);font-size:10px;text-transform:uppercase;letter-spacing:1px}
-td{padding:11px 10px;border-bottom:1px solid rgba(42,63,79,.2);color:#B0BEC5;transition:background .3s}
-tr:last-child td{border-bottom:0}
-tr:hover td{background:rgba(0,188,212,.04)}
+th{text-align:left;padding:10px;color:#78909C;font-weight:600;border-bottom:1px solid #2A3F4F;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:9px 10px;border-bottom:1px solid rgba(42,63,79,.5);color:#CFD8DC}
+tr:hover td{background:rgba(0,188,212,.05)}
 .search{margin-bottom:14px}
-.search input{width:100%;padding:11px 16px;background:rgba(13,27,42,.6);border:1px solid rgba(42,63,79,.5);border-radius:10px;font-size:13px;outline:0;color:#fff;transition:all .3s}
-.search input:focus{border-color:rgba(0,188,212,.4);box-shadow:0 0 20px rgba(0,188,212,.06)}
-.search input::placeholder{color:#3a5068}
+.search input{width:100%;padding:10px 14px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:8px;font-size:14px;outline:0;color:#fff;transition:all .3s}
+.search input:focus{border-color:#00BCD4;box-shadow:0 0 12px rgba(0,188,212,.1)}
+.search input::placeholder{color:#546E7A}
+.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;animation:fadeIn .5s ease}
+.filter-bar label{color:#78909C;font-size:12px;font-weight:600}
+.filter-bar input[type=date]{padding:8px 12px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:8px;font-size:13px;outline:0;color:#fff;transition:all .3s;color-scheme:dark}
+.filter-bar input[type=date]:focus{border-color:#00BCD4;box-shadow:0 0 12px rgba(0,188,212,.1)}
+.filter-bar input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:pointer}
+.filter-bar .btn-clear{color:#78909C;background:#1B2838;border:1px solid #2A3F4F;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;transition:all .3s}
+.filter-bar .btn-clear:hover{background:#2A3F4F;color:#B0BEC5}
 .precio{color:#4DD0E1;font-weight:600}
 .fecha{color:#546E7A;font-size:12px}
-.loading{text-align:center;padding:48px;color:#546E7A;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:14px}
-.loading::after{content:'';width:32px;height:32px;border:3px solid rgba(42,63,79,.5);border-top:3px solid #00BCD4;border-radius:50%;animation:spin .8s linear infinite}
-.vacio{text-align:center;padding:40px;color:#3a5068;font-size:14px}
-.chart-container{position:relative;height:260px;animation:fadeIn .8s ease}
-.detalle-card{background:rgba(0,188,212,.05);border-radius:12px;padding:18px;margin:10px 0;border:1px solid rgba(0,188,212,.1);transition:all .3s}
-.detalle-card:hover{border-color:rgba(0,188,212,.2);background:rgba(0,188,212,.07)}
-.detalle-card h4{color:#00BCD4;margin-bottom:10px;font-size:14px}
-.detalle-card .info{display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:13px;color:#B0BEC5}
-.detalle-card .info span{color:#546E7A}
-.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;transition:all .3s cubic-bezier(.16,1,.3,1);cursor:pointer;border:0}
-.btn-primary{background:linear-gradient(135deg,#00BCD4,#26C6DA);color:#0a1628;box-shadow:0 4px 15px rgba(0,188,212,.2)}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,188,212,.3)}
-.btn-ghost{color:#78909C;background:rgba(27,40,56,.5);border:1px solid rgba(42,63,79,.4)}
-.btn-ghost:hover{background:rgba(42,63,79,.5);color:#B0BEC5;transform:translateY(-1px);border-color:rgba(0,188,212,.2)}
-.btn-small{padding:5px 12px;font-size:11px;border-radius:8px}
-.btn-danger{color:#EF5350;background:rgba(239,83,80,.08);border:1px solid rgba(239,83,80,.15)}
-.btn-danger:hover{background:rgba(239,83,80,.15);color:#EF5350;transform:translateY(-1px)}
-.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px;animation:fadeIn .6s ease}
-.filter-bar label{color:#546E7A;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
-.filter-bar input[type=date]{padding:8px 12px;background:rgba(13,27,42,.6);border:1px solid rgba(42,63,79,.5);border-radius:8px;font-size:12px;outline:0;color:#fff;transition:all .3s;color-scheme:dark}
-.filter-bar input[type=date]:focus{border-color:rgba(0,188,212,.4);box-shadow:0 0 12px rgba(0,188,212,.06)}
-.filter-bar input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:pointer}
-.filter-bar select{padding:8px 10px;background:rgba(13,27,42,.6);border:1px solid rgba(42,63,79,.5);border-radius:8px;font-size:12px;color:#fff;outline:0;transition:all .3s;cursor:pointer}
-.filter-bar select:focus{border-color:rgba(0,188,212,.4)}
-.filter-bar .btn-clear{color:#546E7A;background:rgba(27,40,56,.4);border:1px solid rgba(42,63,79,.4);border-radius:8px;padding:7px 14px;font-size:11px;cursor:pointer;transition:all .3s;font-weight:600}
-.filter-bar .btn-clear:hover{background:rgba(42,63,79,.5);color:#B0BEC5}
-.pagination{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:18px;flex-wrap:wrap}
-.pagination .page-btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .3s cubic-bezier(.16,1,.3,1);background:rgba(27,40,56,.5);color:#546E7A;border:1px solid rgba(42,63,79,.4)}
-.pagination .page-btn:hover{background:rgba(42,63,79,.5);color:#B0BEC5;transform:translateY(-1px)}
-.pagination .page-btn.active{background:linear-gradient(135deg,#00BCD4,#26C6DA);color:#0a1628;border-color:#00BCD4;box-shadow:0 4px 15px rgba(0,188,212,.2)}
-.pagination .page-info{color:#3a5068;font-size:12px}
-.producto-link{color:#4DD0E1;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;transition:all .3s}
-.producto-link:hover{color:#00BCD4}
-.historial-container{background:rgba(0,188,212,.04);border-radius:12px;padding:18px;margin-top:12px;border:1px solid rgba(0,188,212,.1);animation:fadeUp .4s ease}
-.historial-container h4{color:#00BCD4;margin-bottom:10px;font-size:14px}
-.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,22,40,.85);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:999;animation:fadeIn .3s ease}
-.modal-content{background:linear-gradient(145deg,rgba(27,40,56,.98),rgba(13,27,42,.98));border-radius:20px;padding:24px;width:92%;max-width:820px;max-height:92vh;display:flex;flex-direction:column;border:1px solid rgba(0,188,212,.12);box-shadow:0 30px 80px rgba(0,0,0,.5);animation:fadeUp .4s cubic-bezier(.16,1,.3,1)}
-.modal-content .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.modal-content .modal-header h3{color:#00BCD4;font-size:15px;font-weight:700}
-.modal-content .modal-close{background:0;border:0;color:#546E7A;font-size:24px;cursor:pointer;padding:0 6px;transition:all .3s;border-radius:8px}
-.modal-content .modal-close:hover{color:#EF5350;background:rgba(239,83,80,.08)}
-.modal-content iframe{flex:1;width:100%;min-height:520px;border:0;border-radius:10px;background:#fff}
-.refresh-indicator{display:inline-block;width:7px;height:7px;border-radius:50%;transition:all .3s}
-.refresh-indicator.active{background:#00BCD4;box-shadow:0 0 10px rgba(0,188,212,.5);animation:pulseGlow 2s ease infinite}
-.refresh-indicator.paused{background:#546E7A;box-shadow:none;animation:none}
-.footer{text-align:center;padding:28px 20px;color:#3a5068;font-size:13px;border-top:1px solid rgba(42,63,79,.3);margin-top:32px;animation:fadeIn .8s ease;position:relative;z-index:1}
-.footer a{color:#00BCD4;text-decoration:none;font-weight:600;transition:all .3s}
+.loading{text-align:center;padding:36px;color:#78909C;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.loading::after{content:'';width:28px;height:28px;border:3px solid #2A3F4F;border-top:3px solid #00BCD4;border-radius:50%;animation:spin .7s linear infinite}
+.vacio{text-align:center;padding:28px;color:#546E7A;font-size:14px}
+.chart-container{position:relative;height:250px;animation:fadeIn .6s ease}
+.detalle-card{background:rgba(0,188,212,.06);border-radius:10px;padding:16px;margin:8px 0;border:1px solid rgba(0,188,212,.12)}
+.detalle-card h4{color:#00BCD4;margin-bottom:8px;font-size:14px}
+.detalle-card .info{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#CFD8DC}
+.detalle-card .info span{color:#78909C}
+.btn{display:inline-block;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;transition:all .3s;cursor:pointer;border:0}
+.btn-primary{background:#00BCD4;color:#0D1B2A;box-shadow:0 4px 12px rgba(0,188,212,.2)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,188,212,.3)}
+.btn-ghost{color:#78909C;background:#1B2838;border:1px solid #2A3F4F}
+.btn-ghost:hover{background:#2A3F4F;color:#B0BEC5;transform:translateY(-1px)}
+.btn-small{padding:4px 10px;font-size:11px}
+.footer{text-align:center;padding:24px 20px;color:#546E7A;font-size:13px;border-top:1px solid #2A3F4F;margin-top:24px;animation:fadeIn .8s ease}
+.footer a{color:#00BCD4;text-decoration:none;font-weight:600}
 .footer a:hover{color:#4DD0E1}
-.footer .heart{color:#EF5350;display:inline-block;animation:pulse 1.8s ease infinite}
-::-webkit-scrollbar{width:5px}
-::-webkit-scrollbar-track{background:rgba(13,27,42,.5)}
-::-webkit-scrollbar-thumb{background:rgba(42,63,79,.7);border-radius:3px}
+.footer .heart{color:#EF5350;display:inline-block;animation:pulse 1.5s ease infinite}
+.pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+.pagination .page-btn{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .3s;background:#1B2838;color:#78909C;border:1px solid #2A3F4F}
+.pagination .page-btn:hover{background:#2A3F4F;color:#B0BEC5}
+.pagination .page-btn.active{background:#00BCD4;color:#0D1B2A;border-color:#00BCD4}
+.pagination .page-info{color:#546E7A;font-size:13px}
+.producto-link{color:#4DD0E1;cursor:pointer;text-decoration:underline;text-decoration-style:dotted}
+.producto-link:hover{color:#00BCD4}
+.historial-container{background:rgba(0,188,212,.04);border-radius:10px;padding:16px;margin-top:10px;border:1px solid rgba(0,188,212,.12)}
+.historial-container h4{color:#00BCD4;margin-bottom:10px;font-size:14px}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:999;animation:fadeIn .3s ease}
+.modal-content{background:#1B2838;border-radius:16px;padding:20px;width:90%;max-width:800px;max-height:90vh;display:flex;flex-direction:column;border:1px solid #2A3F4F;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-content .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.modal-content .modal-header h3{color:#00BCD4;font-size:16px}
+.modal-content .modal-close{background:0;border:0;color:#78909C;font-size:22px;cursor:pointer;padding:0 4px}
+.modal-content .modal-close:hover{color:#EF5350}
+.modal-content iframe{flex:1;width:100%;min-height:500px;border:0;border-radius:8px;background:#fff}
+.refresh-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:6px;animation:glow 2s ease infinite}
+.refresh-indicator.active{background:#00BCD4}
+.refresh-indicator.paused{background:#546E7A;animation:none}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#0D1B2A}
+::-webkit-scrollbar-thumb{background:#2A3F4F;border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:#546E7A}
-::selection{background:rgba(0,188,212,.25);color:#fff}
 </style>
 </head>
 <body>
-<div class="orb orb-1"></div>
-<div class="orb orb-2"></div>
-<div class="orb orb-3"></div>
-
 <div id="login-overlay">
 <div id="login-box">
-<div class="logo">R21</div>
 <h2>Facturas R21</h2>
-<p class="sub">Ingresá tu sucursal</p>
-<input type="text" id="sucursal-input" placeholder="Ej: Minimarket LF" onkeydown="if(event.key==='Enter')ingresar()">
+<p class="sub">Ingresá tu sucursal para ver las facturas</p>
+<input type="text" id="sucursal-input" placeholder="Ingresá tu sucursal" onkeydown="if(event.key==='Enter')ingresar()">
 <button onclick="ingresar()">Entrar</button>
 <div class="error" id="login-error"></div>
 </div>
 </div>
-
 <nav class="nav">
-<div class="nav-logo">
-<div class="icon">R</div>
 <h1>Facturas R21</h1>
-</div>
 <a href="#" onclick="showTab('dashboard')">Dashboard</a>
 <a href="#" onclick="showTab('facturas')">Facturas</a>
 <a href="#" onclick="showTab('precios')">Precios</a>
 <a href="#" onclick="showTab('archivos')">Archivos</a>
-<div class="nav-right">
 <span class="suc" id="nav-sucursal"></span>
-<span class="badge" id="refresh-badge" onclick="toggleAutoRefresh()" title="Auto-actualización">
-<span class="refresh-indicator active" id="refresh-dot"></span>
-<span id="refresh-label">Auto</span>
+<span class="badge" id="refresh-badge" title="Auto-actualización cada 30s">
+<span class="refresh-indicator active" id="refresh-dot"></span> <span id="refresh-label">Auto</span>
 </span>
-</div>
 </nav>
-
 <div class="container">
 <div class="tabs">
 <span class="tab active" onclick="showTab('dashboard')" data-tab="dashboard">📊 Dashboard</span>
@@ -197,13 +145,13 @@ tr:hover td{background:rgba(0,188,212,.04)}
 </div>
 
 <div id="tab-dashboard" class="tab-content active">
-<div class="filter-bar">
+<div class="filter-bar" id="filtro-dashboard">
 <label>Desde:</label>
 <input type="date" id="fecha-dsde" onchange="filtrarDashboard()">
 <label>Hasta:</label>
 <input type="date" id="fecha-hasta" onchange="filtrarDashboard()">
 <button class="btn-clear" onclick="limpiarFiltrosDashboard()">✕ Limpiar</button>
-<button class="btn-clear" onclick="exportarExcel()" style="color:#4DD0E1;border-color:rgba(77,208,225,.3)">⬇ Excel</button>
+<button class="btn-clear" onclick="exportarExcel()" style="color:#4DD0E1;border-color:#4DD0E1">⬇ Excel</button>
 </div>
 <div class="cards" id="resumen-cards"></div>
 <div class="grid2">
@@ -220,7 +168,7 @@ tr:hover td{background:rgba(0,188,212,.04)}
 <label>Hasta:</label>
 <input type="date" id="f-factura-hasta" onchange="filtrarFacturas()">
 <label>Usuario:</label>
-<select id="filtro-usuario" onchange="filtrarFacturas()">
+<select id="filtro-usuario" onchange="filtrarFacturas()" style="padding:7px 10px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:8px;font-size:13px;color:#fff;outline:0">
 <option value="">Todos</option>
 </select>
 <button class="btn-clear" onclick="limpiarFiltrosFacturas()">✕ Limpiar</button>
@@ -264,6 +212,7 @@ let cache = null;
 let autoRefreshInterval = null;
 let autoRefreshOn = true;
 const REFRESH_MS = 30000;
+// paginacion
 let paginaActual = 1;
 let porPagina = 20;
 
@@ -287,7 +236,9 @@ function toggleAutoRefresh() {
   if (autoRefreshOn) {
     dot.className = 'refresh-indicator active';
     label.textContent = 'Auto';
-    if (document.getElementById('tab-dashboard').classList.contains('active')) cargarTodo();
+    if (document.getElementById('tab-dashboard').classList.contains('active')) {
+      cargarTodo();
+    }
   } else {
     dot.className = 'refresh-indicator paused';
     label.textContent = 'Pausado';
@@ -300,7 +251,9 @@ function iniciarAutoRefresh() {
   if (autoRefreshInterval) clearInterval(autoRefreshInterval);
   autoRefreshInterval = setInterval(() => {
     if (!autoRefreshOn) return;
-    if (document.getElementById('tab-dashboard').classList.contains('active')) cargarTodo();
+    if (document.getElementById('tab-dashboard').classList.contains('active')) {
+      cargarTodo();
+    }
   }, REFRESH_MS);
 }
 
@@ -405,16 +358,24 @@ async function cargarDashboard() {
   if (chartVendedor) chartVendedor.destroy();
   chartVendedor = new Chart(document.getElementById('chart-vendedor'), {
     type: 'doughnut',
-    data: { labels: sortedV.slice(0,6).map(e => e[0]), datasets: [{ data: sortedV.slice(0,6).map(e => e[1]), backgroundColor: ['#00BCD4','#26C6DA','#4DD0E1','#80DEEA','#B2EBF2','#E0F7FA'] }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#78909C', font: { size: 11, family: 'Inter' } } } } }
+    data: {
+      labels: sortedV.slice(0,6).map(e => e[0]),
+      datasets: [{ data: sortedV.slice(0,6).map(e => e[1]), backgroundColor: ['#00BCD4','#26C6DA','#4DD0E1','#80DEEA','#B2EBF2','#E0F7FA'] }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#78909C', font: { size: 11 } } } } }
   });
+
   const sortedM = Object.entries(porMes).sort((a,b) => a[0].localeCompare(b[0]));
   if (chartMes) chartMes.destroy();
   chartMes = new Chart(document.getElementById('chart-mes'), {
     type: 'bar',
-    data: { labels: sortedM.map(e => e[0]), datasets: [{ label: 'Gs', data: sortedM.map(e => e[1]), backgroundColor: '#00BCD4', borderRadius: 6 }] },
+    data: {
+      labels: sortedM.map(e => e[0]),
+      datasets: [{ label: 'Gs', data: sortedM.map(e => e[1]), backgroundColor: '#00BCD4', borderRadius: 6 }]
+    },
     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { color: '#546E7A', callback: v => v.toLocaleString() } }, x: { ticks: { color: '#546E7A' } } }, plugins: { legend: { display: false } } }
   });
+
   const ultimas = facturas.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'')).slice(0,10);
   document.getElementById('ultimas-facturas').innerHTML = ultimas.length
     ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th></tr>${ultimas.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td></tr>`).join('')}</table>`
@@ -422,12 +383,14 @@ async function cargarDashboard() {
 }
 
 function filtrarDashboard() { cargarDashboard(); }
+
 function limpiarFiltrosDashboard() {
   document.getElementById('fecha-dsde').value = '';
   document.getElementById('fecha-hasta').value = '';
   cargarDashboard();
 }
 
+// --- FACTURAS con paginacion ---
 function cargarFacturas() {
   if (!cache) { document.getElementById('lista-facturas').innerHTML = '<div class="vacio">No hay facturas</div>'; return; }
   todasFacturas = cache.resumen;
@@ -447,46 +410,70 @@ function renderizarFacturas() {
   const filtroUser = document.getElementById('filtro-usuario').value;
   let filtradas = todasFacturas.filter(filtroFecha);
   if (filtroUser) filtradas = filtradas.filter(f => f.usuario === filtroUser);
-  if (q) filtradas = filtradas.filter(f => (f.vendedor||'').toLowerCase().includes(q) || (f.numero||'').toLowerCase().includes(q) || (f.fecha||'').includes(q));
+  if (q) {
+    filtradas = filtradas.filter(f =>
+      (f.vendedor||'').toLowerCase().includes(q) ||
+      (f.numero||'').toLowerCase().includes(q) ||
+      (f.fecha||'').includes(q)
+    );
+  }
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / porPagina));
   if (paginaActual > totalPaginas) paginaActual = totalPaginas;
   const inicio = (paginaActual - 1) * porPagina;
   const pagina = filtradas.slice(inicio, inicio + porPagina);
+
   document.getElementById('lista-facturas').innerHTML = pagina.length
-    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th>Usuario</th><th></th></tr>${pagina.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td><td style="font-size:12px;color:#78909C">${f.usuario||'-'}</td><td style="display:flex;gap:4px"><a href="#" onclick="verDetalle(event,'${f.id||''}')" class="btn btn-ghost btn-small">Ver</a><a href="#" onclick="eliminarFactura('${f.id||''}','','${sucursal}'); return false" class="btn btn-small btn-danger">🗑</a></td></tr>`).join('')}</table>`
+    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th>Usuario</th><th></th></tr>${pagina.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td><td style="font-size:12px;color:#78909C">${f.usuario||'-'}</td><td style="display:flex;gap:4px"><a href="#" onclick="verDetalle(event,'${f.id||''}')" class="btn btn-ghost btn-small">Ver</a><a href="#" onclick="eliminarFactura('${f.id||''}','','${sucursal}'); return false" class="btn btn-ghost btn-small" style="color:#EF5350">🗑</a></td></tr>`).join('')}</table>`
     : '<div class="vacio">No se encontraron facturas</div>';
+
+  // pagination controls
   let pagHTML = '';
   if (totalPaginas > 1) {
     if (paginaActual > 1) pagHTML += `<span class="page-btn" onclick="irPagina(${paginaActual-1})">← Anterior</span>`;
-    const start = Math.max(1, paginaActual-2), end = Math.min(totalPaginas, paginaActual+2);
-    if (start > 1) pagHTML += `<span class="page-btn" onclick="irPagina(1)">1</span>${start>2?'<span class="page-info">...</span>':''}`;
-    for (let i=start; i<=end; i++) pagHTML += `<span class="page-btn ${i===paginaActual?'active':''}" onclick="irPagina(${i})">${i}</span>`;
-    if (end < totalPaginas) pagHTML += `${end<totalPaginas-1?'<span class="page-info">...</span>':''}<span class="page-btn" onclick="irPagina(${totalPaginas})">${totalPaginas}</span>`;
+    const start = Math.max(1, paginaActual - 2);
+    const end = Math.min(totalPaginas, paginaActual + 2);
+    if (start > 1) pagHTML += `<span class="page-btn" onclick="irPagina(1)">1</span>${start > 2 ? '<span class="page-info">...</span>' : ''}`;
+    for (let i = start; i <= end; i++) pagHTML += `<span class="page-btn ${i===paginaActual?'active':''}" onclick="irPagina(${i})">${i}</span>`;
+    if (end < totalPaginas) pagHTML += `${end < totalPaginas-1 ? '<span class="page-info">...</span>' : ''}<span class="page-btn" onclick="irPagina(${totalPaginas})">${totalPaginas}</span>`;
     if (paginaActual < totalPaginas) pagHTML += `<span class="page-btn" onclick="irPagina(${paginaActual+1})">Siguiente →</span>`;
     pagHTML += `<span class="page-info">${filtradas.length} facturas</span>`;
-  } else if (filtradas.length > 0) pagHTML = `<span class="page-info">${filtradas.length} facturas</span>`;
+  } else if (filtradas.length > 0) {
+    pagHTML = `<span class="page-info">${filtradas.length} facturas</span>`;
+  }
   document.getElementById('pagination-facturas').innerHTML = pagHTML;
 }
 
 function irPagina(p) { paginaActual = p; renderizarFacturas(); }
+
 function filtrarFacturas() { paginaActual = 1; renderizarFacturas(); }
+
 function limpiarFiltrosFacturas() {
   document.getElementById('f-factura-dsde').value = '';
   document.getElementById('f-factura-hasta').value = '';
   document.getElementById('search-factura').value = '';
   document.getElementById('filtro-usuario').value = '';
-  paginaActual = 1; renderizarFacturas();
+  paginaActual = 1;
+  renderizarFacturas();
 }
 
 async function eliminarFactura(id, nombre, suc) {
-  if (!confirm(`¿Eliminar ${id || nombre}? No se puede deshacer.`)) return;
-  const res = await fetch('/api/eliminar/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sucursal: suc || sucursal, archivo: nombre || (id+'.json') }) });
+  if (!confirm(`¿Eliminar factura ${id || nombre}? No se puede deshacer.`)) return;
+  const res = await fetch('/api/eliminar/', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sucursal: suc || sucursal, archivo: nombre || (id + '.json') }),
+  });
   const data = await res.json();
   if (data.ok) {
-    const n = nombre || (id+'.json');
-    if (cache) { if (cache.facturas[n]) delete cache.facturas[n]; cache.resumen = cache.resumen.filter(r => r.id !== id); cache.archivos = cache.archivos.filter(a => a !== n); }
+    if (cache) {
+      const n = nombre || (id + '.json');
+      if (cache.facturas[n]) delete cache.facturas[n];
+      cache.resumen = cache.resumen.filter(r => r.id !== id);
+      cache.archivos = cache.archivos.filter(a => a !== n);
+    }
     cargarFacturas();
-  } else alert('Error al eliminar');
+  } else {
+    alert('Error al eliminar');
+  }
 }
 
 async function verDetalle(e, id) {
@@ -496,44 +483,73 @@ async function verDetalle(e, id) {
   if (!data) return;
   const items = data.items || [];
   document.getElementById('lista-facturas').innerHTML = `
-    <div class="detalle-card"><h4>${data.nombreVendedor||'?'} · Factura N° ${data.numeroFactura||'?'}</h4><div class="info"><span>RUC:</span> ${data.rucVendedor||'?'}<br><span>Timbrado:</span> ${data.timbrado||'?'}<br><span>Fecha:</span> ${data.fechaEmision||'?'}<br><span>Total:</span> ${n(data.totalGeneral)}</div></div>
-    <table><tr><th>#</th><th>Código</th><th>Descripción</th><th>Cant</th><th>Precio</th><th>Subtotal</th></tr>${items.map((it,i) => `<tr><td>${i+1}</td><td>${it.codigo||it.codigo_barras||'-'}</td><td>${it.descripcion||'?'}</td><td>${it.cantidad||1}</td><td class="precio">${n(it.precio_unitario)}</td><td class="precio">${n(it.subtotal)}</td></tr>`).join('')}</table>
-    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
-    <a href="#" onclick="cargarFacturas(); return false;" class="btn btn-ghost">← Volver</a>
-    <a href="/api/descargar/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" class="btn btn-primary">⬇ JSON</a>
-    <a href="/pdf/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" class="btn btn-primary">⬇ PDF</a>
-    <a href="#" onclick="vistaPreviaPDF('${sucursal}','${encodeURIComponent(nombre)}'); return false;" class="btn btn-ghost">👁 Vista Previa</a>
-    <a href="#" onclick="if(confirm('Eliminar? No se puede deshacer.')){eliminarFactura('${id}','${nombre}','${sucursal}')}; return false;" class="btn btn-small btn-danger">🗑 Eliminar</a></div>`;
+    <div class="detalle-card">
+      <h4>${data.nombreVendedor||'?'} · Factura N° ${data.numeroFactura||'?'}</h4>
+      <div class="info">
+        <span>RUC:</span> ${data.rucVendedor||'?'}<br>
+        <span>Timbrado:</span> ${data.timbrado||'?'}<br>
+        <span>Fecha:</span> ${data.fechaEmision||'?'}<br>
+        <span>Total:</span> ${n(data.totalGeneral)}
+      </div>
+    </div>
+    <table><tr><th>#</th><th>Código</th><th>Descripción</th><th>Cant</th><th>Precio</th><th>Subtotal</th></tr>
+    ${items.map((it,i) => `<tr><td>${i+1}</td><td>${it.codigo||it.codigo_barras||'-'}</td><td>${it.descripcion||'?'}</td><td>${it.cantidad||1}</td><td class="precio">${n(it.precio_unitario)}</td><td class="precio">${n(it.subtotal)}</td></tr>`).join('')}
+    </table>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <a href="#" onclick="cargarFacturas(); return false;" class="btn btn-ghost">← Volver</a>
+      <a href="/api/descargar/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" class="btn btn-primary">⬇ JSON</a>
+      <a href="/pdf/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" class="btn btn-primary">⬇ PDF</a>
+      <a href="#" onclick="vistaPreviaPDF('${sucursal}','${encodeURIComponent(nombre)}'); return false;" class="btn btn-ghost">👁 Vista Previa</a>
+      <a href="#" onclick="if(confirm('Eliminar? No se puede deshacer.')){eliminarFactura('${id}','${nombre}','${sucursal}')}; return false;" class="btn btn-ghost" style="color:#EF5350">🗑 Eliminar</a>
+    </div>`;
 }
 
+// --- PDF Preview ---
 function vistaPreviaPDF(suc, nom) {
   document.getElementById('pdf-modal').style.display = 'flex';
   document.getElementById('pdf-modal-title').textContent = 'Vista previa - ' + decodeURIComponent(nom);
   document.getElementById('pdf-iframe').src = '/pdf-view/' + suc + '/' + nom + '#view=FitH';
 }
+
+function exportarExcel() {
+  if (!cache || cache.resumen.length === 0) { alert('No hay datos para exportar'); return; }
+  const filtroFecha = getFiltroFechas('fecha');
+  const facturas = cache.resumen.filter(filtroFecha).sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+  const rows = facturas.map(f => ({
+    Vendedor: f.vendedor||'?', 'N° Factura': f.numero||'?', 'Total Gs': Number(f.total||0),
+    Fecha: f.fecha||'?', Items: f.items||0
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Facturas');
+  // sheet 2: detalle items
+  const itemsRows = [];
+  for (const f of cache.resumen) {
+    const fd = cache.facturas[f.id+'.json'];
+    if (!fd || !fd.items) continue;
+    for (const it of fd.items) {
+      itemsRows.push({
+        Factura: f.numero||'?', Fecha: f.fecha||'?', Vendedor: f.vendedor||'?',
+        Producto: it.descripcion||'?', Codigo: it.codigo||it.codigo_barras||'-',
+        Cantidad: it.cantidad||1, 'Precio Gs': Number(it.precio_unitario||0), 'Subtotal Gs': Number(it.subtotal||0)
+      });
+    }
+  }
+  if (itemsRows.length) {
+    const ws2 = XLSX.utils.json_to_sheet(itemsRows);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Detalle');
+  }
+  XLSX.writeFile(wb, `Facturas_${sucursal.replace(' ','_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
 function cerrarPDFPreview() {
   document.getElementById('pdf-modal').style.display = 'none';
   document.getElementById('pdf-iframe').src = '';
 }
 
-function exportarExcel() {
-  if (!cache || cache.resumen.length === 0) { alert('No hay datos'); return; }
-  const filtroFecha = getFiltroFechas('fecha');
-  const facturas = cache.resumen.filter(filtroFecha).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-  const rows = facturas.map(f => ({ Vendedor: f.vendedor||'?', 'N° Factura': f.numero||'?', 'Total Gs': Number(f.total||0), Fecha: f.fecha||'?', Items: f.items||0, Usuario: f.usuario||'-' }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Facturas');
-  const itemsRows = [];
-  for (const f of cache.resumen) {
-    const fd = cache.facturas[f.id+'.json'];
-    if (!fd || !fd.items) continue;
-    for (const it of fd.items) itemsRows.push({ Factura: f.numero||'?', Fecha: f.fecha||'?', Vendedor: f.vendedor||'?', Producto: it.descripcion||'?', Codigo: it.codigo||it.codigo_barras||'-', Cantidad: it.cantidad||1, 'Precio Gs': Number(it.precio_unitario||0), 'Subtotal Gs': Number(it.subtotal||0) });
-  }
-  if (itemsRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(itemsRows), 'Detalle');
-  XLSX.writeFile(wb, `Facturas_${sucursal.replace(' ','_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
-}
-
+// --- PRECIOS con historial ---
 let todosProductos = [];
+
 async function cargarPrecios() {
   document.getElementById('resultados-precios').innerHTML = '<div class="loading">Cargando productos...</div>';
   document.getElementById('historial-precio').style.display = 'none';
@@ -541,39 +557,118 @@ async function cargarPrecios() {
   todosProductos = [];
   for (const [fname, f] of Object.entries(cache.facturas)) {
     if (!f.items) continue;
-    for (const it of f.items) todosProductos.push({ descripcion: it.descripcion||'?', precio: Number(it.precio_unitario||it.precioUnitario||0), vendedor: f.nombreVendedor||'?', fecha: f.fechaEmision||'?', factura: f.numeroFactura||'?', facturaId: fname });
+    for (const it of f.items) {
+      todosProductos.push({
+        descripcion: it.descripcion || '?', precio: Number(it.precio_unitario || it.precioUnitario || 0),
+        vendedor: f.nombreVendedor||'?', fecha: f.fechaEmision||'?',
+        factura: f.numeroFactura||'?', facturaId: fname
+      });
+    }
   }
   const unicos = new Map();
-  for (const r of todosProductos) { const k = r.descripcion.toLowerCase().trim(); if (!unicos.has(k)) unicos.set(k, { ...r, cantidad: 1 }); }
+  for (const r of todosProductos) {
+    const k = r.descripcion.toLowerCase().trim();
+    if (!unicos.has(k)) unicos.set(k, { ...r, cantidad: 1 });
+  }
   mostrarPrecios(unicos);
 }
+
 function mostrarPrecios(unicos) {
   const q = document.getElementById('search-producto').value.toLowerCase();
   const filtrados = q ? [...unicos.values()].filter(r => r.descripcion.toLowerCase().includes(q)) : [...unicos.values()];
   document.getElementById('resultados-precios').innerHTML = filtrados.length
     ? `<table><tr><th>Producto</th><th>Precio</th><th>Vendedor</th><th>Fecha</th><th></th></tr>${filtrados.map(r => `<tr><td><span class="producto-link" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}')">${r.descripcion}</span></td><td class="precio">${n(r.precio)}</td><td>${r.vendedor}</td><td class="fecha">${r.fecha}</td><td><a href="#" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}'); return false;" class="btn btn-ghost btn-small">📈 Historial</a></td></tr>`).join('')}</table>`
-    : '<div class="vacio">No hay productos</div>';
+    : '<div class="vacio">No se encontraron productos</div>';
 }
-function buscarProducto() { if (todosProductos.length===0) { cargarPrecios(); return; } const unicos = new Map(); for (const r of todosProductos) { const k=r.descripcion.toLowerCase().trim(); if(!unicos.has(k)) unicos.set(k,{...r,cantidad:1}); } mostrarPrecios(unicos); }
+
+function buscarProducto() {
+  if (todosProductos.length === 0) { cargarPrecios(); return; }
+  const unicos = new Map();
+  for (const r of todosProductos) {
+    const k = r.descripcion.toLowerCase().trim();
+    if (!unicos.has(k)) unicos.set(k, { ...r, cantidad: 1 });
+  }
+  mostrarPrecios(unicos);
+}
 
 function verHistorial(descripcion) {
-  const ocurrencias = todosProductos.filter(r => r.descripcion.toLowerCase().trim() === descripcion.toLowerCase().trim()).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-  if (!ocurrencias.length) return;
-  const div = document.getElementById('historial-precio'); div.style.display = 'block';
-  const ultP = ocurrencias[ocurrencias.length-1].precio, priP = ocurrencias[0].precio, dif = ultP-priP;
-  const difStr = dif>0?'↑ +'+dif.toLocaleString():dif<0?'↓ '+(-dif).toLocaleString():'Sin cambios';
-  div.innerHTML = `<div class="historial-container"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:10px"><h4 style="margin:0">📈 ${descripcion}</h4><div><span style="color:#78909C;font-size:12px">1er: ${n(priP)} · Últ: ${n(ultP)} · </span><span style="font-size:13px;font-weight:700;color:${dif>0?'#EF5350':dif<0?'#66BB6A':'#78909C'}">${difStr}</span><button onclick="div.style.display='none'" class="btn btn-ghost btn-small" style="margin-left:10px">Cerrar</button></div></div><table><tr><th>Fecha</th><th>Factura</th><th>Vendedor</th><th>Precio</th></tr>${ocurrencias.map(r => `<tr><td class="fecha">${r.fecha}</td><td>${r.factura}</td><td>${r.vendedor}</td><td class="precio">${n(r.precio)}</td></tr>`).join('')}</table><div style="margin-top:12px;position:relative;height:180px"><canvas id="chart-historial-precio"></canvas></div></div>`;
+  const ocurrencias = todosProductos
+    .filter(r => r.descripcion.toLowerCase().trim() === descripcion.toLowerCase().trim())
+    .sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+
+  if (ocurrencias.length === 0) return;
+
+  const div = document.getElementById('historial-precio');
+  div.style.display = 'block';
+
+  const ultPrecio = ocurrencias[ocurrencias.length-1].precio;
+  const primerPrecio = ocurrencias[0].precio;
+  const dif = ultPrecio - primerPrecio;
+  const difStr = dif > 0 ? `↑ +${dif.toLocaleString()}` : dif < 0 ? `↓ ${dif.toLocaleString()}` : 'Sin cambios';
+
+  div.innerHTML = `
+    <div class="historial-container">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <h4 style="margin:0">📈 ${descripcion}</h4>
+        <div>
+          <span style="color:#78909C;font-size:12px">1er: ${n(primerPrecio)} · Últ: ${n(ultPrecio)} · </span>
+          <span style="font-size:13px;font-weight:700;color:${dif>0?'#EF5350':dif<0?'#66BB6A':'#78909C'}">${difStr}</span>
+          <button onclick="document.getElementById('historial-precio').style.display='none'" class="btn btn-ghost btn-small" style="margin-left:10px">Cerrar</button>
+        </div>
+      </div>
+      <table><tr><th>Fecha</th><th>Factura</th><th>Vendedor</th><th>Precio</th></tr>
+      ${ocurrencias.map(r => `<tr><td class="fecha">${r.fecha}</td><td>${r.factura}</td><td>${r.vendedor}</td><td class="precio">${n(r.precio)}</td></tr>`).join('')}
+      </table>
+      <div style="margin-top:12px;position:relative;height:180px">
+        <canvas id="chart-historial-precio"></canvas>
+      </div>
+    </div>`;
+
+  // chart
   setTimeout(() => {
     const c = document.getElementById('chart-historial-precio');
     if (!c) return;
-    new Chart(c, { type:'line', data: { labels: ocurrencias.map(r=>r.fecha), datasets: [{ label:'Precio', data: ocurrencias.map(r=>r.precio), borderColor:'#00BCD4', backgroundColor:'rgba(0,188,212,.1)', fill:true, tension:.3, pointBackgroundColor:'#00BCD4', pointRadius:4 }] }, options: { responsive:true, maintainAspectRatio:false, scales: { y: { beginAtZero:false, ticks: { color:'#546E7A', callback:v=>v.toLocaleString() } }, x: { ticks: { color:'#546E7A', maxTicksLimit:8, maxRotation:45 } } }, plugins: { legend: { display:false } } } });
+    new Chart(c, {
+      type: 'line',
+      data: {
+        labels: ocurrencias.map(r => r.fecha),
+        datasets: [{
+          label: 'Precio',
+          data: ocurrencias.map(r => r.precio),
+          borderColor: '#00BCD4',
+          backgroundColor: 'rgba(0,188,212,.1)',
+          fill: true,
+          tension: .3,
+          pointBackgroundColor: '#00BCD4',
+          pointRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: false, ticks: { color: '#546E7A', callback: v => v.toLocaleString() } },
+          x: { ticks: { color: '#546E7A', maxTicksLimit: 8, maxRotation: 45 } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
   }, 50);
 }
 
+// --- ARCHIVOS ---
 async function cargarArchivos() {
   document.getElementById('lista-archivos').innerHTML = '<div class="loading">Cargando...</div>';
   if (!cache) { document.getElementById('lista-archivos').innerHTML = '<div class="vacio">No hay archivos</div>'; return; }
-  document.getElementById('lista-archivos').innerHTML = `<table><tr><th>Archivo</th><th></th></tr>${cache.archivos.map(a => `<tr><td>${a}</td><td style="text-align:right"><a href="/api/descargar/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary btn-small">⬇ JSON</a><a href="/pdf/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary btn-small">⬇ PDF</a><a href="/ver-json/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost btn-small">👁 Ver</a><a href="/pdf-view/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost btn-small">📄 Vista Previa</a><a href="#" onclick="eliminarFactura('','${a.replace(/'/g,"\\'")}','${sucursal}'); return false;" class="btn btn-small btn-danger">🗑</a></td></tr>`).join('')}</table>`;
+  document.getElementById('lista-archivos').innerHTML =
+    `<table><tr><th>Archivo</th><th></th></tr>${cache.archivos.map(a => `
+      <tr><td>${a}</td>
+      <td style="text-align:right">
+      <a href="/api/descargar/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary btn-small">⬇ JSON</a>
+      <a href="/pdf/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary btn-small">⬇ PDF</a>
+      <a href="/ver-json/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost btn-small">👁 Ver</a>
+      <a href="/pdf-view/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost btn-small">📄 Vista Previa</a>
+      <a href="#" onclick="eliminarFactura('','${a.replace(/'/g,"\\'")}','${sucursal}'); return false;" class="btn btn-ghost btn-small" style="color:#EF5350">🗑</a>
+    </td></tr>`).join('')}</table>`;
 }
 </script>
 </body>
