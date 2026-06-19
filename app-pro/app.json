@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "ScanFact Pro",
+    "slug": "scanfact-pro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": { "image": "./assets/splash.png", "resizeMode": "contain", "backgroundColor": "#0D1B2A" },
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.josemeza.r21facturaspro" },
+    "android": { "adaptiveIcon": { "foregroundImage": "./assets/icon.png", "backgroundColor": "#0D1B2A" }, "package": "com.josemeza.r21facturaspro" },
+    "plugins": ["expo-sharing", "expo-image-picker"]
+  }
+}
