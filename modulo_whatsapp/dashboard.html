@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Facturas R21 - Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes glow{0%,100%{box-shadow:0 0 8px rgba(0,188,212,.2)}50%{box-shadow:0 0 25px rgba(0,188,212,.4)}}
+body{background:#0D1B2A;min-height:100vh;color:#e0e0e0}
+.nav{background:rgba(13,27,42,.95);backdrop-filter:blur(16px);border-bottom:1px solid #2A3F4F;padding:14px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:0;z-index:100;animation:slideDown .5s ease}
+.nav h1{font-size:19px;font-weight:700;color:#00BCD4}
+.nav a{color:#78909C;text-decoration:none;font-size:13px;padding:6px 14px;border-radius:8px;background:transparent;transition:all .3s;border:1px solid transparent}
+.nav a:hover{background:#1B2838;border-color:#2A3F4F;color:#B0BEC5}
+.nav a.active{background:#1B2838;border-color:#00BCD4;color:#00BCD4}
+.nav .suc{font-size:12px;color:#00BCD4;margin-left:auto;padding:4px 12px;background:#1B2838;border-radius:8px;border:1px solid #2A3F4F}
+.nav .badge{font-size:11px;color:#546E7A;background:#1B2838;padding:4px 10px;border-radius:8px;border:1px solid #2A3F4F;margin-left:6px}
+#login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:999;animation:fadeIn .4s ease}
+#login-box{background:#1B2838;border-radius:16px;padding:36px;width:90%;max-width:360px;text-align:center;border:1px solid #2A3F4F;box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 40px rgba(0,188,212,.08);animation:slideDown .6s ease}
+#login-box h2{font-size:26px;font-weight:800;color:#00BCD4;margin-bottom:4px}
+#login-box .sub{color:#78909C;font-size:14px;margin-bottom:24px}
+#login-box input{width:100%;padding:12px 16px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:10px;font-size:15px;outline:0;color:#fff;transition:all .3s;margin-bottom:14px}
+#login-box input:focus{border-color:#00BCD4;box-shadow:0 0 15px rgba(0,188,212,.15)}
+#login-box input::placeholder{color:#546E7A}
+#login-box button{width:100%;padding:13px;background:#00BCD4;color:#0D1B2A;border:0;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .3s;box-shadow:0 4px 15px rgba(0,188,212,.25)}
+#login-box button:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,188,212,.35)}
+#login-box .error{color:#EF5350;font-size:13px;margin-top:8px;display:none}
+.container{max-width:1200px;margin:0 auto;padding:20px;position:relative;z-index:1}
+.tabs{margin-bottom:16px;display:flex;gap:4px;flex-wrap:wrap;animation:fadeIn .6s ease}
+.tab{padding:8px 18px;cursor:pointer;border-radius:8px;font-size:13px;font-weight:600;color:#78909C;background:#1B2838;border:1px solid #2A3F4F;transition:all .3s}
+.tab:hover{background:#2A3F4F;color:#B0BEC5}
+.tab.active{background:#0D1B2A;color:#00BCD4;border-color:#00BCD4;box-shadow:0 0 15px rgba(0,188,212,.1)}
+.tab-content{display:none;animation:fadeIn .4s ease}
+.tab-content.active{display:block}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+.card{background:#1B2838;border-radius:12px;padding:20px;border:1px solid #2A3F4F;transition:all .3s;animation:fadeIn .5s ease backwards;position:relative;overflow:hidden}
+.card:nth-child(1){animation-delay:.05s}
+.card:nth-child(2){animation-delay:.1s}
+.card:nth-child(3){animation-delay:.15s}
+.card:nth-child(4){animation-delay:.2s}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00BCD4,#4DD0E1,#80DEEA);opacity:0;transition:opacity .3s}
+.card:hover::before{opacity:1}
+.card:hover{transform:translateY(-3px);border-color:#00BCD4;box-shadow:0 8px 30px rgba(0,0,0,.3),0 0 20px rgba(0,188,212,.08)}
+.card .icon{font-size:24px;position:absolute;top:12px;right:14px;opacity:.12}
+.card .label{font-size:11px;color:#78909C;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.card .value{font-size:24px;font-weight:800;color:#FFFFFF}
+.card .sub{font-size:12px;color:#546E7A;margin-top:2px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+@media(max-width:768px){.grid2{grid-template-columns:1fr}}
+.section{background:#1B2838;border-radius:12px;padding:20px;border:1px solid #2A3F4F;margin-bottom:14px;animation:fadeIn .5s ease}
+.section h2{font-size:14px;font-weight:700;color:#00BCD4;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px;color:#78909C;font-weight:600;border-bottom:1px solid #2A3F4F;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:9px 10px;border-bottom:1px solid rgba(42,63,79,.5);color:#CFD8DC}
+tr:hover td{background:rgba(0,188,212,.05)}
+.search{margin-bottom:14px}
+.search input{width:100%;padding:10px 14px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:8px;font-size:14px;outline:0;color:#fff;transition:all .3s}
+.search input:focus{border-color:#00BCD4;box-shadow:0 0 12px rgba(0,188,212,.1)}
+.search input::placeholder{color:#546E7A}
+.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;animation:fadeIn .5s ease}
+.filter-bar label{color:#78909C;font-size:12px;font-weight:600}
+.filter-bar input[type=date]{padding:8px 12px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:8px;font-size:13px;outline:0;color:#fff;transition:all .3s;color-scheme:dark}
+.filter-bar input[type=date]:focus{border-color:#00BCD4;box-shadow:0 0 12px rgba(0,188,212,.1)}
+.filter-bar input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:pointer}
+.filter-bar .btn-clear{color:#78909C;background:#1B2838;border:1px solid #2A3F4F;border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;transition:all .3s}
+.filter-bar .btn-clear:hover{background:#2A3F4F;color:#B0BEC5}
+.precio{color:#4DD0E1;font-weight:600}
+.fecha{color:#546E7A;font-size:12px}
+.loading{text-align:center;padding:36px;color:#78909C;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.loading::after{content:'';width:28px;height:28px;border:3px solid #2A3F4F;border-top:3px solid #00BCD4;border-radius:50%;animation:spin .7s linear infinite}
+.vacio{text-align:center;padding:28px;color:#546E7A;font-size:14px}
+.chart-container{position:relative;height:250px;animation:fadeIn .6s ease}
+.detalle-card{background:rgba(0,188,212,.06);border-radius:10px;padding:16px;margin:8px 0;border:1px solid rgba(0,188,212,.12)}
+.detalle-card h4{color:#00BCD4;margin-bottom:8px;font-size:14px}
+.detalle-card .info{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#CFD8DC}
+.detalle-card .info span{color:#78909C}
+.btn{display:inline-block;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;transition:all .3s;cursor:pointer;border:0}
+.btn-primary{background:#00BCD4;color:#0D1B2A;box-shadow:0 4px 12px rgba(0,188,212,.2)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,188,212,.3)}
+.btn-ghost{color:#78909C;background:#1B2838;border:1px solid #2A3F4F}
+.btn-ghost:hover{background:#2A3F4F;color:#B0BEC5;transform:translateY(-1px)}
+.btn-small{padding:4px 10px;font-size:11px}
+.footer{text-align:center;padding:24px 20px;color:#546E7A;font-size:13px;border-top:1px solid #2A3F4F;margin-top:24px;animation:fadeIn .8s ease}
+.footer a{color:#00BCD4;text-decoration:none;font-weight:600}
+.footer a:hover{color:#4DD0E1}
+.footer .heart{color:#EF5350;display:inline-block;animation:pulse 1.5s ease infinite}
+.pagination{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+.pagination .page-btn{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .3s;background:#1B2838;color:#78909C;border:1px solid #2A3F4F}
+.pagination .page-btn:hover{background:#2A3F4F;color:#B0BEC5}
+.pagination .page-btn.active{background:#00BCD4;color:#0D1B2A;border-color:#00BCD4}
+.pagination .page-info{color:#546E7A;font-size:13px}
+.producto-link{color:#4DD0E1;cursor:pointer;text-decoration:underline;text-decoration-style:dotted}
+.producto-link:hover{color:#00BCD4}
+.historial-container{background:rgba(0,188,212,.04);border-radius:10px;padding:16px;margin-top:10px;border:1px solid rgba(0,188,212,.12)}
+.historial-container h4{color:#00BCD4;margin-bottom:10px;font-size:14px}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:999;animation:fadeIn .3s ease}
+.modal-content{background:#1B2838;border-radius:16px;padding:20px;width:90%;max-width:800px;max-height:90vh;display:flex;flex-direction:column;border:1px solid #2A3F4F;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-content .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.modal-content .modal-header h3{color:#00BCD4;font-size:16px}
+.modal-content .modal-close{background:0;border:0;color:#78909C;font-size:22px;cursor:pointer;padding:0 4px}
+.modal-content .modal-close:hover{color:#EF5350}
+.modal-content iframe{flex:1;width:100%;min-height:500px;border:0;border-radius:8px;background:#fff}
+.refresh-indicator{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:6px;animation:glow 2s ease infinite}
+.refresh-indicator.active{background:#00BCD4}
+.refresh-indicator.paused{background:#546E7A;animation:none}
+.mic-btn{background:transparent;border:1px solid #2A3F4F;color:#78909C;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s;font-size:15px;margin-left:4px}
+.mic-btn:hover{border-color:#00BCD4;color:#00BCD4}
+.mic-btn.listening{background:#EF5350;border-color:#EF5350;color:#fff;animation:pulse .8s ease infinite;box-shadow:0 0 20px rgba(239,83,80,.4)}
+.mic-btn.listening::after{content:'';position:absolute;width:44px;height:44px;border-radius:50%;border:2px solid #EF5350;animation:ripple 1.2s ease infinite}
+@keyframes ripple{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.6);opacity:0}}
+.voice-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1B2838;border:1px solid #2A3F4F;border-radius:12px;padding:12px 20px;font-size:14px;color:#e0e0e0;z-index:1000;display:none;animation:slideDown .3s ease;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:90vw;text-align:center}
+.voice-toast .text{color:#00BCD4;font-weight:600}
+.voice-toast .sub{color:#78909C;font-size:12px;margin-top:2px}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#0D1B2A}
+::-webkit-scrollbar-thumb{background:#2A3F4F;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#546E7A}
+</style>
+</head>
+<body>
+<div id="login-overlay">
+<div id="login-box">
+<h2>Facturas R21</h2>
+<p class="sub">Ingresá tu sucursal para ver las facturas</p>
+<input type="text" id="sucursal-input" placeholder="Ingresá tu sucursal" onkeydown="if(event.key==='Enter')ingresar()">
+<button onclick="ingresar()">Entrar</button>
+<div class="error" id="login-error"></div>
+</div>
+</div>
+<nav class="nav">
+<h1>Facturas R21</h1>
+<a href="#" onclick="showTab('dashboard')">Dashboard</a>
+<a href="#" onclick="showTab('facturas')">Facturas</a>
+<a href="#" onclick="showTab('precios')">Precios</a>
+<a href="#" onclick="showTab('archivos')">Archivos</a>
+<span class="suc" id="nav-sucursal"></span>
+<span class="badge" id="refresh-badge" title="Auto-actualización cada 30s" onclick="toggleAutoRefresh()">
+<span class="refresh-indicator active" id="refresh-dot"></span> <span id="refresh-label">Auto</span>
+</span>
+<button class="mic-btn" id="mic-btn" title="Comandos de voz" onclick="toggleVoice()">🎤</button>
+</nav>
+<div class="container">
+<div class="tabs">
+<span class="tab active" onclick="showTab('dashboard')" data-tab="dashboard">📊 Dashboard</span>
+<span class="tab" onclick="showTab('facturas')" data-tab="facturas">🧾 Facturas</span>
+<span class="tab" onclick="showTab('precios')" data-tab="precios">🏷️ Precios</span>
+<span class="tab" onclick="showTab('archivos')" data-tab="archivos">📁 Archivos</span>
+</div>
+
+<div id="tab-dashboard" class="tab-content active">
+<div class="filter-bar" id="filtro-dashboard">
+<label>Desde:</label>
+<input type="date" id="fecha-dsde" onchange="filtrarDashboard()">
+<label>Hasta:</label>
+<input type="date" id="fecha-hasta" onchange="filtrarDashboard()">
+<button class="btn-clear" onclick="limpiarFiltrosDashboard()">✕ Limpiar</button>
+<button class="btn-clear" onclick="exportarExcel()" style="color:#4DD0E1;border-color:#4DD0E1">⬇ Excel</button>
+</div>
+<div class="cards" id="resumen-cards"></div>
+<div class="grid2">
+<div class="section"><h2>📈 Gastos por Vendedor</h2><div class="chart-container"><canvas id="chart-vendedor"></canvas></div></div>
+<div class="section"><h2>📅 Gastos por Mes</h2><div class="chart-container"><canvas id="chart-mes"></canvas></div></div>
+</div>
+<div class="section"><h2>📋 Últimas Facturas</h2><div id="ultimas-facturas"></div></div>
+</div>
+
+<div id="tab-facturas" class="tab-content">
+<div class="filter-bar">
+<label>Desde:</label>
+<input type="date" id="f-factura-dsde" onchange="filtrarFacturas()">
+<label>Hasta:</label>
+<input type="date" id="f-factura-hasta" onchange="filtrarFacturas()">
+<label>Usuario:</label>
+<select id="filtro-usuario" onchange="filtrarFacturas()" style="padding:7px 10px;background:#0D1B2A;border:1px solid #2A3F4F;border-radius:8px;font-size:13px;color:#fff;outline:0">
+<option value="">Todos</option>
+</select>
+<button class="btn-clear" onclick="limpiarFiltrosFacturas()">✕ Limpiar</button>
+</div>
+<div class="search"><input type="text" id="search-factura" placeholder="🔍 Buscar por vendedor, número..." oninput="filtrarFacturas()"></div>
+<div id="lista-facturas"></div>
+<div class="pagination" id="pagination-facturas"></div>
+</div>
+
+<div id="tab-precios" class="tab-content">
+<div class="search"><input type="text" id="search-producto" placeholder="🔍 Buscar producto..." oninput="buscarProducto()"></div>
+<div id="resultados-precios"></div>
+<div id="historial-precio" style="display:none"></div>
+</div>
+
+<div id="tab-archivos" class="tab-content">
+<div id="lista-archivos"></div>
+</div>
+</div>
+
+<div class="footer">
+Hecho con <span class="heart">❤️</span> · ¿Necesitás ayuda? <a href="https://wa.me/595981644728">0981 644 728</a>
+</div>
+
+<div class="voice-toast" id="voice-toast">
+<div class="text" id="voice-text">Escuchando...</div>
+<div class="sub" id="voice-sub">Decí un comando</div>
+</div>
+
+<div class="modal-overlay" id="pdf-modal">
+<div class="modal-content">
+<div class="modal-header">
+<h3 id="pdf-modal-title">Vista previa</h3>
+<button class="modal-close" onclick="cerrarPDFPreview()">&times;</button>
+</div>
+<iframe id="pdf-iframe"></iframe>
+</div>
+</div>
+
+<script>
+const BACKEND = 'https://scanner-facturas-backend.onrender.com';
+let todasFacturas = [];
+let sucursal = '';
+const SUCURSALES = ['Minimarket LF', 'Local 1'];
+let cache = null;
+let autoRefreshInterval = null;
+let autoRefreshOn = true;
+const REFRESH_MS = 30000;
+// paginacion
+let paginaActual = 1;
+let porPagina = 20;
+
+function ingresar() {
+  const val = document.getElementById('sucursal-input').value.trim();
+  const err = document.getElementById('login-error');
+  const encontrada = SUCURSALES.find(s => s.toLowerCase() === val.toLowerCase());
+  if (!encontrada) { err.textContent = '❌ Esa sucursal no existe'; err.style.display = 'block'; return; }
+  err.style.display = 'none';
+  sucursal = encontrada;
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('nav-sucursal').textContent = '📍 ' + encontrada;
+  cargarTodo();
+  iniciarAutoRefresh();
+}
+
+function toggleAutoRefresh() {
+  autoRefreshOn = !autoRefreshOn;
+  const dot = document.getElementById('refresh-dot');
+  const label = document.getElementById('refresh-label');
+  if (autoRefreshOn) {
+    dot.className = 'refresh-indicator active';
+    label.textContent = 'Auto';
+    if (document.getElementById('tab-dashboard').classList.contains('active')) {
+      cargarTodo();
+    }
+  } else {
+    dot.className = 'refresh-indicator paused';
+    label.textContent = 'Pausado';
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+  }
+}
+
+function iniciarAutoRefresh() {
+  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+  autoRefreshInterval = setInterval(() => {
+    if (!autoRefreshOn) return;
+    if (document.getElementById('tab-dashboard').classList.contains('active')) {
+      cargarTodo();
+    }
+  }, REFRESH_MS);
+}
+
+async function cargarTodo() {
+  cache = { archivos: [], facturas: {}, resumen: [] };
+  const enc = encodeURIComponent(sucursal);
+  const encBackend = encodeURIComponent(sucursal.replace(' ', '_'));
+  const hist = await fetchJSON(BACKEND + '/historial/' + encBackend);
+  cache.resumen = (hist?.facturas || []).map(f => ({ ...f, usuario: f.usuario || '-' }));
+  cache.archivos = (hist?.facturas || []).map(f => f.id + '.json');
+  const botData = await fetchJSON('/api/facturas/' + enc);
+  if (botData) {
+    for (const k of Object.keys(botData)) {
+      if (!cache.archivos.includes(k)) cache.archivos.push(k);
+      cache.facturas[k] = botData[k];
+      if (!cache.resumen.find(r => r.id === k.replace('.json',''))) {
+        const d = botData[k];
+        cache.resumen.push({
+          id: k.replace('.json',''), vendedor: d.nombreVendedor || '?',
+          numero: d.numeroFactura || '?', total: d.totalGeneral || 0,
+          fecha: d.fechaEmision || '?', items: (d.items||[]).length,
+          usuario: d._usuario || '-',
+        });
+      }
+    }
+  }
+  if (document.getElementById('tab-dashboard').classList.contains('active')) cargarDashboard();
+  if (document.getElementById('tab-facturas').classList.contains('active')) { cargarFacturas(); }
+}
+
+async function obtenerFactura(nombre) {
+  if (cache.facturas[nombre]) return cache.facturas[nombre];
+  const f = await fetchJSON('/api/descargar/' + sucursal + '/' + encodeURIComponent(nombre));
+  if (f && !f.error) { f._nombre = nombre; cache.facturas[nombre] = f; }
+  return f;
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.nav a').forEach(e => e.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
+  const link = document.querySelector(`.nav a[onclick*="'${name}'"]`);
+  if (link) link.classList.add('active');
+  document.getElementById('historial-precio').style.display = 'none';
+  if (!cache && name !== 'dashboard') { cargarTodo(); return; }
+  if (name === 'dashboard') cargarDashboard();
+  if (name === 'facturas') { paginaActual = 1; cargarFacturas(); }
+  if (name === 'precios') { cargarPrecios(); }
+  if (name === 'archivos') cargarArchivos();
+}
+
+async function fetchJSON(url) {
+  try { const r = await fetch(url); return await r.json(); } catch { return null; }
+}
+
+function n(n) { return Number(n || 0).toLocaleString() + ' Gs'; }
+
+function getFiltroFechas(prefix) {
+  const dsde = document.getElementById(prefix + '-dsde')?.value;
+  const hasta = document.getElementById(prefix + '-hasta')?.value;
+  return function(f) {
+    if (!f.fecha || f.fecha === '?') return !dsde && !hasta;
+    if (dsde && f.fecha < dsde) return false;
+    if (hasta && f.fecha > hasta) return false;
+    return true;
+  };
+}
+
+let chartVendedor = null, chartMes = null;
+
+async function cargarDashboard() {
+  if (!cache) { document.getElementById('resumen-cards').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
+  const filtroFecha = getFiltroFechas('fecha');
+  const facturas = cache.resumen.filter(filtroFecha);
+  document.getElementById('resumen-cards').innerHTML = `
+    <div class="card"><div class="icon">🧾</div><div class="label">Facturas</div><div class="value">${facturas.length}</div></div>
+    <div class="card"><div class="icon">💰</div><div class="label">Total General</div><div class="value" id="total-general">...</div></div>
+    <div class="card"><div class="icon">📊</div><div class="label">Promedio</div><div class="value" id="promedio">...</div></div>
+    <div class="card"><div class="icon">🏆</div><div class="label">Top Vendedor</div><div class="value" id="top-vendedor">...</div><div class="sub" id="top-monto"></div></div>`;
+
+  let total = 0; let porVendedor = {}; let porMes = {};
+  for (const f of facturas) {
+    const monto = Number(f.total || 0);
+    total += monto;
+    porVendedor[f.vendedor || 'Desconocido'] = (porVendedor[f.vendedor || 'Desconocido'] || 0) + monto;
+    const mes = f.fecha ? f.fecha.slice(0,7) : '?';
+    porMes[mes] = (porMes[mes] || 0) + monto;
+  }
+
+  const prom = facturas.length ? Math.round(total / facturas.length) : 0;
+  document.getElementById('total-general').textContent = n(total);
+  document.getElementById('promedio').textContent = n(prom);
+
+  const sortedV = Object.entries(porVendedor).sort((a,b) => b[1]-a[1]);
+  if (sortedV.length) {
+    document.getElementById('top-vendedor').textContent = sortedV[0][0];
+    document.getElementById('top-monto').textContent = n(sortedV[0][1]);
+  }
+
+  if (chartVendedor) chartVendedor.destroy();
+  chartVendedor = new Chart(document.getElementById('chart-vendedor'), {
+    type: 'doughnut',
+    data: {
+      labels: sortedV.slice(0,6).map(e => e[0]),
+      datasets: [{ data: sortedV.slice(0,6).map(e => e[1]), backgroundColor: ['#00BCD4','#26C6DA','#4DD0E1','#80DEEA','#B2EBF2','#E0F7FA'] }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#78909C', font: { size: 11 } } } } }
+  });
+
+  const sortedM = Object.entries(porMes).sort((a,b) => a[0].localeCompare(b[0]));
+  if (chartMes) chartMes.destroy();
+  chartMes = new Chart(document.getElementById('chart-mes'), {
+    type: 'bar',
+    data: {
+      labels: sortedM.map(e => e[0]),
+      datasets: [{ label: 'Gs', data: sortedM.map(e => e[1]), backgroundColor: '#00BCD4', borderRadius: 6 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { color: '#546E7A', callback: v => v.toLocaleString() } }, x: { ticks: { color: '#546E7A' } } }, plugins: { legend: { display: false } } }
+  });
+
+  const ultimas = facturas.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'')).slice(0,10);
+  document.getElementById('ultimas-facturas').innerHTML = ultimas.length
+    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th></tr>${ultimas.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td></tr>`).join('')}</table>`
+    : '<div class="vacio">No hay facturas</div>';
+}
+
+function filtrarDashboard() { cargarDashboard(); }
+
+function limpiarFiltrosDashboard() {
+  document.getElementById('fecha-dsde').value = '';
+  document.getElementById('fecha-hasta').value = '';
+  cargarDashboard();
+}
+
+// --- FACTURAS con paginacion ---
+function cargarFacturas() {
+  if (!cache) { document.getElementById('lista-facturas').innerHTML = '<div class="vacio">No hay facturas</div>'; return; }
+  todasFacturas = cache.resumen;
+  todasFacturas.sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+  const select = document.getElementById('filtro-usuario');
+  const actual = select.value;
+  const users = [...new Set(todasFacturas.map(f => f.usuario).filter(Boolean))].sort();
+  select.innerHTML = '<option value="">Todos</option>' + users.map(u => `<option value="${u}">${u}</option>`).join('');
+  if (users.includes(actual)) select.value = actual;
+  paginaActual = 1;
+  renderizarFacturas();
+}
+
+function renderizarFacturas() {
+  const q = document.getElementById('search-factura').value.toLowerCase();
+  const filtroFecha = getFiltroFechas('f-factura');
+  const filtroUser = document.getElementById('filtro-usuario').value;
+  let filtradas = todasFacturas.filter(filtroFecha);
+  if (filtroUser) filtradas = filtradas.filter(f => f.usuario === filtroUser);
+  if (q) {
+    filtradas = filtradas.filter(f =>
+      (f.vendedor||'').toLowerCase().includes(q) ||
+      (f.numero||'').toLowerCase().includes(q) ||
+      (f.fecha||'').includes(q)
+    );
+  }
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / porPagina));
+  if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+  const inicio = (paginaActual - 1) * porPagina;
+  const pagina = filtradas.slice(inicio, inicio + porPagina);
+
+  document.getElementById('lista-facturas').innerHTML = pagina.length
+    ? `<table><tr><th>Vendedor</th><th>N° Factura</th><th>Total</th><th>Fecha</th><th>Items</th><th>Usuario</th><th></th></tr>${pagina.map(f => `<tr><td>${f.vendedor||'?'}</td><td>${f.numero||'?'}</td><td class="precio">${n(f.total)}</td><td class="fecha">${f.fecha||'?'}</td><td>${f.items||0}</td><td style="font-size:12px;color:#78909C">${f.usuario||'-'}</td><td style="display:flex;gap:4px"><a href="#" onclick="verDetalle(event,'${f.id||''}')" class="btn btn-ghost btn-small">Ver</a><a href="#" onclick="eliminarFactura('${f.id||''}','','${sucursal}'); return false" class="btn btn-ghost btn-small" style="color:#EF5350">🗑</a></td></tr>`).join('')}</table>`
+    : '<div class="vacio">No se encontraron facturas</div>';
+
+  // pagination controls
+  let pagHTML = '';
+  if (totalPaginas > 1) {
+    if (paginaActual > 1) pagHTML += `<span class="page-btn" onclick="irPagina(${paginaActual-1})">← Anterior</span>`;
+    const start = Math.max(1, paginaActual - 2);
+    const end = Math.min(totalPaginas, paginaActual + 2);
+    if (start > 1) pagHTML += `<span class="page-btn" onclick="irPagina(1)">1</span>${start > 2 ? '<span class="page-info">...</span>' : ''}`;
+    for (let i = start; i <= end; i++) pagHTML += `<span class="page-btn ${i===paginaActual?'active':''}" onclick="irPagina(${i})">${i}</span>`;
+    if (end < totalPaginas) pagHTML += `${end < totalPaginas-1 ? '<span class="page-info">...</span>' : ''}<span class="page-btn" onclick="irPagina(${totalPaginas})">${totalPaginas}</span>`;
+    if (paginaActual < totalPaginas) pagHTML += `<span class="page-btn" onclick="irPagina(${paginaActual+1})">Siguiente →</span>`;
+    pagHTML += `<span class="page-info">${filtradas.length} facturas</span>`;
+  } else if (filtradas.length > 0) {
+    pagHTML = `<span class="page-info">${filtradas.length} facturas</span>`;
+  }
+  document.getElementById('pagination-facturas').innerHTML = pagHTML;
+}
+
+function irPagina(p) { paginaActual = p; renderizarFacturas(); }
+
+function filtrarFacturas() { paginaActual = 1; renderizarFacturas(); }
+
+function limpiarFiltrosFacturas() {
+  document.getElementById('f-factura-dsde').value = '';
+  document.getElementById('f-factura-hasta').value = '';
+  document.getElementById('search-factura').value = '';
+  document.getElementById('filtro-usuario').value = '';
+  paginaActual = 1;
+  renderizarFacturas();
+}
+
+async function eliminarFactura(id, nombre, suc) {
+  if (!confirm(`¿Eliminar factura ${id || nombre}? No se puede deshacer.`)) return;
+  const res = await fetch('/api/eliminar/', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sucursal: suc || sucursal, archivo: nombre || (id + '.json') }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    if (cache) {
+      const n = nombre || (id + '.json');
+      if (cache.facturas[n]) delete cache.facturas[n];
+      cache.resumen = cache.resumen.filter(r => r.id !== id);
+      cache.archivos = cache.archivos.filter(a => a !== n);
+    }
+    cargarFacturas();
+  } else {
+    alert('Error al eliminar');
+  }
+}
+
+async function verDetalle(e, id) {
+  e.preventDefault();
+  const nombre = id + '.json';
+  const data = await obtenerFactura(nombre);
+  if (!data) return;
+  const items = data.items || [];
+  document.getElementById('lista-facturas').innerHTML = `
+    <div class="detalle-card">
+      <h4>${data.nombreVendedor||'?'} · Factura N° ${data.numeroFactura||'?'}</h4>
+      <div class="info">
+        <span>RUC:</span> ${data.rucVendedor||'?'}<br>
+        <span>Timbrado:</span> ${data.timbrado||'?'}<br>
+        <span>Fecha:</span> ${data.fechaEmision||'?'}<br>
+        <span>Total:</span> ${n(data.totalGeneral)}
+      </div>
+    </div>
+    <table><tr><th>#</th><th>Código</th><th>Descripción</th><th>Cant</th><th>Precio</th><th>Subtotal</th></tr>
+    ${items.map((it,i) => `<tr><td>${i+1}</td><td>${it.codigo||it.codigo_barras||'-'}</td><td>${it.descripcion||'?'}</td><td>${it.cantidad||1}</td><td class="precio">${n(it.precio_unitario)}</td><td class="precio">${n(it.subtotal)}</td></tr>`).join('')}
+    </table>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <a href="#" onclick="cargarFacturas(); return false;" class="btn btn-ghost">← Volver</a>
+      <a href="/api/descargar/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" class="btn btn-primary">⬇ JSON</a>
+      <a href="/pdf/${sucursal}/${encodeURIComponent(nombre)}" target="_blank" class="btn btn-primary">⬇ PDF</a>
+      <a href="#" onclick="vistaPreviaPDF('${sucursal}','${encodeURIComponent(nombre)}'); return false;" class="btn btn-ghost">👁 Vista Previa</a>
+      <a href="#" onclick="if(confirm('Eliminar? No se puede deshacer.')){eliminarFactura('${id}','${nombre}','${sucursal}')}; return false;" class="btn btn-ghost" style="color:#EF5350">🗑 Eliminar</a>
+    </div>`;
+}
+
+// --- PDF Preview ---
+function vistaPreviaPDF(suc, nom) {
+  document.getElementById('pdf-modal').style.display = 'flex';
+  document.getElementById('pdf-modal-title').textContent = 'Vista previa - ' + decodeURIComponent(nom);
+  document.getElementById('pdf-iframe').src = '/pdf-view/' + suc + '/' + nom + '#view=FitH';
+}
+
+function exportarExcel() {
+  if (!cache || cache.resumen.length === 0) { alert('No hay datos para exportar'); return; }
+  const filtroFecha = getFiltroFechas('fecha');
+  const facturas = cache.resumen.filter(filtroFecha).sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+  const rows = facturas.map(f => ({
+    Vendedor: f.vendedor||'?', 'N° Factura': f.numero||'?', 'Total Gs': Number(f.total||0),
+    Fecha: f.fecha||'?', Items: f.items||0
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Facturas');
+  // sheet 2: detalle items
+  const itemsRows = [];
+  for (const f of cache.resumen) {
+    const fd = cache.facturas[f.id+'.json'];
+    if (!fd || !fd.items) continue;
+    for (const it of fd.items) {
+      itemsRows.push({
+        Factura: f.numero||'?', Fecha: f.fecha||'?', Vendedor: f.vendedor||'?',
+        Producto: it.descripcion||'?', Codigo: it.codigo||it.codigo_barras||'-',
+        Cantidad: it.cantidad||1, 'Precio Gs': Number(it.precio_unitario||0), 'Subtotal Gs': Number(it.subtotal||0)
+      });
+    }
+  }
+  if (itemsRows.length) {
+    const ws2 = XLSX.utils.json_to_sheet(itemsRows);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Detalle');
+  }
+  XLSX.writeFile(wb, `Facturas_${sucursal.replace(' ','_')}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ─── VOZOZ ───
+let vozActivo = false;
+let recognition = null;
+let synth = window.speechSynthesis;
+let vozQueue = [];
+let vozNotifInterval = null;
+
+function toggleVoice() {
+  const btn = document.getElementById('mic-btn');
+  if (vozActivo) { detenerVoz(); return; }
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    mostrarToast('Tu navegador no soporta voz', 'Usá Chrome o Edge');
+    return;
+  }
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'es-PY';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = (e) => {
+    const texto = e.results[0][0].transcript.toLowerCase().trim();
+    btn.className = 'mic-btn';
+    btn.textContent = '🎤';
+    vozActivo = false;
+    ocultarToast();
+    procesarComandoVoz(texto);
+  };
+  recognition.onerror = (e) => {
+    btn.className = 'mic-btn';
+    btn.textContent = '🎤';
+    vozActivo = false;
+    ocultarToast();
+    if (e.error !== 'no-speech') mostrarToast('Error: ' + e.error, '');
+  };
+  recognition.onend = () => {
+    btn.className = 'mic-btn';
+    btn.textContent = '🎤';
+    vozActivo = false;
+    ocultarToast();
+  };
+
+  vozActivo = true;
+  btn.className = 'mic-btn listening';
+  btn.textContent = '🎙';
+  mostrarToast('Escuchando...', 'Decí un comando');
+  try { recognition.start(); } catch {}
+}
+
+function detenerVoz() {
+  if (recognition) try { recognition.abort(); } catch {}
+  document.getElementById('mic-btn').className = 'mic-btn';
+  document.getElementById('mic-btn').textContent = '🎤';
+  vozActivo = false;
+  ocultarToast();
+}
+
+function mostrarToast(texto, sub) {
+  const t = document.getElementById('voice-toast');
+  document.getElementById('voice-text').textContent = texto;
+  document.getElementById('voice-sub').textContent = sub || '';
+  t.style.display = 'block';
+}
+
+function ocultarToast() {
+  document.getElementById('voice-toast').style.display = 'none';
+}
+
+function hablar(texto) {
+  if (!synth) return;
+  synth.cancel();
+  const u = new SpeechSynthesisUtterance(texto);
+  u.lang = 'es-PY';
+  u.rate = 1.1;
+  u.pitch = 1;
+  u.volume = 1;
+  synth.speak(u);
+}
+
+function procesarComandoVoz(texto) {
+  console.log('Voz:', texto);
+  mostrarToast('✅ ' + texto, '');
+  hablar('Dale, ya');
+
+  // ── Navegación de pestañas ──
+  if (texto.includes('dashboard') || texto.includes('panel') || texto.includes('inicio') || texto.includes('principal') || texto.includes('resumen')) {
+    showTab('dashboard');
+    hablar('Mostrando dashboard');
+    return;
+  }
+  if (texto.includes('factura') || texto.includes('lista') || texto.includes('todas')) {
+    if (texto.includes('archivo') || texto.includes('json') || texto.includes('pdf')) {
+      showTab('archivos');
+      hablar('Mostrando archivos');
+    } else {
+      showTab('facturas');
+      hablar('Mostrando facturas');
+    }
+    return;
+  }
+  if (texto.includes('precio') || texto.includes('producto')) {
+    showTab('precios');
+    hablar('Mostrando precios');
+    return;
+  }
+  if (texto.includes('archivo') || texto.includes('json') || texto.includes('pdf')) {
+    showTab('archivos');
+    hablar('Mostrando archivos');
+    return;
+  }
+
+  // ── Filtros de fecha ──
+  const meses = {enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',julio:'07',agosto:'08',septiembre:'09',octubre:'10',noviembre:'11',diciembre:'12'};
+  for (const [m, n] of Object.entries(meses)) {
+    if (texto.includes(m)) {
+      const anio = (new Date()).getFullYear();
+      const dsde = anio + '-' + n + '-01';
+      const hasta = anio + '-' + n + '-31';
+      if (document.getElementById('tab-dashboard').classList.contains('active')) {
+        document.getElementById('fecha-dsde').value = dsde;
+        document.getElementById('fecha-hasta').value = hasta;
+        filtrarDashboard();
+        hablar('Mostrando facturas de ' + m);
+      } else {
+        document.getElementById('f-factura-dsde').value = dsde;
+        document.getElementById('f-factura-hasta').value = hasta;
+        showTab('facturas');
+        hablar('Mostrando facturas de ' + m);
+      }
+      return;
+    }
+  }
+
+  // ── Filtro por año ──
+  const matchAnio = texto.match(/(\d{4})/);
+  if (matchAnio && (texto.includes('año') || texto.includes('del') || texto.includes('de ' + matchAnio[1]))) {
+    const a = matchAnio[1];
+    const dsde = a + '-01-01';
+    const hasta = a + '-12-31';
+    if (document.getElementById('tab-dashboard').classList.contains('active')) {
+      document.getElementById('fecha-dsde').value = dsde;
+      document.getElementById('fecha-hasta').value = hasta;
+      filtrarDashboard();
+    } else {
+      document.getElementById('f-factura-dsde').value = dsde;
+      document.getElementById('f-factura-hasta').value = hasta;
+      showTab('facturas');
+    }
+    hablar('Mostrando facturas del ' + a);
+    return;
+  }
+
+  // ── Estadísticas ──
+  if (texto.includes('cuánto') || texto.includes('cuanto') || texto.includes('gasté') || texto.includes('gaste') || texto.includes('total') || texto.includes('estadística') || texto.includes('estadistica') || texto.includes('resum') || texto.includes('promedio')) {
+    showTab('dashboard');
+    const total = document.getElementById('total-general');
+    if (total && total.textContent !== '...') {
+      hablar('El total es ' + total.textContent);
+    } else {
+      hablar('Dame un segundo, estoy cargando');
+      setTimeout(() => {
+        const t2 = document.getElementById('total-general');
+        if (t2) hablar('El total es ' + t2.textContent);
+      }, 1500);
+    }
+    return;
+  }
+
+  // ── Exportar ──
+  if (texto.includes('excel') || texto.includes('exportar') || texto.includes('descargar')) {
+    exportarExcel();
+    hablar('Descargando Excel');
+    return;
+  }
+
+  // ── Actualizar ──
+  if (texto.includes('actualizar') || texto.includes('refrescar') || text.includes('recargar') || texto.includes('nuevo')) {
+    cargarTodo();
+    hablar('Actualizando datos');
+    return;
+  }
+
+  // ── Ayuda ──
+  if (texto.includes('ayuda') || texto.includes('qué puede') || texto.includes('que puede') || texto.includes('comando') || texto.includes('ayud') || texto.includes('hacer')) {
+    const cmds = [
+      'Podés decir:',
+      '"Dashboard" para ver el panel',
+      '"Facturas" para ver la lista',
+      '"Precios" para ver productos',
+      '"Marzo" para filtrar por mes',
+      '"Total" para saber el gasto',
+      '"Excel" para descargar',
+      '"Actualizar" para refrescar',
+    ];
+    hablar(cmds.join('. '));
+    mostrarToast('Comandos disponibles', cmds.slice(1).join(' · '));
+    return;
+  }
+
+  // ── No entendió ──
+  hablar('No entendí, decí ayuda para ver los comandos');
+  mostrarToast('No entendí', 'Decí "ayuda" para los comandos');
+}
+
+// ─── Notificación por voz de facturas nuevas ───
+let ultimaNotifVoz = 0;
+function notificarFacturaNueva() {
+  if (!ultimaNotifVoz) { ultimaNotifVoz = Date.now(); return; }
+  const ahora = Date.now();
+  if (ahora - ultimaNotifVoz < 60000) return;
+  // chequea si hay facturas nuevas en cache vs ultimo conteo
+  if (cache && cache.resumen.length > 0) {
+    const ultimas = cache.resumen.filter(r => {
+      if (!r.fecha || r.fecha === '?') return false;
+      const f = r.fecha.split('/').reverse().join('-');
+      const d = new Date(f);
+      return (ahora - d.getTime()) < 120000; // ultimos 2 min
+    });
+    if (ultimas.length > 0) {
+      hablar('Llegaron ' + ultimas.length + ' factura' + (ultimas.length > 1 ? 's' : '') + ' nueva' + (ultimas.length > 1 ? 's' : ''));
+      ultimaNotifVoz = ahora;
+    }
+  }
+}
+
+// Parche: reemplazar auto-refresh para notificar
+const origCargarTodo = cargarTodo;
+cargarTodo = async function() {
+  await origCargarTodo();
+  notificarFacturaNueva();
+};
+
+// --- PRECIOS con historial ---
+let todosProductos = [];
+
+async function cargarPrecios() {
+  document.getElementById('resultados-precios').innerHTML = '<div class="loading">Cargando productos...</div>';
+  document.getElementById('historial-precio').style.display = 'none';
+  if (!cache) { document.getElementById('resultados-precios').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
+  todosProductos = [];
+  for (const [fname, f] of Object.entries(cache.facturas)) {
+    if (!f.items) continue;
+    for (const it of f.items) {
+      todosProductos.push({
+        descripcion: it.descripcion || '?', precio: Number(it.precio_unitario || it.precioUnitario || 0),
+        vendedor: f.nombreVendedor||'?', fecha: f.fechaEmision||'?',
+        factura: f.numeroFactura||'?', facturaId: fname
+      });
+    }
+  }
+  const unicos = new Map();
+  for (const r of todosProductos) {
+    const k = r.descripcion.toLowerCase().trim();
+    if (!unicos.has(k)) unicos.set(k, { ...r, cantidad: 1 });
+  }
+  mostrarPrecios(unicos);
+}
+
+function mostrarPrecios(unicos) {
+  const q = document.getElementById('search-producto').value.toLowerCase();
+  const filtrados = q ? [...unicos.values()].filter(r => r.descripcion.toLowerCase().includes(q)) : [...unicos.values()];
+  document.getElementById('resultados-precios').innerHTML = filtrados.length
+    ? `<table><tr><th>Producto</th><th>Precio</th><th>Vendedor</th><th>Fecha</th><th></th></tr>${filtrados.map(r => `<tr><td><span class="producto-link" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}')">${r.descripcion}</span></td><td class="precio">${n(r.precio)}</td><td>${r.vendedor}</td><td class="fecha">${r.fecha}</td><td><a href="#" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}'); return false;" class="btn btn-ghost btn-small">📈 Historial</a></td></tr>`).join('')}</table>`
+    : '<div class="vacio">No se encontraron productos</div>';
+}
+
+function buscarProducto() {
+  if (todosProductos.length === 0) { cargarPrecios(); return; }
+  const unicos = new Map();
+  for (const r of todosProductos) {
+    const k = r.descripcion.toLowerCase().trim();
+    if (!unicos.has(k)) unicos.set(k, { ...r, cantidad: 1 });
+  }
+  mostrarPrecios(unicos);
+}
+
+function verHistorial(descripcion) {
+  const ocurrencias = todosProductos
+    .filter(r => r.descripcion.toLowerCase().trim() === descripcion.toLowerCase().trim())
+    .sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
+
+  if (ocurrencias.length === 0) return;
+
+  const div = document.getElementById('historial-precio');
+  div.style.display = 'block';
+
+  const ultPrecio = ocurrencias[ocurrencias.length-1].precio;
+  const primerPrecio = ocurrencias[0].precio;
+  const dif = ultPrecio - primerPrecio;
+  const difStr = dif > 0 ? `↑ +${dif.toLocaleString()}` : dif < 0 ? `↓ ${dif.toLocaleString()}` : 'Sin cambios';
+
+  div.innerHTML = `
+    <div class="historial-container">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <h4 style="margin:0">📈 ${descripcion}</h4>
+        <div>
+          <span style="color:#78909C;font-size:12px">1er: ${n(primerPrecio)} · Últ: ${n(ultPrecio)} · </span>
+          <span style="font-size:13px;font-weight:700;color:${dif>0?'#EF5350':dif<0?'#66BB6A':'#78909C'}">${difStr}</span>
+          <button onclick="document.getElementById('historial-precio').style.display='none'" class="btn btn-ghost btn-small" style="margin-left:10px">Cerrar</button>
+        </div>
+      </div>
+      <table><tr><th>Fecha</th><th>Factura</th><th>Vendedor</th><th>Precio</th></tr>
+      ${ocurrencias.map(r => `<tr><td class="fecha">${r.fecha}</td><td>${r.factura}</td><td>${r.vendedor}</td><td class="precio">${n(r.precio)}</td></tr>`).join('')}
+      </table>
+      <div style="margin-top:12px;position:relative;height:180px">
+        <canvas id="chart-historial-precio"></canvas>
+      </div>
+    </div>`;
+
+  // chart
+  setTimeout(() => {
+    const c = document.getElementById('chart-historial-precio');
+    if (!c) return;
+    new Chart(c, {
+      type: 'line',
+      data: {
+        labels: ocurrencias.map(r => r.fecha),
+        datasets: [{
+          label: 'Precio',
+          data: ocurrencias.map(r => r.precio),
+          borderColor: '#00BCD4',
+          backgroundColor: 'rgba(0,188,212,.1)',
+          fill: true,
+          tension: .3,
+          pointBackgroundColor: '#00BCD4',
+          pointRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: false, ticks: { color: '#546E7A', callback: v => v.toLocaleString() } },
+          x: { ticks: { color: '#546E7A', maxTicksLimit: 8, maxRotation: 45 } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }, 50);
+}
+
+// --- ARCHIVOS ---
+async function cargarArchivos() {
+  document.getElementById('lista-archivos').innerHTML = '<div class="loading">Cargando...</div>';
+  if (!cache) { document.getElementById('lista-archivos').innerHTML = '<div class="vacio">No hay archivos</div>'; return; }
+  document.getElementById('lista-archivos').innerHTML =
+    `<table><tr><th>Archivo</th><th></th></tr>${cache.archivos.map(a => `
+      <tr><td>${a}</td>
+      <td style="text-align:right">
+      <a href="/api/descargar/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary btn-small">⬇ JSON</a>
+      <a href="/pdf/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-primary btn-small">⬇ PDF</a>
+      <a href="/ver-json/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost btn-small">👁 Ver</a>
+      <a href="/pdf-view/${sucursal}/${encodeURIComponent(a)}" target="_blank" class="btn btn-ghost btn-small">📄 Vista Previa</a>
+      <a href="#" onclick="eliminarFactura('','${a.replace(/'/g,"\\'")}','${sucursal}'); return false;" class="btn btn-ghost btn-small" style="color:#EF5350">🗑</a>
+    </td></tr>`).join('')}</table>`;
+}
+</script>
+</body>
+</html>

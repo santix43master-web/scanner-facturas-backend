@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-anthropic
-python-multipart
-gunicorn
-xmltodict
-httpx

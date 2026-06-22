@@ -43,3 +43,9 @@ __pycache__/
 # generated native folders
 /ios
 /android
+
+# modulo-builds
+modulo_builds/dist/
+
+# datos personales IA
+modulo_asistente/MEMORIA.json
