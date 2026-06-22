@@ -106,11 +106,9 @@ function AppContent() {
       await AsyncStorage.removeItem('@facturas_r21');
       await AsyncStorage.removeItem('@facturas_r21_full');
       setHistorial([]);
-      Alert.alert("Listo", "Historial borrado correctamente");
     } else if (passwordTarget) {
       const nuevo = await eliminarDelHistorial(passwordTarget);
       setHistorial(nuevo);
-      Alert.alert("Listo", "Factura eliminada del historial");
     }
     setModalPassword(false);
     setPasswordInput('');
@@ -138,35 +136,31 @@ function AppContent() {
   return (
     <View style={[styles.mainWrapper, { backgroundColor: theme.background }]}>
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.background }]}>
+      <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.btnMenuHamburguesa} onPress={() => setMenuAbierto(true)}>
-            <View style={[styles.lineaHamburguesa, { backgroundColor: theme.primary }]} />
-            <View style={[styles.lineaHamburguesa, { backgroundColor: theme.primary }]} />
-            <View style={[styles.lineaHamburguesa, { backgroundColor: theme.primary }]} />
+            <View style={[styles.lineaHamburguesa, { backgroundColor: theme.text }]} />
+            <View style={[styles.lineaHamburguesa, { backgroundColor: theme.text }]} />
+            <View style={[styles.lineaHamburguesa, { backgroundColor: theme.text }]} />
           </TouchableOpacity>
-          <Text style={[styles.header, { color: theme.text }]}>Scanner R21</Text>
-          <View style={[styles.badgeSucursal, { backgroundColor: theme.primary }]}>
-            <Text style={[styles.badgeSucursalText, { color: theme.badgeText }]}>{sucursalActual}</Text>
+          <Text style={[styles.header, { color: theme.text }]}>R21</Text>
+          <View style={[styles.badgeSucursal, { borderColor: theme.textSecondary }]}>
+            <Text style={[styles.badgeSucursalText, { color: theme.textSecondary }]}>{sucursalActual}</Text>
           </View>
         </View>
 
-        <View style={[styles.tabBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.tabBar, { borderColor: theme.border }]}>
           <TouchableOpacity
-            style={[styles.tabItem, tabActivo === 'escanear' && { backgroundColor: theme.tabActiveBg }]}
+            style={[styles.tabItem, tabActivo === 'escanear' && styles.tabItemActive, tabActivo === 'escanear' && { borderBottomColor: theme.primary }]}
             onPress={() => setTabActivo('escanear')}
-            activeOpacity={0.85}
           >
-            <Text style={styles.tabIcono}>📄</Text>
-            <Text style={[styles.tabText, { color: tabActivo === 'escanear' ? theme.tabActiveText : theme.tabInactive }]}>Escanear</Text>
+            <Text style={[styles.tabText, { color: tabActivo === 'escanear' ? theme.primary : theme.textMuted }]}>Escanear</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tabItem, tabActivo === 'precios' && { backgroundColor: theme.tabActiveBg }]}
+            style={[styles.tabItem, tabActivo === 'precios' && styles.tabItemActive, tabActivo === 'precios' && { borderBottomColor: theme.primary }]}
             onPress={() => setTabActivo('precios')}
-            activeOpacity={0.85}
           >
-            <Text style={styles.tabIcono}>📊</Text>
-            <Text style={[styles.tabText, { color: tabActivo === 'precios' ? theme.tabActiveText : theme.tabInactive }]}>Precios</Text>
+            <Text style={[styles.tabText, { color: tabActivo === 'precios' ? theme.primary : theme.textMuted }]}>Precios</Text>
           </TouchableOpacity>
         </View>
 
@@ -179,33 +173,27 @@ function AppContent() {
         )}
       </ScrollView>
 
-      <Modal
-        visible={modalPassword}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => { setModalPassword(false); setPasswordTarget(null); setPasswordInput(''); }}
-      >
+      <Modal visible={modalPassword} transparent animationType="fade" onRequestClose={() => { setModalPassword(false); setPasswordTarget(null); setPasswordInput(''); }}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={[styles.modalTitulo, { color: theme.danger }]}>
-              {passwordTarget === 'all' ? 'Borrar Todo el Historial' : 'Eliminar Factura'}
+          <View style={[styles.modalContainer, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.modalTitulo, { color: theme.text }]}>
+              {passwordTarget === 'all' ? 'Borrar historial' : 'Eliminar factura'}
             </Text>
-            <Text style={[styles.modalSubtitulo, { color: theme.textSecondary }]}>Ingresá la contraseña para confirmar</Text>
             <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.text }]}
-              placeholder="Contrasena"
+              style={[styles.modalInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+              placeholder="Contraseña"
               placeholderTextColor={theme.textMuted}
               value={passwordInput}
               onChangeText={setPasswordInput}
-              secureTextEntry={true}
-              autoFocus={true}
+              secureTextEntry
+              autoFocus
             />
             <View style={styles.modalBotones}>
-              <TouchableOpacity style={[styles.btnModalCancelar, { backgroundColor: theme.cardTag }]} onPress={() => { setModalPassword(false); setPasswordTarget(null); setPasswordInput(''); }}>
-                <Text style={styles.btnModalTexto}>Cancelar</Text>
+              <TouchableOpacity style={styles.btnModalCancelar} onPress={() => { setModalPassword(false); setPasswordTarget(null); setPasswordInput(''); }}>
+                <Text style={[styles.btnModalTexto, { color: theme.textSecondary }]}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.btnModalConfirmar, { backgroundColor: theme.danger }]} onPress={confirmarBorrado}>
-                <Text style={styles.btnModalTextoConfirmar}>Confirmar</Text>
+              <TouchableOpacity onPress={confirmarBorrado}>
+                <Text style={[styles.btnModalTexto, { color: theme.danger }]}>Confirmar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -223,7 +211,7 @@ function AppContent() {
         onBorrarHistorial={() => solicitarPassword('all')}
         onEliminarFactura={(id) => solicitarPassword(id)}
         onCambiarSucursal={cambiarSucursal}
-        onSincronizar={() => { sincronizarHistorial(); Alert.alert("Sincronizado", "Historial actualizado desde el servidor"); }}
+        onSincronizar={() => { sincronizarHistorial(); }}
         onThemeToggle={toggleTheme}
         onExpandirFactura={async (item) => {
           const completa = await obtenerFacturaCompleta(item.id);
@@ -247,25 +235,21 @@ export default function App() {
 
 const styles = StyleSheet.create({
   mainWrapper: { flex: 1 },
-  container: { padding: 20, alignItems: 'center', minHeight: '100%' },
-  topBar: { flexDirection: 'row', width: '100%', alignItems: 'center', justifyContent: 'space-between', marginTop: 50, marginBottom: 10 },
-  header: { fontSize: 20, fontWeight: 'bold', letterSpacing: 2 },
-  badgeSucursal: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, elevation: 4, shadowColor: '#00BCD4', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 6 },
-  badgeSucursalText: { fontSize: 12, fontWeight: 'bold' },
-  btnMenuHamburguesa: { width: 32, height: 24, justifyContent: 'space-between', padding: 2 },
-  lineaHamburguesa: { width: 28, height: 3, borderRadius: 2 },
-  tabBar: { flexDirection: 'row', width: '100%', borderRadius: 16, padding: 4, marginBottom: 10, borderWidth: 1 },
-  tabItem: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 6 },
-  tabIcono: { fontSize: 16 },
-  tabText: { fontWeight: 'bold', fontSize: 14, letterSpacing: 1 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-  modalContainer: { borderRadius: 20, padding: 25, width: '85%', borderWidth: 1 },
-  modalTitulo: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
-  modalSubtitulo: { fontSize: 14, textAlign: 'center', marginBottom: 20 },
-  modalInput: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 20 },
-  modalBotones: { flexDirection: 'row', gap: 12 },
-  btnModalCancelar: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
-  btnModalConfirmar: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
-  btnModalTexto: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  btnModalTextoConfirmar: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  container: { padding: 16, alignItems: 'center' },
+  topBar: { flexDirection: 'row', width: '100%', alignItems: 'center', justifyContent: 'space-between', marginTop: 56, marginBottom: 24 },
+  header: { fontSize: 24, fontWeight: '600', letterSpacing: 4 },
+  badgeSucursal: { paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderRadius: 4 },
+  badgeSucursalText: { fontSize: 12, fontWeight: '500' },
+  btnMenuHamburguesa: { width: 28, height: 20, justifyContent: 'space-between' },
+  lineaHamburguesa: { height: 2, borderRadius: 1 },
+  tabBar: { flexDirection: 'row', width: '100%', borderBottomWidth: 1, borderBottomColor: 'transparent', marginBottom: 24 },
+  tabItem: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabItemActive: {},
+  tabText: { fontSize: 14, fontWeight: '500', letterSpacing: 1 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  modalContainer: { padding: 24, width: '80%' },
+  modalTitulo: { fontSize: 18, fontWeight: '600', marginBottom: 20, textAlign: 'center' },
+  modalInput: { borderWidth: 1, padding: 12, fontSize: 15, marginBottom: 20 },
+  modalBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 20 },
+  btnModalTexto: { fontSize: 15, fontWeight: '500' },
 });

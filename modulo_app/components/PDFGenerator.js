@@ -1,104 +1,55 @@
 export function generarPDF(datosFactura, sucursalActual) {
   let filasItems = '';
   if (datosFactura.items && datosFactura.items.length > 0) {
-    filasItems = datosFactura.items.map((item, index) => `
-      <tr style="border-bottom: 1px solid #e0e0e0;">
-        <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${index + 1}</td>
-        <td style="padding: 12px 8px; font-size: 13px;">${item.descripcion || 'Sin descripción'}</td>
-        <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${item.codigo || '-'}</td>
-        <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${item.codigo_barras || '-'}</td>
-        <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${item.cantidad || 1}</td>
-        <td style="padding: 12px 8px; text-align: right; font-size: 13px;">${Number(item.precio_unitario || 0).toLocaleString('es-PY')}</td>
-        <td style="padding: 12px 8px; text-align: right; font-weight: bold; font-size: 13px; color: #00838F;">${Number(item.subtotal || 0).toLocaleString('es-PY')}</td>
+    filasItems = datosFactura.items.map((item, i) => `
+      <tr>
+        <td style="padding:8px;text-align:center;font-size:12px;border-bottom:1px solid #ddd;">${i + 1}</td>
+        <td style="padding:8px;font-size:12px;border-bottom:1px solid #ddd;">${item.descripcion || ''}</td>
+        <td style="padding:8px;text-align:center;font-size:12px;border-bottom:1px solid #ddd;">${item.codigo || '-'}</td>
+        <td style="padding:8px;text-align:center;font-size:12px;border-bottom:1px solid #ddd;">${item.cantidad || 1}</td>
+        <td style="padding:8px;text-align:right;font-size:12px;border-bottom:1px solid #ddd;">${Number(item.precio_unitario || 0).toLocaleString('es-PY')}</td>
+        <td style="padding:8px;text-align:right;font-size:12px;font-weight:600;border-bottom:1px solid #ddd;">${Number(item.subtotal || 0).toLocaleString('es-PY')}</td>
       </tr>
     `).join('');
   } else {
-    filasItems = `
-      <tr>
-        <td colspan="7" style="padding: 20px; text-align: center; color: #9E9E9E; font-style: italic;">
-          No se detectaron artículos en la factura
-        </td>
-      </tr>
-    `;
+    filasItems = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#999;">Sin artículos</td></tr>';
   }
 
   return `
     <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 30px; background: #ffffff; color: #333; }
-        .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #00BCD4; }
-        .header h1 { color: #006064; font-size: 28px; margin-bottom: 8px; }
-        .header p { color: #00838F; font-size: 16px; font-weight: 500; }
-        .info-section { background: #E0F7FA; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 5px solid #00BCD4; }
-        .info-section h2 { color: #006064; font-size: 18px; margin-bottom: 15px; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .info-item { background: white; padding: 10px 15px; border-radius: 6px; font-size: 14px; }
-        .info-item strong { color: #00838F; display: block; margin-bottom: 4px; font-size: 12px; }
-        .info-item span { color: #424242; font-size: 14px; }
-        .table-section { margin-top: 25px; }
-        .table-section h2 { color: #006064; font-size: 18px; margin-bottom: 15px; }
-        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }
-        thead { background: linear-gradient(135deg, #00838F 0%, #00BCD4 100%); color: white; }
-        thead th { padding: 14px 8px; text-align: left; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        tbody tr:nth-child(even) { background-color: #F5F5F5; }
-        tbody tr:hover { background-color: #E0F7FA; }
-        .total-section { margin-top: 25px; text-align: right; padding: 20px; background: linear-gradient(135deg, #00838F 0%, #00BCD4 100%); border-radius: 10px; color: white; }
-        .total-section h3 { font-size: 16px; margin-bottom: 8px; font-weight: 500; }
-        .total-section .amount { font-size: 32px; font-weight: bold; }
-        .footer { margin-top: 40px; text-align: center; padding-top: 20px; border-top: 2px solid #E0E0E0; color: #757575; font-size: 12px; }
-        .footer p { margin: 5px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>FACTURA DIGITALIZADA</h1>
-        <p>Scanner R21 - Sistema de Gestion</p>
+    <html><head><meta charset="UTF-8"><style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Helvetica, Arial, sans-serif; padding: 32px; color: #333; font-size: 13px; }
+      h1 { font-size: 22px; font-weight: 300; letter-spacing: 4px; margin-bottom: 4px; }
+      .sub { color: #666; font-size: 12px; margin-bottom: 24px; }
+      .info { margin-bottom: 24px; }
+      .info p { margin-bottom: 3px; font-size: 12px; }
+      .info strong { color: #00838F; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+      th { padding: 10px 8px; text-align: left; font-size: 11px; font-weight: 600; color: #00838F; border-bottom: 2px solid #00838F; text-transform: uppercase; letter-spacing: 0.5px; }
+      td { padding: 8px; font-size: 12px; }
+      .total { text-align: right; padding: 16px 0; border-top: 2px solid #00838F; }
+      .total h2 { font-size: 14px; font-weight: 600; color: #00838F; margin-bottom: 4px; }
+      .total .monto { font-size: 26px; font-weight: 300; }
+      .footer { margin-top: 40px; text-align: center; color: #999; font-size: 11px; border-top: 1px solid #eee; padding-top: 16px; }
+    </style></head><body>
+      <h1>FACTURA</h1>
+      <p class="sub">${sucursalActual} · ${new Date().toLocaleDateString('es-PY')}</p>
+      <div class="info">
+        <p><strong>Vendedor:</strong> ${datosFactura.nombreVendedor || '—'}</p>
+        <p><strong>RUC:</strong> ${datosFactura.rucVendedor || '—'}</p>
+        <p><strong>N°:</strong> ${datosFactura.numeroFactura || '—'} · <strong>Timbrado:</strong> ${datosFactura.timbrado || '—'}</p>
+        <p><strong>Emisión:</strong> ${datosFactura.fechaEmision || '—'}</p>
       </div>
-      <div class="info-section">
-        <h2>INFORMACION GENERAL</h2>
-        <div class="info-grid">
-          <div class="info-item"><strong>SUCURSAL</strong><span>${sucursalActual}</span></div>
-          <div class="info-item"><strong>FECHA DE ESCANEO</strong><span>${new Date().toLocaleDateString('es-PY', { year: 'numeric', month: 'long', day: 'numeric' })}</span></div>
-          <div class="info-item"><strong>VENDEDOR</strong><span>${datosFactura.nombreVendedor || 'No detectado'}</span></div>
-          <div class="info-item"><strong>RUC VENDEDOR</strong><span>${datosFactura.rucVendedor || 'No detectado'}</span></div>
-          <div class="info-item"><strong>RUC COMPRADOR</strong><span>${datosFactura.rucComprador || 'No detectado'}</span></div>
-          <div class="info-item"><strong>N° FACTURA</strong><span>${datosFactura.numeroFactura || 'No detectado'}</span></div>
-          <div class="info-item"><strong>TIMBRADO</strong><span>${datosFactura.timbrado || 'No detectado'}</span></div>
-          <div class="info-item"><strong>FECHA EMISION</strong><span>${datosFactura.fechaEmision || 'No detectado'}</span></div>
-        </div>
+      <table>
+        <thead><tr><th>#</th><th>Descripción</th><th>Código</th><th>Cant.</th><th>P.Unit.</th><th>Subtotal</th></tr></thead>
+        <tbody>${filasItems}</tbody>
+      </table>
+      <div class="total">
+        <h2>TOTAL</h2>
+        <div class="monto">Gs ${Number(datosFactura.totalGeneral || 0).toLocaleString('es-PY')}</div>
       </div>
-      <div class="table-section">
-        <h2>DETALLE DE ARTICULOS</h2>
-        <table>
-          <thead>
-            <tr>
-              <th style="text-align: center;">#</th>
-              <th>DESCRIPCION</th>
-              <th style="text-align: center;">CODIGO</th>
-              <th style="text-align: center;">COD. BARRAS</th>
-              <th style="text-align: center;">CANT.</th>
-              <th style="text-align: right;">PRECIO UNIT.</th>
-              <th style="text-align: right;">SUBTOTAL</th>
-            </tr>
-          </thead>
-          <tbody>${filasItems}</tbody>
-        </table>
-      </div>
-      <div class="total-section">
-        <h3>TOTAL GENERAL</h3>
-        <div class="amount">Gs ${Number(datosFactura.totalGeneral || 0).toLocaleString('es-PY')}</div>
-      </div>
-      <div class="footer">
-        <p><strong>Scanner R21</strong> - Sistema de Digitalizacion de Facturas</p>
-        <p>Documento generado el ${new Date().toLocaleString('es-PY')}</p>
-        <p>© ${new Date().getFullYear()} - Todos los derechos reservados</p>
-      </div>
-    </body>
-    </html>
+      <div class="footer">Scanner R21 · ${new Date().getFullYear()}</div>
+    </body></html>
   `;
 }
