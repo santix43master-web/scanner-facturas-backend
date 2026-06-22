@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { useTheme } from '../utils/ThemeContext';
 
 const CAPTCHA_INJECTED_JS = `
 (function() {
@@ -63,6 +64,7 @@ const CAPTCHA_INJECTED_JS = `
 `;
 
 export default function CaptchaWebView({ visible, qrContent, onDatos, onCargando, onClose }) {
+  const { theme } = useTheme();
   const webViewRef = useRef(null);
   const captchaResueltoRef = useRef(false);
 
@@ -88,16 +90,16 @@ export default function CaptchaWebView({ visible, qrContent, onDatos, onCargando
   };
 
   return (
-    <View style={styles.captchaModalContainer}>
-      <View style={styles.captchaModalHeader}>
-        <Text style={styles.captchaModalTitulo}>Resolver captcha en SIFEN</Text>
+    <View style={[styles.captchaModalContainer, { backgroundColor: theme.background }]}>
+      <View style={[styles.captchaModalHeader, { backgroundColor: theme.surface }]}>
+        <Text style={[styles.captchaModalTitulo, { color: theme.text }]}>Resolver captcha en SIFEN</Text>
         <TouchableOpacity onPress={onClose}>
-          <Text style={styles.captchaModalCerrar}>Cerrar</Text>
+          <Text style={[styles.captchaModalCerrar, { color: theme.textMuted }]}>Cerrar</Text>
         </TouchableOpacity>
       </View>
       {onCargando && (
-        <View style={styles.captchaCargandoBox}>
-          <ActivityIndicator size="large" color="#00BCD4" />
+        <View style={[styles.captchaCargandoBox, { backgroundColor: theme.overlay }]}>
+          <ActivityIndicator size="large" color={theme.primary} />
           <Text style={{ color: '#FFF', marginTop: 10 }}>Extrayendo datos del portal...</Text>
         </View>
       )}
@@ -120,17 +122,17 @@ export default function CaptchaWebView({ visible, qrContent, onDatos, onCargando
 
 const styles = StyleSheet.create({
   captchaModalContainer: {
-    flex: 1, backgroundColor: '#0D1B2A', marginTop: 40,
+    flex: 1, marginTop: 40,
     borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden',
   },
   captchaModalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#1B2838', paddingHorizontal: 16, paddingVertical: 14,
+    paddingHorizontal: 16, paddingVertical: 14,
   },
-  captchaModalTitulo: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  captchaModalCerrar: { color: '#90A4AE', fontSize: 14 },
+  captchaModalTitulo: { fontWeight: 'bold', fontSize: 15 },
+  captchaModalCerrar: { fontSize: 14 },
   captchaCargandoBox: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', zIndex: 10,
+    justifyContent: 'center', alignItems: 'center', zIndex: 10,
   },
 });

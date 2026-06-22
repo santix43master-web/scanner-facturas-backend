@@ -49,3 +49,6 @@ modulo_builds/dist/
 
 # datos personales IA
 modulo_asistente/MEMORIA.json
+
+# opencode config (evitar exponer API keys)
+opencode.json

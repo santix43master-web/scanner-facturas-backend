@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert, ActivityIndicator, Modal, StyleSheet } from 'react-native';
+import { useTheme } from '../utils/ThemeContext';
 import { buscarProducto } from '../utils/api';
 import BarcodeScanner from '../components/BarcodeScanner';
 
 export default function PreciosScreen({ urlServidor }) {
+  const { theme } = useTheme();
   const [barcodeActivo, setBarcodeActivo] = useState(false);
   const [barcodeCargando, setBarcodeCargando] = useState(false);
   const [preciosHistorial, setPreciosHistorial] = useState([]);
@@ -36,44 +38,44 @@ export default function PreciosScreen({ urlServidor }) {
 
   return (
     <View style={styles.menu}>
-      <TouchableOpacity style={styles.btnBarcode} onPress={() => { setBarcodeActivo(true); }} disabled={barcodeCargando} activeOpacity={0.85}>
-        <Text style={styles.btnBarcodeIcono}>≡</Text>
-        <Text style={styles.btnBarcodeText}>CÓDIGO DE BARRAS</Text>
-        <Text style={styles.btnBarcodeSub}>Escaneá el código con la cámara</Text>
+      <TouchableOpacity style={[styles.btnBarcode, { backgroundColor: theme.surface, borderColor: theme.success }]} onPress={() => { setBarcodeActivo(true); }} disabled={barcodeCargando} activeOpacity={0.85}>
+        <Text style={[styles.btnBarcodeIcono, { color: theme.success }]}>≡</Text>
+        <Text style={[styles.btnBarcodeText, { color: theme.text }]}>CÓDIGO DE BARRAS</Text>
+        <Text style={[styles.btnBarcodeSub, { color: theme.textSecondary }]}>Escaneá el código con la cámara</Text>
       </TouchableOpacity>
 
       <View style={styles.dividerRow}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>O</Text>
-        <View style={styles.dividerLine} />
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+        <Text style={[styles.dividerText, { color: theme.textMuted }]}>O</Text>
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
       </View>
 
-      <TouchableOpacity style={styles.btnBarcodeManual} onPress={() => { setModalBarcodeManual(true); setInputBarcode(''); }} disabled={barcodeCargando} activeOpacity={0.85}>
-        <Text style={styles.btnBarcodeManualIcono}>⌨</Text>
-        <Text style={styles.btnBarcodeManualText}>INGRESAR CÓDIGO</Text>
-        <Text style={styles.btnBarcodeManualSub}>Tipeá código o código de barras</Text>
+      <TouchableOpacity style={[styles.btnBarcodeManual, { backgroundColor: theme.surface, borderColor: theme.accent }]} onPress={() => { setModalBarcodeManual(true); setInputBarcode(''); }} disabled={barcodeCargando} activeOpacity={0.85}>
+        <Text style={[styles.btnBarcodeManualIcono, { color: theme.accent }]}>⌨</Text>
+        <Text style={[styles.btnBarcodeManualText, { color: theme.text }]}>INGRESAR CÓDIGO</Text>
+        <Text style={[styles.btnBarcodeManualSub, { color: theme.textSecondary }]}>Tipeá código o código de barras</Text>
       </TouchableOpacity>
 
       {preciosHistorial.length > 0 && (
         <View style={styles.preciosSection}>
           <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>RESULTADOS</Text>
-            <View style={styles.dividerLine} />
+            <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+            <Text style={[styles.dividerText, { color: theme.textMuted }]}>RESULTADOS</Text>
+            <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
           </View>
           {preciosHistorial.map((p, i) => (
-            <View key={i} style={styles.card}>
+            <View key={i} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={styles.cardHeader}>
-                <View style={styles.cardNumero}><Text style={styles.cardNumeroText}>{i + 1}</Text></View>
-                <Text style={styles.cardDescripcion} numberOfLines={2}>{p.descripcion || 'Producto'}</Text>
+                <View style={[styles.cardNumero, { backgroundColor: theme.primary }]}><Text style={[styles.cardNumeroText, { color: theme.badgeText }]}>{i + 1}</Text></View>
+                <Text style={[styles.cardDescripcion, { color: theme.text }]} numberOfLines={2}>{p.descripcion || 'Producto'}</Text>
               </View>
               <View style={styles.cardDetalles}>
-                <Text style={styles.cardTag}>{p.vendedor}</Text>
-                <Text style={styles.cardTag}>{p.fecha}</Text>
+                <Text style={[styles.cardTag, { backgroundColor: theme.cardTag, color: theme.cardTagText }]}>{p.vendedor}</Text>
+                <Text style={[styles.cardTag, { backgroundColor: theme.cardTag, color: theme.cardTagText }]}>{p.fecha}</Text>
               </View>
               <View style={styles.precioRow}>
-                <Text style={styles.precioValor}>{Number(p.precio).toLocaleString('es-PY')} Gs</Text>
-                <Text style={styles.precioFactura}>Factura N° {p.factura}</Text>
+                <Text style={[styles.precioValor, { color: theme.primary }]}>{Number(p.precio).toLocaleString('es-PY')} Gs</Text>
+                <Text style={[styles.precioFactura, { color: theme.textMuted }]}>Factura N° {p.factura}</Text>
               </View>
             </View>
           ))}
@@ -90,24 +92,24 @@ export default function PreciosScreen({ urlServidor }) {
 
       <Modal visible={modalBarcodeManual} transparent={true} animationType="fade" onRequestClose={() => setModalBarcodeManual(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={[styles.modalTitulo, { color: '#00BCD4' }]}>Buscar producto</Text>
-            <Text style={styles.modalSubtitulo}>Ingresá código o código de barras del producto</Text>
+          <View style={[styles.modalContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.modalTitulo, { color: theme.primary }]}>Buscar producto</Text>
+            <Text style={[styles.modalSubtitulo, { color: theme.textSecondary }]}>Ingresá código o código de barras del producto</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
               placeholder="Código o código de barras"
-              placeholderTextColor="#90A4AE"
+              placeholderTextColor={theme.textMuted}
               value={inputBarcode}
               onChangeText={setInputBarcode}
               autoFocus={true}
               autoCapitalize="none"
             />
             <View style={styles.modalBotones}>
-              <TouchableOpacity style={styles.btnModalCancelar} onPress={() => setModalBarcodeManual(false)}>
-                <Text style={styles.btnModalTexto}>Cancelar</Text>
+              <TouchableOpacity style={[styles.btnModalCancelar, { backgroundColor: theme.textMuted }]} onPress={() => setModalBarcodeManual(false)}>
+                <Text style={[styles.btnModalTexto, { color: theme.surface }]}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.btnModalConfirmar} onPress={() => { setModalBarcodeManual(false); buscarPrecios(inputBarcode.trim()); }}>
-                <Text style={styles.btnModalTextoConfirmar}>Buscar</Text>
+              <TouchableOpacity style={[styles.btnModalConfirmar, { backgroundColor: theme.primary }]} onPress={() => { setModalBarcodeManual(false); buscarPrecios(inputBarcode.trim()); }}>
+                <Text style={[styles.btnModalTextoConfirmar, { color: theme.badgeText }]}>Buscar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -120,35 +122,35 @@ export default function PreciosScreen({ urlServidor }) {
 const styles = StyleSheet.create({
   menu: { width: '100%', marginTop: 30 },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 22 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#2A3F4F' },
-  dividerText: { color: '#546E7A', marginHorizontal: 15, fontSize: 13 },
-  btnBarcode: { backgroundColor: '#1B2838', paddingVertical: 24, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#66BB6A' },
-  btnBarcodeIcono: { fontSize: 36, marginBottom: 8, color: '#66BB6A' },
-  btnBarcodeText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
-  btnBarcodeSub: { color: '#78909C', fontSize: 13, marginTop: 6 },
-  btnBarcodeManual: { backgroundColor: '#1B2838', paddingVertical: 24, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#FFA726', marginTop: 15 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { marginHorizontal: 15, fontSize: 13 },
+  btnBarcode: { paddingVertical: 24, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
+  btnBarcodeIcono: { fontSize: 36, marginBottom: 8 },
+  btnBarcodeText: { fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
+  btnBarcodeSub: { fontSize: 13, marginTop: 6 },
+  btnBarcodeManual: { paddingVertical: 24, borderRadius: 20, alignItems: 'center', borderWidth: 1, marginTop: 15 },
   btnBarcodeManualIcono: { fontSize: 32, marginBottom: 8 },
-  btnBarcodeManualText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
-  btnBarcodeManualSub: { color: '#78909C', fontSize: 13, marginTop: 6 },
+  btnBarcodeManualText: { fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
+  btnBarcodeManualSub: { fontSize: 13, marginTop: 6 },
   preciosSection: { width: '100%', marginTop: 25 },
-  card: { backgroundColor: '#1B2838', padding: 16, borderRadius: 14, marginBottom: 10, borderWidth: 1, borderColor: '#2A3F4F' },
+  card: { padding: 16, borderRadius: 14, marginBottom: 10, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  cardNumero: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#00BCD4', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  cardNumeroText: { color: '#0D1B2A', fontWeight: 'bold', fontSize: 12 },
-  cardDescripcion: { flex: 1, fontWeight: 'bold', fontSize: 14, color: '#FFFFFF' },
+  cardNumero: { width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  cardNumeroText: { fontWeight: 'bold', fontSize: 12 },
+  cardDescripcion: { flex: 1, fontWeight: 'bold', fontSize: 14 },
   cardDetalles: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8, marginLeft: 36 },
-  cardTag: { backgroundColor: '#2A3F4F', color: '#B0BEC5', fontSize: 11, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  cardTag: { fontSize: 11, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   precioRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginLeft: 40, marginTop: 6 },
-  precioValor: { color: '#00BCD4', fontWeight: 'bold', fontSize: 18 },
-  precioFactura: { color: '#78909C', fontSize: 12 },
+  precioValor: { fontWeight: 'bold', fontSize: 18 },
+  precioFactura: { fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-  modalContainer: { backgroundColor: '#1B2838', borderRadius: 20, padding: 25, width: '85%', borderWidth: 1, borderColor: '#2A3F4F' },
+  modalContainer: { borderRadius: 20, padding: 25, width: '85%', borderWidth: 1 },
   modalTitulo: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
-  modalSubtitulo: { fontSize: 14, color: '#78909C', textAlign: 'center', marginBottom: 20 },
-  modalInput: { borderWidth: 1, borderColor: '#2A3F4F', borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 20, backgroundColor: '#0D1B2A', color: '#FFFFFF' },
+  modalSubtitulo: { fontSize: 14, textAlign: 'center', marginBottom: 20 },
+  modalInput: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 20 },
   modalBotones: { flexDirection: 'row', gap: 12 },
-  btnModalCancelar: { flex: 1, backgroundColor: '#37474F', padding: 14, borderRadius: 12, alignItems: 'center' },
-  btnModalConfirmar: { flex: 1, backgroundColor: '#00BCD4', padding: 14, borderRadius: 12, alignItems: 'center' },
-  btnModalTexto: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  btnModalTextoConfirmar: { color: '#0D1B2A', fontWeight: 'bold', fontSize: 15 },
+  btnModalCancelar: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
+  btnModalConfirmar: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
+  btnModalTexto: { fontWeight: 'bold', fontSize: 15 },
+  btnModalTextoConfirmar: { fontWeight: 'bold', fontSize: 15 },
 });
