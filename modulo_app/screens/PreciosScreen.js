@@ -22,7 +22,7 @@ export default function PreciosScreen({ urlServidor }) {
       if (json.resultados && json.resultados.length > 0) {
         setPreciosHistorial(json.resultados);
       } else {
-        Alert.alert("Sin resultados", `No se encontraron precios para ${codigo}`);
+        Alert.alert("Sin resultados", `No se encontraron precios para el código ${codigo}`);
       }
     } catch (e) {
       Alert.alert("Error", `No se pudo buscar: ${e.message}`);
@@ -36,38 +36,38 @@ export default function PreciosScreen({ urlServidor }) {
 
   return (
     <View style={styles.menu}>
-      <TouchableOpacity onPress={() => setBarcodeActivo(true)} disabled={barcodeCargando}>
-        <View style={[styles.btnGrande, { borderColor: theme.success }]}>
-          <Text style={[styles.btnGrandeIcono, { color: theme.success }]}>≡</Text>
-          <Text style={[styles.btnGrandeText, { color: theme.text }]}>Código de barras</Text>
-        </View>
+      <TouchableOpacity style={[styles.menuCard, { backgroundColor: theme.surface, borderColor: theme.success }]} onPress={() => setBarcodeActivo(true)} disabled={barcodeCargando} activeOpacity={0.85}>
+        <Text style={[styles.menuIcon, { color: theme.success }]}>≡</Text>
+        <Text style={[styles.menuTitle, { color: theme.text }]}>Código de barras</Text>
+        <Text style={[styles.menuSub, { color: theme.textMuted }]}>Escaneá el código con la cámara</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.divider, { color: theme.textMuted }]}>o</Text>
+      <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-      <TouchableOpacity onPress={() => { setModalBarcodeManual(true); setInputBarcode(''); }} disabled={barcodeCargando}>
-        <View style={[styles.btnGrande, { borderColor: theme.accent }]}>
-          <Text style={[styles.btnGrandeIcono, { color: theme.accent }]}>⌨</Text>
-          <Text style={[styles.btnGrandeText, { color: theme.text }]}>Ingresar código</Text>
-        </View>
+      <TouchableOpacity style={[styles.menuCard, { backgroundColor: theme.surface, borderColor: theme.accent }]} onPress={() => { setModalBarcodeManual(true); setInputBarcode(''); }} disabled={barcodeCargando} activeOpacity={0.85}>
+        <Text style={[styles.menuIcon, { color: theme.accent }]}>⌨</Text>
+        <Text style={[styles.menuTitle, { color: theme.text }]}>Ingresar código</Text>
+        <Text style={[styles.menuSub, { color: theme.textMuted }]}>Tipeá el código de barras del producto</Text>
       </TouchableOpacity>
 
       {preciosHistorial.length > 0 && (
         <View style={styles.resultados}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Resultados</Text>
           {preciosHistorial.map((p, i) => (
-            <View key={i} style={[styles.card, { borderColor: theme.border }]}>
+            <View key={i} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={styles.cardHeader}>
-                <Text style={[styles.cardNum, { color: theme.textMuted }]}>{i + 1}.</Text>
+                <View style={[styles.cardNum, { backgroundColor: theme.primary }]}>
+                  <Text style={[styles.cardNumText, { color: theme.totalCardText }]}>{i + 1}</Text>
+                </View>
                 <Text style={[styles.cardDesc, { color: theme.text }]} numberOfLines={2}>{p.descripcion || 'Producto'}</Text>
               </View>
-              <View style={styles.cardRow}>
-                <Text style={[styles.cardTag, { color: theme.textSecondary }]}>{p.vendedor}</Text>
-                <Text style={[styles.cardTag, { color: theme.textSecondary }]}>{p.fecha}</Text>
+              <View style={styles.cardTags}>
+                <Text style={[styles.cardTag, { backgroundColor: theme.cardTag, color: theme.cardTagText }]}>{p.vendedor}</Text>
+                <Text style={[styles.cardTag, { backgroundColor: theme.cardTag, color: theme.cardTagText }]}>{p.fecha}</Text>
               </View>
               <View style={styles.precioRow}>
-                <Text style={[styles.precioValor, { color: theme.primary }]}>{Number(p.precio).toLocaleString('es-PY')} Gs</Text>
-                <Text style={[styles.precioFactura, { color: theme.textMuted }]}>N° {p.factura}</Text>
+                <Text style={[styles.precioValor, { color: theme.primary }]}>{Number(p.precio).toLocaleString('es-PY')} Gs.</Text>
+                <Text style={[styles.precioFactura, { color: theme.textMuted }]}>Factura N° {p.factura}</Text>
               </View>
             </View>
           ))}
@@ -84,9 +84,10 @@ export default function PreciosScreen({ urlServidor }) {
 
       <Modal visible={modalBarcodeManual} transparent animationType="fade" onRequestClose={() => setModalBarcodeManual(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: theme.surface }]}>
+          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Buscar producto</Text>
             <TextInput
-              style={[styles.modalInput, { borderColor: theme.border, color: theme.text }]}
+              style={[styles.modalInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
               placeholder="Código o código de barras"
               placeholderTextColor={theme.textMuted}
               value={inputBarcode}
@@ -94,12 +95,12 @@ export default function PreciosScreen({ urlServidor }) {
               autoFocus
               autoCapitalize="none"
             />
-            <View style={styles.modalBotones}>
-              <TouchableOpacity onPress={() => setModalBarcodeManual(false)}>
-                <Text style={[styles.btnModal, { color: theme.textSecondary }]}>Cancelar</Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.surfaceLight }]} onPress={() => setModalBarcodeManual(false)}>
+                <Text style={[styles.modalBtnText, { color: theme.textSecondary }]}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { setModalBarcodeManual(false); buscarPrecios(inputBarcode.trim()); }}>
-                <Text style={[styles.btnModal, { color: theme.primary }]}>Buscar</Text>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.primary }]} onPress={() => { setModalBarcodeManual(false); buscarPrecios(inputBarcode.trim()); }}>
+                <Text style={[styles.modalBtnText, { color: theme.totalCardText }]}>Buscar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -110,25 +111,29 @@ export default function PreciosScreen({ urlServidor }) {
 }
 
 const styles = StyleSheet.create({
-  menu: { width: '100%', marginTop: 20 },
-  btnGrande: { paddingVertical: 48, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed' },
-  btnGrandeIcono: { fontSize: 32, marginBottom: 8 },
-  btnGrandeText: { fontSize: 15, fontWeight: '500' },
-  divider: { textAlign: 'center', marginVertical: 16, fontSize: 12, textTransform: 'lowercase' },
+  menu: { width: '100%', marginTop: 10, alignItems: 'center' },
+  menuCard: { width: '100%', padding: 24, borderRadius: 16, marginBottom: 10, borderWidth: 1, alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 },
+  menuIcon: { fontSize: 32, marginBottom: 8 },
+  menuTitle: { fontSize: 16, fontWeight: '700', letterSpacing: 1 },
+  menuSub: { fontSize: 12, marginTop: 4, textAlign: 'center' },
+  divider: { height: 1, width: '100%', marginVertical: 6 },
   resultados: { width: '100%', marginTop: 24 },
-  sectionTitle: { fontSize: 20, fontWeight: '600', marginBottom: 16 },
-  card: { padding: 16, borderBottomWidth: 1 },
-  cardHeader: { flexDirection: 'row', marginBottom: 6 },
-  cardNum: { fontSize: 12, fontWeight: '600', width: 24 },
-  cardDesc: { flex: 1, fontSize: 14, fontWeight: '500' },
-  cardRow: { flexDirection: 'row', gap: 12, marginLeft: 24, marginBottom: 4 },
-  cardTag: { fontSize: 12 },
-  precioRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginLeft: 24, marginTop: 4 },
-  precioValor: { fontSize: 18, fontWeight: '600' },
+  sectionTitle: { fontSize: 20, fontWeight: '800', marginBottom: 14 },
+  card: { padding: 16, borderRadius: 14, marginBottom: 8, borderWidth: 1, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  cardNum: { width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  cardNumText: { fontWeight: '800', fontSize: 12 },
+  cardDesc: { flex: 1, fontWeight: '600', fontSize: 14 },
+  cardTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginLeft: 36, marginBottom: 6 },
+  cardTag: { fontSize: 11, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, fontWeight: '600' },
+  precioRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginLeft: 36 },
+  precioValor: { fontSize: 18, fontWeight: '700' },
   precioFactura: { fontSize: 12 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  modalContainer: { padding: 24, width: '80%' },
-  modalInput: { borderBottomWidth: 1, padding: 12, fontSize: 16, marginBottom: 20 },
-  modalBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 20 },
-  btnModal: { fontSize: 15, fontWeight: '500' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  modalCard: { width: '100%', borderRadius: 20, padding: 28, borderWidth: 1, elevation: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24 },
+  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20, textAlign: 'center' },
+  modalInput: { borderWidth: 1, borderRadius: 14, padding: 16, fontSize: 16, marginBottom: 24 },
+  modalActions: { flexDirection: 'row', gap: 12 },
+  modalBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
+  modalBtnText: { fontSize: 16, fontWeight: '700' },
 });

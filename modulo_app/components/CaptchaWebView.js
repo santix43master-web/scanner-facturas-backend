@@ -59,16 +59,16 @@ export default function CaptchaWebView({ visible, qrContent, onDatos, onCargando
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.surface }]}>
-        <Text style={[styles.titulo, { color: theme.text }]}>Captcha SIFEN</Text>
-        <TouchableOpacity onPress={onClose}>
-          <Text style={[styles.cerrar, { color: theme.textMuted }]}>Cerrar</Text>
+      <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+        <Text style={[styles.title, { color: theme.text }]}>Resolver captcha en SIFEN</Text>
+        <TouchableOpacity style={[styles.cerrarBtn, { backgroundColor: theme.surfaceLight }]} onPress={onClose}>
+          <Text style={[styles.cerrarText, { color: theme.textSecondary }]}>Cerrar</Text>
         </TouchableOpacity>
       </View>
       {onCargando && (
-        <View style={[styles.cargando, { backgroundColor: theme.overlay }]}>
+        <View style={[styles.cargandoBox, { backgroundColor: theme.overlay }]}>
           <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={{ color: '#FFF', marginTop: 8, fontSize: 14 }}>Extrayendo datos...</Text>
+          <Text style={{ color: '#FFF', marginTop: 12, fontSize: 15, fontWeight: '600' }}>Extrayendo datos del portal...</Text>
         </View>
       )}
       <WebView
@@ -89,9 +89,10 @@ export default function CaptchaWebView({ visible, qrContent, onDatos, onCargando
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, marginTop: 40 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  titulo: { fontSize: 15, fontWeight: '500' },
-  cerrar: { fontSize: 14 },
-  cargando: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  container: { flex: 1, marginTop: 40, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
+  title: { fontSize: 16, fontWeight: '700' },
+  cerrarBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  cerrarText: { fontSize: 14, fontWeight: '600' },
+  cargandoBox: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
 });

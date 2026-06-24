@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, TouchableOpacity, Alert,
-  ScrollView, TextInput, Modal, Animated, AppState,
+  ScrollView, TextInput, Modal, Animated, AppState, StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeProvider, useTheme } from './utils/ThemeContext';
@@ -13,7 +13,7 @@ import PreciosScreen from './screens/PreciosScreen';
 import DrawerMenu from './components/DrawerMenu';
 
 function AppContent() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, isDark, toggleTheme } = useTheme();
   const [sucursalActual, setSucursalActual] = useState(null);
   const [mostrarLogin, setMostrarLogin] = useState(true);
   const [tabActivo, setTabActivo] = useState('escanear');
@@ -41,7 +41,7 @@ function AppContent() {
 
   useEffect(() => {
     if (!mostrarLogin) {
-      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
     }
   }, [mostrarLogin]);
 
@@ -85,9 +85,9 @@ function AppContent() {
   };
 
   const cambiarSucursal = () => {
-    Alert.alert("Cambiar Sucursal", "Se cerrara la sesion actual", [
+    Alert.alert("Cambiar Sucursal", "Se cerrará la sesión actual", [
       { text: "Cancelar", style: "cancel" },
-      { text: "Confirmar", onPress: async () => {
+      { text: "Confirmar", style: "destructive", onPress: async () => {
         await borrarSucursal();
         setSucursalActual(null);
         setMostrarLogin(true);
@@ -106,6 +106,7 @@ function AppContent() {
       await AsyncStorage.removeItem('@facturas_r21');
       await AsyncStorage.removeItem('@facturas_r21_full');
       setHistorial([]);
+      Alert.alert("Listo", "Historial borrado correctamente");
     } else if (passwordTarget) {
       const nuevo = await eliminarDelHistorial(passwordTarget);
       setHistorial(nuevo);
@@ -134,50 +135,53 @@ function AppContent() {
   if (mostrarLogin) return <LoginScreen onLogin={handleLogin} />;
 
   return (
-    <View style={[styles.mainWrapper, { backgroundColor: theme.background }]}>
+    <View style={[styles.main, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.headerBg} />
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.btnMenuHamburguesa} onPress={() => setMenuAbierto(true)}>
-            <View style={[styles.lineaHamburguesa, { backgroundColor: theme.text }]} />
-            <View style={[styles.lineaHamburguesa, { backgroundColor: theme.text }]} />
-            <View style={[styles.lineaHamburguesa, { backgroundColor: theme.text }]} />
+        <View style={[styles.header, { backgroundColor: theme.headerBg, borderBottomColor: theme.border }]}>
+          <TouchableOpacity style={styles.hamburger} onPress={() => setMenuAbierto(true)}>
+            <View style={[styles.hamLine, { backgroundColor: theme.primary }]} />
+            <View style={[styles.hamLine, { backgroundColor: theme.primary }]} />
+            <View style={[styles.hamLine, { backgroundColor: theme.primary }]} />
           </TouchableOpacity>
-          <Text style={[styles.header, { color: theme.text }]}>R21</Text>
-          <View style={[styles.badgeSucursal, { borderColor: theme.textSecondary }]}>
-            <Text style={[styles.badgeSucursalText, { color: theme.textSecondary }]}>{sucursalActual}</Text>
+          <Text style={[styles.headerTitle, { color: theme.primary }]}>R21</Text>
+          <View style={[styles.badge, { backgroundColor: theme.surface, borderColor: theme.primary }]}>
+            <Text style={[styles.badgeText, { color: theme.primary }]}>{sucursalActual}</Text>
           </View>
         </View>
 
-        <View style={[styles.tabBar, { borderColor: theme.border }]}>
+        <View style={[styles.tabBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <TouchableOpacity
-            style={[styles.tabItem, tabActivo === 'escanear' && styles.tabItemActive, tabActivo === 'escanear' && { borderBottomColor: theme.primary }]}
+            style={[styles.tab, tabActivo === 'escanear' && { backgroundColor: theme.tabActiveBg }]}
             onPress={() => setTabActivo('escanear')}
           >
-            <Text style={[styles.tabText, { color: tabActivo === 'escanear' ? theme.primary : theme.textMuted }]}>Escanear</Text>
+            <Text style={[styles.tabIcon, { color: tabActivo === 'escanear' ? theme.tabActiveText : theme.tabInactive }]}>📄</Text>
+            <Text style={[styles.tabLabel, { color: tabActivo === 'escanear' ? theme.tabActiveText : theme.tabInactive }]}>Escanear</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tabItem, tabActivo === 'precios' && styles.tabItemActive, tabActivo === 'precios' && { borderBottomColor: theme.primary }]}
+            style={[styles.tab, tabActivo === 'precios' && { backgroundColor: theme.tabActiveBg }]}
             onPress={() => setTabActivo('precios')}
           >
-            <Text style={[styles.tabText, { color: tabActivo === 'precios' ? theme.primary : theme.textMuted }]}>Precios</Text>
+            <Text style={[styles.tabIcon, { color: tabActivo === 'precios' ? theme.tabActiveText : theme.tabInactive }]}>📊</Text>
+            <Text style={[styles.tabLabel, { color: tabActivo === 'precios' ? theme.tabActiveText : theme.tabInactive }]}>Precios</Text>
           </TouchableOpacity>
         </View>
 
-        {tabActivo === 'escanear' && (
-          <EscanearScreen sucursalActual={sucursalActual} urlServidor={urlServidor} onFacturaProcesada={handleFacturaProcesada} />
-        )}
-
-        {tabActivo === 'precios' && (
-          <PreciosScreen urlServidor={urlServidor} />
-        )}
-      </ScrollView>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {tabActivo === 'escanear' && (
+            <EscanearScreen sucursalActual={sucursalActual} urlServidor={urlServidor} onFacturaProcesada={handleFacturaProcesada} />
+          )}
+          {tabActivo === 'precios' && (
+            <PreciosScreen urlServidor={urlServidor} />
+          )}
+        </ScrollView>
+      </Animated.View>
 
       <Modal visible={modalPassword} transparent animationType="fade" onRequestClose={() => { setModalPassword(false); setPasswordTarget(null); setPasswordInput(''); }}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.modalTitulo, { color: theme.text }]}>
-              {passwordTarget === 'all' ? 'Borrar historial' : 'Eliminar factura'}
+          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              {passwordTarget === 'all' ? 'Borrar historial completo' : 'Eliminar factura'}
             </Text>
             <TextInput
               style={[styles.modalInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
@@ -188,12 +192,12 @@ function AppContent() {
               secureTextEntry
               autoFocus
             />
-            <View style={styles.modalBotones}>
-              <TouchableOpacity style={styles.btnModalCancelar} onPress={() => { setModalPassword(false); setPasswordTarget(null); setPasswordInput(''); }}>
-                <Text style={[styles.btnModalTexto, { color: theme.textSecondary }]}>Cancelar</Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.surfaceLight }]} onPress={() => { setModalPassword(false); setPasswordTarget(null); setPasswordInput(''); }}>
+                <Text style={[styles.modalBtnText, { color: theme.textSecondary }]}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={confirmarBorrado}>
-                <Text style={[styles.btnModalTexto, { color: theme.danger }]}>Confirmar</Text>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.danger }]} onPress={confirmarBorrado}>
+                <Text style={[styles.modalBtnText, { color: '#FFF' }]}>Confirmar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -211,7 +215,7 @@ function AppContent() {
         onBorrarHistorial={() => solicitarPassword('all')}
         onEliminarFactura={(id) => solicitarPassword(id)}
         onCambiarSucursal={cambiarSucursal}
-        onSincronizar={() => { sincronizarHistorial(); }}
+        onSincronizar={() => sincronizarHistorial()}
         onThemeToggle={toggleTheme}
         onExpandirFactura={async (item) => {
           const completa = await obtenerFacturaCompleta(item.id);
@@ -220,7 +224,6 @@ function AppContent() {
           }
         }}
       />
-      </Animated.View>
     </View>
   );
 }
@@ -234,22 +237,30 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  mainWrapper: { flex: 1 },
-  container: { padding: 16, alignItems: 'center' },
-  topBar: { flexDirection: 'row', width: '100%', alignItems: 'center', justifyContent: 'space-between', marginTop: 56, marginBottom: 24 },
-  header: { fontSize: 24, fontWeight: '600', letterSpacing: 4 },
-  badgeSucursal: { paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderRadius: 4 },
-  badgeSucursalText: { fontSize: 12, fontWeight: '500' },
-  btnMenuHamburguesa: { width: 28, height: 20, justifyContent: 'space-between' },
-  lineaHamburguesa: { height: 2, borderRadius: 1 },
-  tabBar: { flexDirection: 'row', width: '100%', borderBottomWidth: 1, borderBottomColor: 'transparent', marginBottom: 24 },
-  tabItem: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabItemActive: {},
-  tabText: { fontSize: 14, fontWeight: '500', letterSpacing: 1 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  modalContainer: { padding: 24, width: '80%' },
-  modalTitulo: { fontSize: 18, fontWeight: '600', marginBottom: 20, textAlign: 'center' },
-  modalInput: { borderWidth: 1, padding: 12, fontSize: 15, marginBottom: 20 },
-  modalBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 20 },
-  btnModalTexto: { fontSize: 15, fontWeight: '500' },
+  main: { flex: 1 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 52, paddingBottom: 14, paddingHorizontal: 20, borderBottomWidth: 1,
+  },
+  hamburger: { width: 30, height: 22, justifyContent: 'space-between', paddingVertical: 2 },
+  hamLine: { height: 3, borderRadius: 2 },
+  headerTitle: { fontSize: 26, fontWeight: '800', letterSpacing: 6 },
+  badge: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  badgeText: { fontSize: 12, fontWeight: '700' },
+  tabBar: {
+    flexDirection: 'row', marginHorizontal: 16, marginTop: 12, marginBottom: 8,
+    borderRadius: 14, padding: 4, borderWidth: 1, elevation: 4,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8,
+  },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 6 },
+  tabIcon: { fontSize: 16 },
+  tabLabel: { fontSize: 14, fontWeight: '700', letterSpacing: 1 },
+  scrollContent: { padding: 16, alignItems: 'center', paddingBottom: 40 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  modalCard: { width: '100%', borderRadius: 20, padding: 28, borderWidth: 1, elevation: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24 },
+  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 24, textAlign: 'center' },
+  modalInput: { borderWidth: 1, borderRadius: 14, padding: 16, fontSize: 16, marginBottom: 24 },
+  modalActions: { flexDirection: 'row', gap: 12 },
+  modalBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
+  modalBtnText: { fontSize: 16, fontWeight: '700' },
 });

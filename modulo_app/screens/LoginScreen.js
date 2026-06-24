@@ -21,27 +21,35 @@ export default function LoginScreen({ onLogin }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.logo, { color: theme.primary }]}>R21</Text>
-      <Text style={[styles.sub, { color: theme.textSecondary }]}>Scanner</Text>
-      <TextInput
-        style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-        placeholder="Sucursal"
-        placeholderTextColor={theme.textMuted}
-        value={inputSucursal}
-        onChangeText={setInputSucursal}
-        autoCapitalize="words"
-      />
-      <TouchableOpacity onPress={loginSucursal}>
-        <Text style={[styles.btn, { color: theme.primary }]}>Ingresar</Text>
-      </TouchableOpacity>
+      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Text style={[styles.logo, { color: theme.primary }]}>R21</Text>
+        <Text style={[styles.sub, { color: theme.textSecondary }]}>Scanner de Facturas</Text>
+        <View style={[styles.divider, { backgroundColor: theme.primary }]} />
+        <TextInput
+          style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+          placeholder="Nombre de sucursal"
+          placeholderTextColor={theme.textMuted}
+          value={inputSucursal}
+          onChangeText={setInputSucursal}
+          autoCapitalize="words"
+        />
+        <TouchableOpacity style={[styles.btn, { backgroundColor: theme.primary }]} onPress={loginSucursal} activeOpacity={0.85}>
+          <Text style={[styles.btnText, { color: theme.totalCardText }]}>INGRESAR</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={[styles.footer, { color: theme.textMuted }]}>Scanner R21 v1.0</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  logo: { fontSize: 48, fontWeight: '200', letterSpacing: 12, marginBottom: 4 },
-  sub: { fontSize: 14, marginBottom: 40, letterSpacing: 2 },
-  input: { borderBottomWidth: 1, padding: 12, width: '100%', fontSize: 16, marginBottom: 24, textAlign: 'center' },
-  btn: { fontSize: 16, fontWeight: '500', letterSpacing: 2 },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
+  card: { width: '100%', borderRadius: 24, padding: 36, alignItems: 'center', borderWidth: 1, elevation: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 24 },
+  logo: { fontSize: 44, fontWeight: '800', letterSpacing: 10, marginBottom: 4 },
+  sub: { fontSize: 14, marginBottom: 24 },
+  divider: { width: 50, height: 4, borderRadius: 2, marginBottom: 32 },
+  input: { width: '100%', borderWidth: 1, padding: 16, borderRadius: 16, fontSize: 16, marginBottom: 20, textAlign: 'center' },
+  btn: { width: '100%', paddingVertical: 18, borderRadius: 16, alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12 },
+  btnText: { fontWeight: '800', fontSize: 17, letterSpacing: 2 },
+  footer: { fontSize: 12, marginTop: 40 },
 });
