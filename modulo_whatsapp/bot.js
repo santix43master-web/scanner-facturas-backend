@@ -12,6 +12,8 @@ const SUCURSALES_VALIDAS = ["Minimarket LF", "Local 1"];
 const PORT = process.env.PORT || 3000;
 const BACKEND_URL = process.env.BACKEND_URL || 'https://scanner-facturas-backend.onrender.com';
 const IP_LOCAL_URL = process.env.IP_LOCAL_URL || 'https://snooze-chafe-bullwhip.ngrok-free.dev';
+const GROUP_JID = process.env.GROUP_JID || null;
+const RESET_AUTH = process.env.RESET_AUTH === 'true';
 const AUTH_DIR = './auth_info';
 
 let ultimoQR = null;
@@ -701,23 +703,165 @@ async function verificarAlertasPrecio(items) {
   return alertas;
 }
 
+async function procesarMensajeActivo(sock, msg, chatJid, userJid, texto, lower) {
+  if (msg.message?.imageMessage) {
+    await sock.sendMessage(chatJid, { text: 'Dale, dejame ver...' });
+
+    try {
+      const buffer = await descargarImagen(msg);
+      const datos = await procesarFactura(buffer, usuarios[userJid]?.sucursal);
+
+      if (datos && !datos.error) {
+        const dbSuc = (usuarios[userJid]?.sucursal || 'General').replace(' ', '_');
+        if (!facturasDB[dbSuc]) facturasDB[dbSuc] = {};
+        const v = (datos.nombreVendedor || 'Desconocido').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
+        const n = (datos.numeroFactura || 'SIN_NUM').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20);
+        const ts = Date.now();
+        const fname = `${v}_${n}_${ts}.json`;
+        datos._usuario = userJid.split('@')[0].replace(/[^0-9]/g, '');
+        facturasDB[dbSuc][fname] = datos;
+        guardarFacturasDB();
+        cacheSuc = dbSuc;
+      }
+
+      if (!datos || datos.error) {
+        await sock.sendMessage(chatJid, { text: `Algo salio mal: ${datos?.error || 'no se pudieron extraer datos'}` });
+        return;
+      }
+
+      usuarios[userJid] = { ...usuarios[userJid], datos, pendiente: true };
+      await sock.sendMessage(chatJid, { text: formatearResultado(datos) });
+    } catch (e) {
+      await sock.sendMessage(chatJid, { text: `Upa, algo salio mal: ${e.message}` });
+    }
+    return;
+  }
+
+  // Options: handle both numbers and natural language
+  if (usuarios[userJid] && usuarios[userJid].pendiente && texto) {
+    const datos = usuarios[userJid].datos;
+    let opcion = parseInt(texto);
+    let gptResponse = null;
+
+    if (!/^[1-5]$/.test(texto)) {
+      const gpt = await interpretarGPT(texto, { estado: 'opciones', tieneDatos: true }, userJid);
+      if (gpt && ['SHOW_DETAIL','GET_JSON','GET_PDF','SEND_TO_SYSTEM','SEND_TO_LOCAL'].includes(gpt.intent)) {
+        opcion = { SHOW_DETAIL: 1, GET_JSON: 2, GET_PDF: 3, SEND_TO_SYSTEM: 4, SEND_TO_LOCAL: 5 }[gpt.intent];
+        gptResponse = gpt.respuesta;
+      }
+    }
+
+    if (!opcion || opcion < 1 || opcion > 5) return;
+
+    if (!gptResponse) await sock.sendMessage(chatJid, { text: 'Dame un segundo...' });
+
+    try {
+      switch (opcion) {
+        case 1:
+          await sock.sendMessage(chatJid, { text: gptResponse || formatearDetalle(datos) });
+          break;
+        case 2:
+          await enviarJSON(sock, chatJid, datos);
+          const jsonStr = JSON.stringify(datos, null, 2);
+          const jsonTruncado = jsonStr.length > 4000 ? jsonStr.slice(0, 4000) + '\n...' : jsonStr;
+          await sock.sendMessage(chatJid, { text: gptResponse || `JSON:\n\`\`\`\n${jsonTruncado}\n\`\`\`` });
+          break;
+        case 3:
+          await enviarPDF(sock, chatJid, datos);
+          if (gptResponse) await sock.sendMessage(chatJid, { text: gptResponse });
+          break;
+        case 4:
+          const ok = await enviarASistema(datos);
+          await sock.sendMessage(chatJid, { text: gptResponse || (ok ? 'Listo, ya quedo guardado en el sistema.' : 'No se pudo guardar, fijate si el sistema esta bien.') });
+          delete usuarios[userJid].pendiente;
+          const alertas4 = await verificarAlertasPrecio(datos.items);
+          if (alertas4.length > 0) {
+            await sock.sendMessage(chatJid, { text: 'Ojo, algunos precios cambiaron respecto a facturas anteriores:\n' + alertas4.join('\n') });
+          }
+          break;
+        case 5:
+          if (!IP_LOCAL_URL) {
+            await sock.sendMessage(chatJid, { text: 'No hay URL local configurada.' });
+          } else {
+            const lok = await enviarALocal(datos);
+            await sock.sendMessage(chatJid, { text: gptResponse || (lok ? 'Enviado a carpeta compartida.' : 'No se pudo enviar a la carpeta compartida.') });
+          }
+          delete usuarios[userJid].pendiente;
+          const alertas5 = await verificarAlertasPrecio(datos.items);
+          if (alertas5.length > 0) {
+            await sock.sendMessage(chatJid, { text: 'Ojo, algunos precios cambiaron respecto a facturas anteriores:\n' + alertas5.join('\n') });
+          }
+          break;
+      }
+    } catch (e) {
+      await sock.sendMessage(chatJid, { text: `Upa, error: ${e.message}` });
+    }
+    return;
+  }
+
+  // Stats / historial queries + fallback for active users
+  if (texto) {
+    const gpt = await interpretarGPT(texto, { estado: 'activo', puedeConsultarStats: true }, userJid);
+    if (gpt?.intent === 'GET_LINK') {
+      await sock.sendMessage(chatJid, { text: gpt.respuesta || 'El dashboard está en https://whatsapp-facturas-bot.onrender.com' });
+      return;
+    }
+    if (gpt?.intent === 'STATS') {
+      await sock.sendMessage(chatJid, { text: 'Dame un segundo, voy a buscar...' });
+      try {
+        const stats = await obtenerEstadisticas();
+        if (stats.cantidad === 0) {
+          await sock.sendMessage(chatJid, { text: 'Todavia no hay facturas guardadas en el sistema.' });
+        } else {
+          const topVendedores = Object.entries(stats.porVendedor)
+            .sort((a, b) => b[1] - a[1]).slice(0, 3)
+            .map(([v, t]) => `${v}: ${Number(t).toLocaleString()} Gs`).join('\n');
+          const msg = `Tenes ${stats.cantidad} facturas guardadas.\nTotal acumulado: ${stats.total.toLocaleString()} Gs\nPromedio por factura: ${stats.promedio.toLocaleString()} Gs\n\nTop vendedores:\n${topVendedores}`;
+          await sock.sendMessage(chatJid, { text: gpt.respuesta || msg });
+        }
+      } catch (e) {
+        await sock.sendMessage(chatJid, { text: `No pude consultar las estadisticas: ${e.message}` });
+      }
+      return;
+    }
+
+    // Fallback: si GPT respondió algo (CHAT, etc.) y no entró en ningún otro handler
+    if (gpt?.respuesta) {
+      await sock.sendMessage(chatJid, { text: gpt.respuesta });
+      return;
+    }
+  }
+}
+
 async function iniciarBot() {
   const savedFacturas = await supabaseCargarFacturas();
   if (savedFacturas) {
     Object.assign(facturasDB, savedFacturas);
     console.log('FacturasDB cargado de Supabase');
   }
-  await cargarAuthRemoto();
+
+  if (RESET_AUTH) {
+    console.log('🔁 RESET_AUTH activo — limpiando auth...');
+    if (fs.existsSync(AUTH_DIR)) {
+      fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+    }
+    try {
+      await fetch(`${BACKEND_URL}/auth-eliminar`, { method: 'POST' });
+    } catch {}
+    console.log('✅ Auth eliminado. Cambiá RESET_AUTH a false y redeployeá para escanear QR nuevo.');
+  }
+
+  if (!RESET_AUTH) await cargarAuthRemoto();
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: false,
+    printQRInTerminal: true,
     syncFullHistory: false,
     markOnlineOnConnect: false,
     generateHighQualityLink: true,
   });
 
-  sock.ev.on('creds.update', saveCreds);
+  sock.ev.on('creds.update', () => { saveCreds(); guardarAuthRemoto(); });
 
   const origSend = sock.sendMessage.bind(sock);
   sock.sendMessage = (...args) => origSend(...args).then(r => { if (r?.key?.id) sentIds.add(r.key.id); return r; });
@@ -727,10 +871,35 @@ async function iniciarBot() {
     if (!msg.key || sentIds.has(msg.key.id) || type !== 'notify') return;
 
     const jid = msg.key.remoteJid;
+    const esGrupo = jid.endsWith('@g.us');
+    const senderJid = esGrupo ? (msg.key.participant || jid) : jid;
     const caption = msg.message?.imageMessage?.caption || '';
     const texto = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || caption || '').trim();
     const lower = texto.toLowerCase();
 
+    // ─────────────── GROUP MODE ───────────────
+    if (esGrupo) {
+      if (GROUP_JID && jid !== GROUP_JID) return;
+
+      if (!GROUP_JID && !sentIds.has(msg.key.id)) {
+        console.log('========================================');
+        console.log('📢 GRUPO DETECTADO');
+        console.log('   Nombre: Facturas 2026 (o el que creaste)');
+        console.log('   JID (copialo):', jid);
+        console.log('   Pon esto en la variable GROUP_JID de Render');
+        console.log('========================================');
+      }
+
+      if (!usuarios[senderJid]) {
+        usuarios[senderJid] = { activo: true, sucursal: 'General' };
+      } else {
+        usuarios[senderJid].activo = true;
+      }
+      await procesarMensajeActivo(sock, msg, jid, senderJid, texto, lower);
+      return;
+    }
+
+    // ─────────────── PRIVATE CHAT ───────────────
     const activo = usuarios[jid] && usuarios[jid].activo;
     const esperandoUser = usuarios[jid] && usuarios[jid].esperandoUsuario;
 
@@ -739,12 +908,6 @@ async function iniciarBot() {
       if (/^hola bot\b/i.test(lower)) {
         usuarios[jid] = { esperandoUsuario: true };
         await sock.sendMessage(jid, { text: 'Che, decime tu usuario (sucursal) para activar el bot.' });
-        return;
-      }
-      const gpt = await interpretarGPT(texto, { estado: 'inactivo' }, jid);
-      if (gpt?.intent === 'ACTIVATE') {
-        usuarios[jid] = { esperandoUsuario: true };
-        await sock.sendMessage(jid, { text: gpt.respuesta || 'Decime tu usuario (sucursal) para activar el bot.' });
       }
       return;
     }
@@ -789,133 +952,7 @@ async function iniciarBot() {
 
     if (!activo) return;
 
-    if (msg.message?.imageMessage) {
-      await sock.sendMessage(jid, { text: 'Dale, dejame ver...' });
-
-      try {
-        const buffer = await descargarImagen(msg);
-        const datos = await procesarFactura(buffer, usuarios[jid]?.sucursal);
-
-        if (datos && !datos.error) {
-          const dbSuc = (usuarios[jid]?.sucursal || 'General').replace(' ', '_');
-          if (!facturasDB[dbSuc]) facturasDB[dbSuc] = {};
-          const v = (datos.nombreVendedor || 'Desconocido').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
-          const n = (datos.numeroFactura || 'SIN_NUM').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20);
-          const ts = Date.now();
-          const fname = `${v}_${n}_${ts}.json`;
-          datos._usuario = jid.split('@')[0].replace(/[^0-9]/g, '');
-          facturasDB[dbSuc][fname] = datos;
-          guardarFacturasDB();
-          cacheSuc = dbSuc;
-        }
-
-        if (!datos || datos.error) {
-          await sock.sendMessage(jid, { text: `Algo salio mal: ${datos?.error || 'no se pudieron extraer datos'}` });
-          return;
-        }
-
-        usuarios[jid] = { ...usuarios[jid], datos, pendiente: true };
-        await sock.sendMessage(jid, { text: formatearResultado(datos) });
-      } catch (e) {
-        await sock.sendMessage(jid, { text: `Upa, algo salio mal: ${e.message}` });
-      }
-      return;
-    }
-
-    // Options: handle both numbers and natural language
-    if (usuarios[jid] && usuarios[jid].pendiente && texto) {
-      const datos = usuarios[jid].datos;
-      let opcion = parseInt(texto);
-      let gptResponse = null;
-
-      if (!/^[1-5]$/.test(texto)) {
-        const gpt = await interpretarGPT(texto, { estado: 'opciones', tieneDatos: true }, jid);
-        if (gpt && ['SHOW_DETAIL','GET_JSON','GET_PDF','SEND_TO_SYSTEM','SEND_TO_LOCAL'].includes(gpt.intent)) {
-          opcion = { SHOW_DETAIL: 1, GET_JSON: 2, GET_PDF: 3, SEND_TO_SYSTEM: 4, SEND_TO_LOCAL: 5 }[gpt.intent];
-          gptResponse = gpt.respuesta;
-        }
-      }
-
-      if (!opcion || opcion < 1 || opcion > 5) return;
-
-      if (!gptResponse) await sock.sendMessage(jid, { text: 'Dame un segundo...' });
-
-      try {
-        switch (opcion) {
-          case 1:
-            await sock.sendMessage(jid, { text: gptResponse || formatearDetalle(datos) });
-            break;
-          case 2:
-            await enviarJSON(sock, jid, datos);
-            const jsonStr = JSON.stringify(datos, null, 2);
-            const jsonTruncado = jsonStr.length > 4000 ? jsonStr.slice(0, 4000) + '\n...' : jsonStr;
-            await sock.sendMessage(jid, { text: gptResponse || `JSON:\n\`\`\`\n${jsonTruncado}\n\`\`\`` });
-            break;
-          case 3:
-            await enviarPDF(sock, jid, datos);
-            if (gptResponse) await sock.sendMessage(jid, { text: gptResponse });
-            break;
-          case 4:
-            const ok = await enviarASistema(datos);
-            await sock.sendMessage(jid, { text: gptResponse || (ok ? 'Listo, ya quedo guardado en el sistema.' : 'No se pudo guardar, fijate si el sistema esta bien.') });
-            delete usuarios[jid].pendiente;
-            const alertas4 = await verificarAlertasPrecio(datos.items);
-            if (alertas4.length > 0) {
-              await sock.sendMessage(jid, { text: 'Ojo, algunos precios cambiaron respecto a facturas anteriores:\n' + alertas4.join('\n') });
-            }
-            break;
-          case 5:
-            if (!IP_LOCAL_URL) {
-              await sock.sendMessage(jid, { text: 'No hay URL local configurada.' });
-            } else {
-              const lok = await enviarALocal(datos);
-              await sock.sendMessage(jid, { text: gptResponse || (lok ? 'Enviado a carpeta compartida.' : 'No se pudo enviar a la carpeta compartida.') });
-            }
-            delete usuarios[jid].pendiente;
-            const alertas5 = await verificarAlertasPrecio(datos.items);
-            if (alertas5.length > 0) {
-              await sock.sendMessage(jid, { text: 'Ojo, algunos precios cambiaron respecto a facturas anteriores:\n' + alertas5.join('\n') });
-            }
-            break;
-        }
-      } catch (e) {
-        await sock.sendMessage(jid, { text: `Upa, error: ${e.message}` });
-      }
-      return;
-    }
-
-    // Stats / historial queries + fallback for active users
-    if (activo && texto) {
-      const gpt = await interpretarGPT(texto, { estado: 'activo', puedeConsultarStats: true }, jid);
-      if (gpt?.intent === 'GET_LINK') {
-        await sock.sendMessage(jid, { text: gpt.respuesta || 'El dashboard está en https://whatsapp-facturas-bot.onrender.com' });
-        return;
-      }
-      if (gpt?.intent === 'STATS') {
-        await sock.sendMessage(jid, { text: 'Dame un segundo, voy a buscar...' });
-        try {
-          const stats = await obtenerEstadisticas();
-          if (stats.cantidad === 0) {
-            await sock.sendMessage(jid, { text: 'Todavia no hay facturas guardadas en el sistema.' });
-          } else {
-            const topVendedores = Object.entries(stats.porVendedor)
-              .sort((a, b) => b[1] - a[1]).slice(0, 3)
-              .map(([v, t]) => `${v}: ${Number(t).toLocaleString()} Gs`).join('\n');
-            const msg = `Tenes ${stats.cantidad} facturas guardadas.\nTotal acumulado: ${stats.total.toLocaleString()} Gs\nPromedio por factura: ${stats.promedio.toLocaleString()} Gs\n\nTop vendedores:\n${topVendedores}`;
-            await sock.sendMessage(jid, { text: gpt.respuesta || msg });
-          }
-        } catch (e) {
-          await sock.sendMessage(jid, { text: `No pude consultar las estadisticas: ${e.message}` });
-        }
-        return;
-      }
-
-      // Fallback: si GPT respondió algo (CHAT, etc.) y no entró en ningún otro handler
-      if (gpt?.respuesta) {
-        await sock.sendMessage(jid, { text: gpt.respuesta });
-        return;
-      }
-    }
+    await procesarMensajeActivo(sock, msg, jid, jid, texto, lower);
   });
 
   sock.ev.on('connection.update', ({ connection, qr, lastDisconnect }) => {
