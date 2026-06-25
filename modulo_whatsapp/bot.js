@@ -17,6 +17,7 @@ const AUTH_DIR = './auth_info';
 
 let ultimoQR = null;
 let estadoConexion = 'desconectado';
+let currentSock = null;
 
 const facturasDB = {};
 let saveTimeout = null;
@@ -97,12 +98,13 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
     }
     fs.mkdirSync(AUTH_DIR, { recursive: true });
     fs.writeFileSync(path.join(AUTH_DIR, '.reset'), '1');
-    try {
-      fetch(`${BACKEND_URL}/auth-eliminar`, { method: 'POST' }).catch(() => {});
-    } catch {}
+    fetch(`${BACKEND_URL}/auth-eliminar`, { method: 'POST' }).catch(() => {});
     res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Auth Reset</title><style>body{font-family:sans-serif;text-align:center;padding:40px;background:#111;color:#fff}h1{color:#25D366}</style></head><body><h1>✅ Auth eliminado</h1><p>El bot se reiniciará y va a generar un QR nuevo en <a href="/qr" style="color:#25D366">/qr</a></p></body></html>');
-    setTimeout(() => process.exit(0), 2000);
+    res.end('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Auth Reset</title><style>body{font-family:sans-serif;text-align:center;padding:40px;background:#111;color:#fff}h1{color:#25D366}</style></head><body><h1>✅ Auth eliminado</h1><p>El bot se reiniciará y va a generar un QR nuevo. <a href="/qr" style="color:#25D366">Ver QR</a></p></body></html>');
+    if (currentSock) {
+      currentSock.end({});
+      currentSock.ws?.close();
+    }
     return;
   }
 
@@ -863,7 +865,7 @@ async function iniciarBot() {
     await cargarAuthRemoto();
   }
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
-  const sock = makeWASocket({
+  currentSock = makeWASocket({
     auth: state,
     printQRInTerminal: true,
     syncFullHistory: false,
