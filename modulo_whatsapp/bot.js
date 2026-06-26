@@ -13,6 +13,7 @@ const PORT = process.env.PORT || 3000;
 const BACKEND_URL = process.env.BACKEND_URL || 'https://scanner-facturas-backend.onrender.com';
 const IP_LOCAL_URL = process.env.IP_LOCAL_URL || 'https://snooze-chafe-bullwhip.ngrok-free.dev';
 const GROUP_JID = process.env.GROUP_JID || null;
+const RESET_AUTH = process.env.RESET_AUTH === 'true';
 const AUTH_DIR = './auth_info';
 
 let ultimoQR = null;
@@ -98,7 +99,6 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
     if (fs.existsSync(AUTH_DIR)) {
       fs.rmSync(AUTH_DIR, { recursive: true, force: true });
     }
-    fs.mkdirSync(AUTH_DIR, { recursive: true });
     fetch(`${BACKEND_URL}/auth-eliminar`, { method: 'POST' }).catch(() => {});
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Auth Reset</title><style>body{font-family:sans-serif;text-align:center;padding:40px;background:#111;color:#fff}h1{color:#25D366}</style></head><body><h1>✅ Auth eliminado</h1><p>El bot se reiniciará y va a generar un QR nuevo. <a href="/qr" style="color:#25D366">Ver QR</a></p></body></html>');
@@ -863,7 +863,14 @@ async function iniciarBot() {
     console.log('FacturasDB cargado de Supabase');
   }
 
-  if (forceResetAuth) {
+  if (RESET_AUTH) {
+    console.log('🔁 RESET_AUTH activo — limpiando auth...');
+    if (fs.existsSync(AUTH_DIR)) {
+      fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+    }
+    try { await fetch(`${BACKEND_URL}/auth-eliminar`, { method: 'POST' }); } catch {}
+    console.log('✅ Auth eliminado. Sacá RESET_AUTH y redeploy para generar QR.');
+  } else if (forceResetAuth) {
     console.log('🔁 forceResetAuth activo — salteando carga de auth remoto');
     forceResetAuth = false;
   } else {
