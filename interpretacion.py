@@ -783,7 +783,13 @@ def _extraer_items_de_lista(items_raw: list) -> list:
         if (not subtotal or float(subtotal) == 0) and precio and cantidad:
             subtotal = float(precio) * cantidad
         codigo_barras = it.get("dGtin") or it.get("dCodBar") or None
-        codigo = str(it.get("dCodInt") or "").strip() or None
+        cod_int_raw = str(it.get("dCodInt") or "").strip()
+        es_barcode = cod_int_raw.isdigit() and len(cod_int_raw) >= 8
+        if not codigo_barras and es_barcode:
+            codigo_barras = cod_int_raw
+            codigo = None
+        else:
+            codigo = cod_int_raw or None
         salida.append({
             "codigo": codigo,
             "codigoBarras": codigo_barras,
