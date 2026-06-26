@@ -784,7 +784,7 @@ def _extraer_items_de_lista(items_raw: list) -> list:
             subtotal = float(precio) * cantidad
         codigo_barras = it.get("dGtin") or it.get("dCodBar") or None
         cod_int_raw = str(it.get("dCodInt") or "").strip()
-        es_barcode = cod_int_raw.isdigit() and len(cod_int_raw) >= 8
+        es_barcode = cod_int_raw.isdigit() and len(cod_int_raw) > 8
         if not codigo_barras and es_barcode:
             codigo_barras = cod_int_raw
             codigo = None
