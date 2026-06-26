@@ -877,13 +877,14 @@ async function iniciarBot() {
     await cargarAuthRemoto();
   }
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
-  currentSock = makeWASocket({
+  const sock = makeWASocket({
     auth: state,
     printQRInTerminal: true,
     syncFullHistory: false,
     markOnlineOnConnect: false,
     generateHighQualityLink: true,
   });
+  currentSock = sock;
 
   sock.ev.on('creds.update', () => { saveCreds(); guardarAuthRemoto(); });
 
