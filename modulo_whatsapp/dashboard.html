@@ -313,7 +313,7 @@ function showTab(name) {
   document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
   const link = document.querySelector(`.nav a[onclick*="'${name}'"]`);
   if (link) link.classList.add('active');
-  document.getElementById('historial-precio').style.display = 'none';
+  document.querySelectorAll('.historial-fila').forEach(h => h.remove());
   if (!cache && name !== 'dashboard') { cargarTodo(); return; }
   if (name === 'dashboard') cargarDashboard();
   if (name === 'facturas') { paginaActual = 1; cargarFacturas(); }
@@ -793,8 +793,8 @@ cargarTodo = async function() {
 let todosProductos = [];
 
 async function cargarPrecios() {
+  document.querySelectorAll('.historial-fila').forEach(h => h.remove());
   document.getElementById('resultados-precios').innerHTML = '<div class="loading">Cargando productos...</div>';
-  document.getElementById('historial-precio').style.display = 'none';
   if (!cache) { document.getElementById('resultados-precios').innerHTML = '<div class="vacio">Sin datos</div>'; return; }
   todosProductos = [];
   for (const [fname, f] of Object.entries(cache.facturas)) {
@@ -819,7 +819,7 @@ function mostrarPrecios(unicos) {
   const q = document.getElementById('search-producto').value.toLowerCase();
   const filtrados = q ? [...unicos.values()].filter(r => r.descripcion.toLowerCase().includes(q)) : [...unicos.values()];
   document.getElementById('resultados-precios').innerHTML = filtrados.length
-    ? `<table><tr><th>Producto</th><th>Precio</th><th>Vendedor</th><th>Fecha</th><th></th></tr>${filtrados.map(r => `<tr><td><span class="producto-link" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}')">${r.descripcion}</span></td><td class="precio">${n(r.precio)}</td><td>${r.vendedor}</td><td class="fecha">${r.fecha}</td><td><a href="#" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}'); return false;" class="btn btn-ghost btn-small">📈 Historial</a></td></tr>`).join('')}</table>`
+    ? `<table id="tabla-precios"><tr><th>Producto</th><th>Precio</th><th>Vendedor</th><th>Fecha</th><th></th></tr>${filtrados.map((r,i) => `<tr data-idx="${i}"><td><span class="producto-link" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}',this)">${r.descripcion}</span></td><td class="precio">${n(r.precio)}</td><td>${r.vendedor}</td><td class="fecha">${r.fecha}</td><td><a href="#" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}',this); return false;" class="btn btn-ghost btn-small">📈 Historial</a></td></tr>`).join('')}</table>`
     : '<div class="vacio">No se encontraron productos</div>';
 }
 
@@ -833,39 +833,51 @@ function buscarProducto() {
   mostrarPrecios(unicos);
 }
 
-function verHistorial(descripcion) {
+function verHistorial(descripcion, el) {
   const ocurrencias = todosProductos
     .filter(r => r.descripcion.toLowerCase().trim() === descripcion.toLowerCase().trim())
     .sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
 
   if (ocurrencias.length === 0) return;
 
-  const div = document.getElementById('historial-precio');
-  div.style.display = 'block';
-  div.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Remove any existing open history
+  document.querySelectorAll('.historial-container').forEach(h => h.remove());
+
+  const fila = el?.closest?.('tr');
 
   const ultPrecio = ocurrencias[ocurrencias.length-1].precio;
   const primerPrecio = ocurrencias[0].precio;
   const dif = ultPrecio - primerPrecio;
   const difStr = dif > 0 ? `↑ +${dif.toLocaleString()}` : dif < 0 ? `↓ ${dif.toLocaleString()}` : 'Sin cambios';
 
-  div.innerHTML = `
-    <div class="historial-container">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-        <h4 style="margin:0">📈 ${descripcion}</h4>
-        <div>
-          <span style="color:#78909C;font-size:12px">1er: ${n(primerPrecio)} · Últ: ${n(ultPrecio)} · </span>
-          <span style="font-size:13px;font-weight:700;color:${dif>0?'#EF5350':dif<0?'#66BB6A':'#78909C'}">${difStr}</span>
-          <button onclick="document.getElementById('historial-precio').style.display='none'" class="btn btn-ghost btn-small" style="margin-left:10px">Cerrar</button>
+  const html = `
+    <tr class="historial-fila" style="background:rgba(0,188,212,.04)">
+      <td colspan="5" style="padding:0">
+        <div class="historial-container" style="margin:8px;border:1px solid rgba(0,188,212,.12);border-radius:10px;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <h4 style="margin:0;color:#00BCD4">📈 ${descripcion}</h4>
+            <div>
+              <span style="color:#78909C;font-size:12px">1er: ${n(primerPrecio)} · Últ: ${n(ultPrecio)} · </span>
+              <span style="font-size:13px;font-weight:700;color:${dif>0?'#EF5350':dif<0?'#66BB6A':'#78909C'}">${difStr}</span>
+              <button onclick="this.closest('tr.historial-fila').remove()" class="btn btn-ghost btn-small" style="margin-left:10px">Cerrar</button>
+            </div>
+          </div>
+          <table><tr><th>Fecha</th><th>Factura</th><th>Vendedor</th><th>Precio</th></tr>
+          ${ocurrencias.map(r => `<tr><td class="fecha">${r.fecha}</td><td>${r.factura}</td><td>${r.vendedor}</td><td class="precio">${n(r.precio)}</td></tr>`).join('')}
+          </table>
+          <div style="margin-top:12px;position:relative;height:180px">
+            <canvas id="chart-historial-precio"></canvas>
+          </div>
         </div>
-      </div>
-      <table><tr><th>Fecha</th><th>Factura</th><th>Vendedor</th><th>Precio</th></tr>
-      ${ocurrencias.map(r => `<tr><td class="fecha">${r.fecha}</td><td>${r.factura}</td><td>${r.vendedor}</td><td class="precio">${n(r.precio)}</td></tr>`).join('')}
-      </table>
-      <div style="margin-top:12px;position:relative;height:180px">
-        <canvas id="chart-historial-precio"></canvas>
-      </div>
-    </div>`;
+      </td>
+    </tr>`;
+
+  if (fila) {
+    fila.insertAdjacentHTML('afterend', html);
+    fila.nextElementSibling.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else {
+    document.getElementById('resultados-precios').insertAdjacentHTML('beforeend', html);
+  }
 
   // chart
   setTimeout(() => {
