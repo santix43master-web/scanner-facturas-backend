@@ -765,8 +765,23 @@ def _extraer_items_de_lista(items_raw: list) -> list:
         resta = valor.get("gValorRestaItem")
         if not isinstance(resta, dict):
             resta = {}
-        precio = valor.get("dPUniProSer") or it.get("gPaDePrecio", {}).get("dPrcUnit") or it.get("dPUniProSer") or 0
-        subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or valor.get("dTotBruItem") or it.get("dSubTot") or 0
+        bruto = valor.get("dTotBruOpeItem") or 0
+        neto = resta.get("dTotOpeItem") or 0
+        precio = (valor.get("dPUniProSer") or
+                  it.get("gPaDePrecio", {}).get("dPrcUnit") or
+                  it.get("gPaDePrecio", {}).get("dPUniProSer") or
+                  it.get("dPUniProSer") or
+                  it.get("dPreUniProSer") or
+                  it.get("dPrcUnit") or 0)
+        subtotal = neto or bruto or it.get("dSubTot") or 0
+        cantidad = float(it.get("dCantProSer", 1) or 1)
+        if (not precio or float(precio) == 0):
+            if bruto and cantidad:
+                precio = float(bruto) / cantidad
+            elif neto and cantidad:
+                precio = float(neto) / cantidad
+        if (not subtotal or float(subtotal) == 0) and precio and cantidad:
+            subtotal = float(precio) * cantidad
         codigo_barras = it.get("dGtin") or it.get("dCodBar") or ""
         cod_int_raw = str(it.get("dCodInt") or "").strip()
         es_barcode = cod_int_raw.isdigit() and len(cod_int_raw) >= 8
@@ -781,7 +796,7 @@ def _extraer_items_de_lista(items_raw: list) -> list:
             "codigo": cod_int,
             "codigoBarras": codigo_barras or None,
             "descripcion": it.get("dDesProSer", ""),
-            "cantidad": float(it.get("dCantProSer", 1) or 1),
+            "cantidad": cantidad,
             "precioUnitario": float(precio or 0),
             "subtotal": float(subtotal or 0),
         })
