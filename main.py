@@ -1,13 +1,33 @@
 import os
 import json
 import base64
+import re
+import shutil
 from datetime import datetime
 from typing import List
-from fastapi import FastAPI, File, UploadFile
+import time
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-import interpretacion
+from modulo_escaneo import interpretacion
+
+def _guardar_resultado(resultado):
+    try:
+        sucursal = resultado.get("sucursal") or resultado.get("nombreVendedor", "General")
+        nombre_suc = sucursal.replace(" ", "_").replace("/", "_").replace("\\", "_")
+        ruta_suc = os.path.join(interpretacion.OUTPUT_FOLDER, nombre_suc)
+        os.makedirs(ruta_suc, exist_ok=True)
+        vendedor = resultado.get("nombreVendedor", "Desconocido")
+        v_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
+        nro = resultado.get("numeroFactura", "SIN_NUM")
+        n_limpio = re.sub(r'[\\/*?:"<>|]', '', nro).strip().replace(" ", "_")[:20]
+        ts = str(int(time.time()))
+        nombre = f"{v_limpio}_{n_limpio}_{ts}.json"
+        with open(os.path.join(ruta_suc, nombre), 'w', encoding='utf-8') as f:
+            json.dump(resultado, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"[guardar] No se pudo guardar: {e}")
 
 app = FastAPI()
 
@@ -31,15 +51,18 @@ def status():
     return {
         "status": "ok",
         "modelo": interpretacion.MODELO,
+        "proveedor": os.environ.get("PROVEEDOR", "anthropic"),
         "output_folder": interpretacion.OUTPUT_FOLDER,
         "api_key": "Configurado" if os.environ.get("API_KEY") else "No configurado",
+        "gemini_api_key": "Configurado" if os.environ.get("GEMINI_API_KEY") else "No configurado",
+        "openai_api_key": "Configurado" if os.environ.get("OPENAI_API_KEY") else "No configurado",
     }
 
 @app.post("/procesar")
-async def procesar(factura: List[UploadFile] = File(...)):
+async def procesar(factura: List[UploadFile] = File(...), sucursal: str = Form(None)):
     try:
         imagenes_b64 = []
-        for f in factura:
+        for i, f in enumerate(factura):
             img_bytes = await f.read()
             b64 = base64.b64encode(img_bytes).decode("utf-8")
             imagenes_b64.append(b64)
@@ -48,16 +71,18 @@ async def procesar(factura: List[UploadFile] = File(...)):
         if "items" in resultado and isinstance(resultado["items"], list):
             for item in resultado["items"]:
                 if "codigoBarras" in item:
-                    item["codigo_barras"] = item["codigoBarras"]
+                    item["codigo_barras"] = item.pop("codigoBarras")
                 if "precioUnitario" in item:
-                    item["precio_unitario"] = item["precioUnitario"]
+                    item["precio_unitario"] = item.pop("precioUnitario")
 
+        resultado["sucursal"] = sucursal or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e)}
 
 @app.post("/procesar-qr")
-async def procesar_qr(data: dict):
+def procesar_qr(data: dict):
     try:
         qr_content = data.get("qr", "")
         if not qr_content:
@@ -67,17 +92,19 @@ async def procesar_qr(data: dict):
         if "items" in resultado and isinstance(resultado["items"], list):
             for item in resultado["items"]:
                 if "codigoBarras" in item:
-                    item["codigo_barras"] = item["codigoBarras"]
+                    item["codigo_barras"] = item.pop("codigoBarras")
                 if "precioUnitario" in item:
-                    item["precio_unitario"] = item["precioUnitario"]
+                    item["precio_unitario"] = item.pop("precioUnitario")
 
+        resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e), "items": []}
 
 
 @app.post("/procesar-html-completo")
-async def procesar_html_completo(data: dict):
+def procesar_html_completo(data: dict):
     try:
         html = data.get("html", "")
         url = data.get("url", "")
@@ -90,6 +117,8 @@ async def procesar_html_completo(data: dict):
             html=html, url=url, qr_params=qr_params,
             de_data=data.get("de_data"),
         )
+        resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e), "items": []}
@@ -104,7 +133,11 @@ async def guardar(datos: dict):
         ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal_limpia)
         os.makedirs(ruta_sucursal, exist_ok=True)
 
-        nombre = f"factura_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        vendedor = datos.get("nombreVendedor", "Desconocido")
+        vendedor_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
+        nro_factura = datos.get("numeroFactura", "SIN_NUM")
+        nro_factura_limpio = re.sub(r'[\\/*?:"<>|]', '', nro_factura).strip().replace(" ", "_")[:20]
+        nombre = f"{vendedor_limpio}_{nro_factura_limpio}.json"
         ruta_completa = os.path.join(ruta_sucursal, nombre)
 
         with open(ruta_completa, 'w', encoding='utf-8') as f:
@@ -157,6 +190,95 @@ async def descargar(sucursal: str, nombre_archivo: str):
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+AUTH_FILE = os.path.join(interpretacion.OUTPUT_FOLDER, "auth_whatsapp.json")
+
+
+@app.post("/auth-guardar")
+async def auth_guardar(datos: dict):
+    try:
+        contenido = datos.get("auth", "")
+        if not contenido:
+            return {"status": "error", "message": "auth vacio"}
+        os.makedirs(interpretacion.OUTPUT_FOLDER, exist_ok=True)
+        with open(AUTH_FILE, "w", encoding="utf-8") as f:
+            json.dump({"auth": contenido}, f)
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/auth-cargar")
+async def auth_cargar():
+    try:
+        if not os.path.exists(AUTH_FILE):
+            return {"status": "error", "message": "no hay auth guardado"}
+        with open(AUTH_FILE, "r", encoding="utf-8") as f:
+            datos = json.load(f)
+        return {"status": "ok", "auth": datos.get("auth", "")}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/buscar-producto/{codigo}")
+async def buscar_producto(codigo: str):
+    try:
+        resultados = []
+        for carpeta in os.listdir(interpretacion.OUTPUT_FOLDER):
+            ruta = os.path.join(interpretacion.OUTPUT_FOLDER, carpeta)
+            if not os.path.isdir(ruta): continue
+            for archivo in os.listdir(ruta):
+                if not archivo.endswith('.json'): continue
+                try:
+                    with open(os.path.join(ruta, archivo), 'r', encoding='utf-8') as f:
+                        datos = json.load(f)
+                    items = datos.get("items", [])
+                    for it in items:
+                        cb = str(it.get("codigo_barras", "") or it.get("codigoBarras", "") or "")
+                        c_int = str(it.get("codigo", "") or "")
+                        desc = it.get("descripcion", "")
+                        if cb == codigo or cb == codigo.zfill(13) or cb == codigo.zfill(8) or c_int == codigo:
+                            resultados.append({
+                                "descripcion": desc,
+                                "precio": it.get("precio_unitario", 0) or it.get("precioUnitario", 0),
+                                "vendedor": datos.get("nombreVendedor", "?"),
+                                "fecha": datos.get("fechaEmision", "?"),
+                                "factura": datos.get("numeroFactura", "?"),
+                            })
+                except: continue
+        resultados.sort(key=lambda r: r.get("fecha", ""), reverse=True)
+        return {"resultados": resultados}
+    except Exception as e:
+        return {"error": str(e), "resultados": []}
+
+
+@app.get("/historial/{sucursal}")
+async def obtener_historial(sucursal: str):
+    try:
+        ruta = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal.replace(" ", "_"))
+        if not os.path.exists(ruta):
+            return {"facturas": []}
+        facturas = []
+        for archivo in os.listdir(ruta):
+            if not archivo.endswith('.json'): continue
+            try:
+                with open(os.path.join(ruta, archivo), 'r', encoding='utf-8') as f:
+                    datos = json.load(f)
+                facturas.append({
+                    "id": archivo.replace('.json', ''),
+                    "vendedor": datos.get("nombreVendedor", "?"),
+                    "numero": datos.get("numeroFactura", "?"),
+                    "total": datos.get("totalGeneral", 0),
+                    "fecha": datos.get("fechaEmision", "?"),
+                    "items": len(datos.get("items", [])),
+                })
+            except: continue
+        facturas.sort(key=lambda f: f.get("fecha", ""), reverse=True)
+        return {"facturas": facturas}
+    except Exception as e:
+        return {"error": str(e), "facturas": []}
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
