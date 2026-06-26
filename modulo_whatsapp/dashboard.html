@@ -507,7 +507,7 @@ async function verDetalle(e, id) {
       </div>
     </div>
     <table><tr><th>#</th><th>Código</th><th>Descripción</th><th>Cant</th><th>Precio</th><th>Subtotal</th></tr>
-    ${items.map((it,i) => `<tr><td>${i+1}</td><td>${it.codigo||it.codigo_barras||'null'}</td><td>${it.descripcion||'?'}</td><td>${it.cantidad||1}</td><td class="precio">${n(it.precio_unitario)}</td><td class="precio">${n(it.subtotal)}</td></tr>`).join('')}
+    ${items.map((it,i) => `<tr><td>${i+1}</td><td>${it.codigo||it.codigo_barras||'-'}</td><td>${it.descripcion||'?'}</td><td>${it.cantidad||1}</td><td class="precio">${n(it.precio_unitario)}</td><td class="precio">${n(it.subtotal)}</td></tr>`).join('')}
     </table>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
       <a href="#" onclick="cargarFacturas(); return false;" class="btn btn-ghost">← Volver</a>
@@ -544,7 +544,7 @@ function exportarExcel() {
     for (const it of fd.items) {
       itemsRows.push({
         Factura: f.numero||'?', Fecha: f.fecha||'?', Vendedor: f.vendedor||'?',
-        Producto: it.descripcion||'?', Codigo: it.codigo||it.codigo_barras||'null',
+        Producto: it.descripcion||'?', Codigo: it.codigo||it.codigo_barras||'-',
         Cantidad: it.cantidad||1, 'Precio Gs': Number(it.precio_unitario||0), 'Subtotal Gs': Number(it.subtotal||0)
       });
     }
