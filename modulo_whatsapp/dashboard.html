@@ -507,7 +507,7 @@ async function verDetalle(e, id) {
       </div>
     </div>
     <table><tr><th>#</th><th>Código</th><th>Descripción</th><th>Cant</th><th>Precio</th><th>Subtotal</th></tr>
-    ${items.map((it,i) => `<tr><td>${i+1}</td><td>${it.codigo||it.codigo_barras||'-'}</td><td>${it.descripcion||'?'}</td><td>${it.cantidad||1}</td><td class="precio">${n(it.precio_unitario)}</td><td class="precio">${n(it.subtotal)}</td></tr>`).join('')}
+    ${items.map((it,i) => `<tr><td>${i+1}</td><td>${it.codigo||it.codigo_barras||'null'}</td><td>${it.descripcion||'?'}</td><td>${it.cantidad||1}</td><td class="precio">${n(it.precio_unitario)}</td><td class="precio">${n(it.subtotal)}</td></tr>`).join('')}
     </table>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
       <a href="#" onclick="cargarFacturas(); return false;" class="btn btn-ghost">← Volver</a>
@@ -819,7 +819,7 @@ function mostrarPrecios(unicos) {
   const q = document.getElementById('search-producto').value.toLowerCase();
   const filtrados = q ? [...unicos.values()].filter(r => r.descripcion.toLowerCase().includes(q)) : [...unicos.values()];
   document.getElementById('resultados-precios').innerHTML = filtrados.length
-    ? `<table><tr><th>Producto</th><th>Precio</th><th>Vendedor</th><th>Fecha</th><th></th></tr>${filtrados.map(r => `<tr><td><span class="producto-link" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}')">${r.descripcion}</span></td><td class="precio">${n(r.precio)}</td><td>${r.vendedor}</td><td class="fecha">${r.fecha}</td><td><a href="#" onclick="verHistorial('${r.descripcion.replace(/'/g,"\\'")}'); return false;" class="btn btn-ghost btn-small">📈 Historial</a></td></tr>`).join('')}</table>`
+    ? `<table id="precios-table"><tr><th>Producto</th><th>Precio</th><th>Vendedor</th><th>Fecha</th><th></th></tr>${filtrados.map((r,i) => `<tr class="precio-row" data-idx="${i}" onclick="toggleHistorial(this, '${r.descripcion.replace(/'/g,"\\'")}', ${i})"><td><span class="producto-link">${r.descripcion}</span></td><td class="precio">${n(r.precio)}</td><td>${r.vendedor}</td><td class="fecha">${r.fecha}</td><td><a href="#" onclick="event.stopPropagation(); toggleHistorial(this.parentElement.parentElement, '${r.descripcion.replace(/'/g,"\\'")}', ${i}); return false;" class="btn btn-ghost btn-small">📈 Historial</a></td></tr>`).join('')}</table>`
     : '<div class="vacio">No se encontraron productos</div>';
 }
 
@@ -833,44 +833,51 @@ function buscarProducto() {
   mostrarPrecios(unicos);
 }
 
-function verHistorial(descripcion) {
+let historialChart = null;
+
+function toggleHistorial(row, descripcion, idx) {
+  const existing = document.getElementById('historial-' + idx);
+  if (existing) {
+    existing.remove();
+    return;
+  }
   const ocurrencias = todosProductos
     .filter(r => r.descripcion.toLowerCase().trim() === descripcion.toLowerCase().trim())
     .sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''));
-
   if (ocurrencias.length === 0) return;
-
-  const div = document.getElementById('historial-precio');
-  div.style.display = 'block';
 
   const ultPrecio = ocurrencias[ocurrencias.length-1].precio;
   const primerPrecio = ocurrencias[0].precio;
   const dif = ultPrecio - primerPrecio;
   const difStr = dif > 0 ? `↑ +${dif.toLocaleString()}` : dif < 0 ? `↓ ${dif.toLocaleString()}` : 'Sin cambios';
+  const chartId = 'chart-h-' + idx;
 
-  div.innerHTML = `
-    <div class="historial-container">
+  const html = `<tr id="historial-${idx}"><td colspan="5" style="padding:0">
+    <div class="historial-container" style="margin:8px">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:10px">
         <h4 style="margin:0">📈 ${descripcion}</h4>
         <div>
           <span style="color:#78909C;font-size:12px">1er: ${n(primerPrecio)} · Últ: ${n(ultPrecio)} · </span>
           <span style="font-size:13px;font-weight:700;color:${dif>0?'#EF5350':dif<0?'#66BB6A':'#78909C'}">${difStr}</span>
-          <button onclick="document.getElementById('historial-precio').style.display='none'" class="btn btn-ghost btn-small" style="margin-left:10px">Cerrar</button>
+          <button onclick="document.getElementById('historial-${idx}').remove()" class="btn btn-ghost btn-small" style="margin-left:10px">Cerrar</button>
         </div>
       </div>
       <table><tr><th>Fecha</th><th>Factura</th><th>Vendedor</th><th>Precio</th></tr>
       ${ocurrencias.map(r => `<tr><td class="fecha">${r.fecha}</td><td>${r.factura}</td><td>${r.vendedor}</td><td class="precio">${n(r.precio)}</td></tr>`).join('')}
       </table>
       <div style="margin-top:12px;position:relative;height:180px">
-        <canvas id="chart-historial-precio"></canvas>
+        <canvas id="${chartId}"></canvas>
       </div>
-    </div>`;
+    </div>
+  </td></tr>`;
 
-  // chart
+  if (historialChart) historialChart.destroy();
+  row.insertAdjacentHTML('afterend', html);
+
   setTimeout(() => {
-    const c = document.getElementById('chart-historial-precio');
+    const c = document.getElementById(chartId);
     if (!c) return;
-    new Chart(c, {
+    historialChart = new Chart(c, {
       type: 'line',
       data: {
         labels: ocurrencias.map(r => r.fecha),
