@@ -95,8 +95,6 @@ ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR 
     if (fs.existsSync(AUTH_DIR)) {
       fs.rmSync(AUTH_DIR, { recursive: true, force: true });
     }
-    fs.mkdirSync(AUTH_DIR, { recursive: true });
-    fs.writeFileSync(path.join(AUTH_DIR, '.reset'), '1');
     try {
       fetch(`${BACKEND_URL}/auth-eliminar`, { method: 'POST' }).catch(() => {});
     } catch {}
@@ -855,13 +853,7 @@ async function iniciarBot() {
     console.log('FacturasDB cargado de Supabase');
   }
 
-  const resetMarker = path.join(AUTH_DIR, '.reset');
-  if (fs.existsSync(resetMarker)) {
-    console.log('🔁 Marker .reset detectado — salteando carga de auth remoto');
-    fs.rmSync(resetMarker);
-  } else {
-    await cargarAuthRemoto();
-  }
+  await cargarAuthRemoto();
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const sock = makeWASocket({
     auth: state,
