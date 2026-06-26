@@ -13,6 +13,7 @@ const PORT = process.env.PORT || 3000;
 const BACKEND_URL = process.env.BACKEND_URL || 'https://scanner-facturas-backend.onrender.com';
 const IP_LOCAL_URL = process.env.IP_LOCAL_URL || 'https://snooze-chafe-bullwhip.ngrok-free.dev';
 const GROUP_JID = process.env.GROUP_JID || null;
+const RESET_AUTH = process.env.RESET_AUTH === 'true';
 const AUTH_DIR = './auth_info';
 
 let ultimoQR = null;
@@ -88,20 +89,6 @@ p{color:#aaa;margin-top:20px}.estado{display:inline-block;padding:6px 16px;borde
 <p>Estado: <span class="estado ${estadoConexion}">${estadoConexion}</span></p>
 ${ultimoQR ? `<p>Escaneá este QR con WhatsApp:</p><img src="${qrLink}" alt="QR Code"/>` : '<p>Esperando QR...</p>'}
 </body></html>`);
-  }
-
-  if (url === '/reset-auth') {
-    console.log('🔁 Reset auth solicitado desde web...');
-    if (fs.existsSync(AUTH_DIR)) {
-      fs.rmSync(AUTH_DIR, { recursive: true, force: true });
-    }
-    try {
-      fetch(`${BACKEND_URL}/auth-eliminar`, { method: 'POST' }).catch(() => {});
-    } catch {}
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Auth Reset</title><style>body{font-family:sans-serif;text-align:center;padding:40px;background:#111;color:#fff}h1{color:#25D366}</style></head><body><h1>✅ Auth eliminado</h1><p>El bot se reiniciará y va a generar un QR nuevo en <a href="/qr" style="color:#25D366">/qr</a></p></body></html>');
-    setTimeout(() => process.exit(0), 2000);
-    return;
   }
 
   if (url.startsWith('/ver-json/')) {
@@ -853,7 +840,18 @@ async function iniciarBot() {
     console.log('FacturasDB cargado de Supabase');
   }
 
-  await cargarAuthRemoto();
+  if (RESET_AUTH) {
+    console.log('🔁 RESET_AUTH activo — limpiando auth...');
+    if (fs.existsSync(AUTH_DIR)) {
+      fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+    }
+    try {
+      await fetch(`${BACKEND_URL}/auth-eliminar`, { method: 'POST' });
+    } catch {}
+    console.log('✅ Auth eliminado. Cambiá RESET_AUTH a false y redeployeá para escanear QR nuevo.');
+  }
+
+  if (!RESET_AUTH) await cargarAuthRemoto();
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const sock = makeWASocket({
     auth: state,
