@@ -10,7 +10,7 @@ from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from modulo_escaneo import interpretacion
+import interpretacion
 
 def _guardar_resultado(resultado):
     try:
