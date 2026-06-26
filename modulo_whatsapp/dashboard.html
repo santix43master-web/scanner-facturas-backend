@@ -842,6 +842,7 @@ function verHistorial(descripcion) {
 
   const div = document.getElementById('historial-precio');
   div.style.display = 'block';
+  div.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const ultPrecio = ocurrencias[ocurrencias.length-1].precio;
   const primerPrecio = ocurrencias[0].precio;
