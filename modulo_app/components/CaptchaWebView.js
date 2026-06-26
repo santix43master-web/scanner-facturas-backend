@@ -7,59 +7,32 @@ const CAPTCHA_INJECTED_JS = `
 (function() {
   var origOpen = XMLHttpRequest.prototype.open;
   var origSend = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.open = function(method, url) {
-    this._url = url;
-    return origOpen.apply(this, arguments);
-  };
+  XMLHttpRequest.prototype.open = function(method, url) { this._url = url; return origOpen.apply(this, arguments); };
   XMLHttpRequest.prototype.send = function(body) {
     var xhr = this;
     xhr.addEventListener('load', function() {
-      if (xhr._url && xhr._url.indexOf('documento-electronico') >= 0) {
-        if (xhr.status === 200 && xhr.responseText) {
-          try {
-            var data = JSON.parse(xhr.responseText);
-            if (data) {
-              var gcam = data.gCamItem || (data.DE || {}).gCamItem || ((data.DE || {}).gDtipDE || {}).gCamItem;
-              var hasItems = false;
-              if (Array.isArray(gcam) && gcam.length > 0) hasItems = true;
-              else if (gcam && gcam.gItem) hasItems = true;
-              if (hasItems) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({
-                  type: 'DE_DATA',
-                  de_data: data,
-                  url: window.location.href
-                }));
-              }
-            }
-          } catch(e) {}
-        }
+      if (xhr._url && xhr._url.indexOf('documento-electronico') >= 0 && xhr.status === 200 && xhr.responseText) {
+        try {
+          var data = JSON.parse(xhr.responseText);
+          var gcam = data.gCamItem || (data.DE || {}).gCamItem || ((data.DE || {}).gDtipDE || {}).gCamItem;
+          if ((Array.isArray(gcam) && gcam.length > 0) || (gcam && gcam.gItem)) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DE_DATA', de_data: data, url: window.location.href }));
+          }
+        } catch(e) {}
       }
     });
     return origSend.apply(this, arguments);
   };
-  var pollCount = 0;
-  function checkDOM() {
-    pollCount++;
-    var tables = document.querySelectorAll('table');
-    var rows = document.querySelectorAll('tr');
-    var text = document.body ? document.body.innerText : '';
-    if (tables.length >= 2 && rows.length >= 4) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'DE_DATA',
-        html: document.documentElement.outerHTML,
-        url: window.location.href
-      }));
-    } else if (text.indexOf('Total') >= 0 && text.length > 500) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'DE_DATA',
-        html: document.documentElement.outerHTML,
-        url: window.location.href
-      }));
-    } else if (pollCount < 60) {
-      setTimeout(checkDOM, 1500);
-    }
+  var pc = 0;
+  function check() { pc++;
+    var t = document.querySelectorAll('table');
+    var r = document.querySelectorAll('tr');
+    var txt = document.body ? document.body.innerText : '';
+    if ((t.length >= 2 && r.length >= 4) || (txt.indexOf('Total') >= 0 && txt.length > 500)) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'DE_DATA', html: document.documentElement.outerHTML, url: window.location.href }));
+    } else if (pc < 60) { setTimeout(check, 1500); }
   }
-  setTimeout(checkDOM, 3000);
+  setTimeout(check, 3000);
 })();
 `;
 

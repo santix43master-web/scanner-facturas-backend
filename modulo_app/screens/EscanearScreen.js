@@ -108,12 +108,12 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
       }, urlServidor);
       if (json.error) throw new Error(json.error);
       if (!json.items || json.items.length === 0) throw new Error("sin items");
-      setDatosFactura(prev => ({ ...prev, ...json }));
+      setDatosFactura(prev => prev ? { ...prev, ...json } : json);
       const cambios = await actualizarPrecios(json);
       if (cambios) setCambiosPrecios(cambios);
       if (onFacturaProcesada) onFacturaProcesada(json);
       setCaptchaVisible(false);
-    } catch (error) { setCaptchaCargando(false); }
+    } catch (error) { setCaptchaCargando(false); Alert.alert("Error captcha", "No se pudieron extraer los datos. Intentá de nuevo."); }
   };
 
   const enviarARed = async () => {
@@ -329,7 +329,7 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
         />
       )}
 
-      <Modal visible={captchaVisible} transparent animationType="slide" onRequestClose={() => setCaptchaVisible(false)}>
+      {captchaVisible && (
         <CaptchaWebView
           visible={captchaVisible}
           qrContent={qrContentRef.current}
@@ -337,7 +337,7 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
           onCargando={captchaCargando}
           onClose={() => setCaptchaVisible(false)}
         />
-      </Modal>
+      )}
     </>
   );
 }

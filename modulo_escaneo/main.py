@@ -209,16 +209,6 @@ async def auth_guardar(datos: dict):
         return {"status": "error", "message": str(e)}
 
 
-@app.post("/auth-eliminar")
-async def auth_eliminar():
-    try:
-        if os.path.exists(AUTH_FILE):
-            os.remove(AUTH_FILE)
-        return {"status": "ok"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
 @app.get("/auth-cargar")
 async def auth_cargar():
     try:
