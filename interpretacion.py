@@ -765,7 +765,7 @@ def _extraer_items_de_lista(items_raw: list) -> list:
         resta = valor.get("gValorRestaItem")
         if not isinstance(resta, dict):
             resta = {}
-        precio = valor.get("dPUniProSer") or it.get("gPaDePrecio", {}).get("dPrcUnit") or it.get("dPUniProSer") or 0
+        precio = valor.get("dPUniProSer") or it.get("gPaDePrecio", {}).get("dPrcUnit") or it.get("gPaDePrecio", {}).get("dPUniProSer") or it.get("dPUniProSer") or it.get("dPreUniProSer") or it.get("dPrcUnit") or 0
         subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or valor.get("dTotBruItem") or it.get("dSubTot") or 0
         codigo_barras = it.get("dGtin") or it.get("dCodBar") or ""
         cod_int_raw = str(it.get("dCodInt") or "").strip()
@@ -781,7 +781,7 @@ def _extraer_items_de_lista(items_raw: list) -> list:
             "codigo": cod_int,
             "codigoBarras": codigo_barras or None,
             "descripcion": it.get("dDesProSer", ""),
-            "cantidad": float(it.get("dCantProSer", 1) or 1),
+            "cantidad": float(it.get("dCantProSer") or it.get("dCamCant") or 1),
             "precioUnitario": float(precio or 0),
             "subtotal": float(subtotal or 0),
         })
@@ -821,7 +821,7 @@ def _extraer_gcamitems(de_node: dict) -> list:
                 if isinstance(v, list) and len(v) > 0 and isinstance(v[0], dict):
                     return v
             # Single gCamItem is a dict -> wrap in list
-            if any(k in cand for k in ("dCodInt", "dDesProSer", "dCantProSer")):
+            if any(k in cand for k in ("dCodInt", "dDesProSer", "dCantProSer", "dCamCant")):
                 return [cand]
     return []
 
