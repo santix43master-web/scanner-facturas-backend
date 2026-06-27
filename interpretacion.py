@@ -838,19 +838,17 @@ def _extraer_gcamitems(de_node: dict) -> list:
                 return [cand]
     return []
 
+
 def procesar_qr(qr_content: str) -> dict:
     from urllib.parse import urlparse, parse_qs
     import xmltodict, re
 
-    # 1) Extraer CDC del QR
     cdc = _extraer_cdc_de_qr(qr_content)
     xml_str = None
 
-    # 2) Descargar XML/JSON desde las APIs de SIFEN/KUDE
     if cdc:
         xml_str = _descargar_xml_sifen(cdc)
 
-    # 3) Fallback: raspar HTML de la página de consulta
     if not xml_str:
         html = _descargar_html_consulta(qr_content)
         if html:
@@ -858,7 +856,6 @@ def procesar_qr(qr_content: str) -> dict:
             if resultado_html:
                 return resultado_html
 
-    # 4) Último recurso: extraer datos básicos del QR mismo (sin items)
     if not xml_str:
         if qr_content.startswith("http"):
             params = parse_qs(urlparse(qr_content.replace("DEMO\n", "").replace("DEMO ", "").strip()).query)
