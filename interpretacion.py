@@ -754,7 +754,6 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
 
 
 def _extraer_items_de_lista(items_raw: list) -> list:
-    """Normalize items from any SIFEN XML item variant."""
     salida = []
     for it in items_raw:
         if not isinstance(it, dict):
@@ -765,27 +764,20 @@ def _extraer_items_de_lista(items_raw: list) -> list:
         resta = valor.get("gValorRestaItem")
         if not isinstance(resta, dict):
             resta = {}
-        precio = valor.get("dPUniProSer") or it.get("gPaDePrecio", {}).get("dPrcUnit") or it.get("gPaDePrecio", {}).get("dPUniProSer") or it.get("dPUniProSer") or it.get("dPreUniProSer") or it.get("dPrcUnit") or 0
-        subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or valor.get("dTotBruItem") or it.get("dSubTot") or 0
-        codigo_barras = it.get("dGtin") or it.get("dCodBar") or ""
-        cod_int_raw = str(it.get("dCodInt") or "").strip()
-        es_barcode = cod_int_raw.isdigit() and len(cod_int_raw) == 13
-        if not codigo_barras and es_barcode:
-            codigo_barras = cod_int_raw
-            cod_int = None
-        elif codigo_barras and es_barcode and cod_int_raw == codigo_barras:
-            cod_int = None
-        else:
-            cod_int = cod_int_raw or None
+        cod_int = str(it.get("dCodInt") or "").strip() or None
+        codigo_barras = it.get("dGtin") or it.get("dCodBar") or None
+        descripcion = it.get("dDesProSer", "")
         cantidad = float(it.get("dCantProSer") or it.get("dCamCant") or 1)
+        precio = valor.get("dPUniProSer") or it.get("dPUniProSer") or it.get("dPreUniProSer") or 0
+        subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or it.get("dSubTot") or 0
         if (not precio or float(precio) == 0) and float(subtotal or 0) > 0 and cantidad > 0:
             precio = float(subtotal) / cantidad
         if (not subtotal or float(subtotal) == 0) and float(precio or 0) > 0 and cantidad > 0:
             subtotal = float(precio) * cantidad
         salida.append({
             "codigo": cod_int,
-            "codigoBarras": codigo_barras or None,
-            "descripcion": it.get("dDesProSer", ""),
+            "codigoBarras": codigo_barras,
+            "descripcion": descripcion,
             "cantidad": cantidad,
             "precioUnitario": float(precio or 0),
             "subtotal": float(subtotal or 0),
