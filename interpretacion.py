@@ -777,11 +777,16 @@ def _extraer_items_de_lista(items_raw: list) -> list:
             cod_int = None
         else:
             cod_int = cod_int_raw or None
+        cantidad = float(it.get("dCantProSer") or it.get("dCamCant") or 1)
+        if (not precio or float(precio) == 0) and float(subtotal or 0) > 0 and cantidad > 0:
+            precio = float(subtotal) / cantidad
+        if (not subtotal or float(subtotal) == 0) and float(precio or 0) > 0 and cantidad > 0:
+            subtotal = float(precio) * cantidad
         salida.append({
             "codigo": cod_int,
             "codigoBarras": codigo_barras or None,
             "descripcion": it.get("dDesProSer", ""),
-            "cantidad": float(it.get("dCantProSer") or it.get("dCamCant") or 1),
+            "cantidad": cantidad,
             "precioUnitario": float(precio or 0),
             "subtotal": float(subtotal or 0),
         })
