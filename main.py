@@ -117,6 +117,14 @@ def procesar_html_completo(data: dict):
             html=html, url=url, qr_params=qr_params,
             de_data=data.get("de_data"),
         )
+
+        if "items" in resultado and isinstance(resultado["items"], list):
+            for item in resultado["items"]:
+                if "codigoBarras" in item:
+                    item["codigo_barras"] = item.pop("codigoBarras")
+                if "precioUnitario" in item:
+                    item["precio_unitario"] = item.pop("precioUnitario")
+
         resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
         _guardar_resultado(resultado)
         return resultado
