@@ -789,7 +789,7 @@ def _extraer_items_de_lista(items_raw: list) -> list:
         descripcion = it.get("dDesProSer", "")
         cantidad = float(it.get("dCantProSer") or it.get("dCamCant") or 1)
         precio = valor.get("dPUniProSer") or it.get("dPUniProSer") or it.get("dPreUniProSer") or 0
-        subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or it.get("dSubTot") or 0
+        subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or it.get("dTotOpeItem") or it.get("dTotBruOpeItem") or it.get("dSubTot") or 0
         if (not precio or float(precio) == 0) and float(subtotal or 0) > 0 and cantidad > 0:
             precio = float(subtotal) / cantidad
         if (not subtotal or float(subtotal) == 0) and float(precio or 0) > 0 and cantidad > 0:
