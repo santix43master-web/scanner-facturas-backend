@@ -753,17 +753,37 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
     }
 
 
+def _aplanar_dict(d, prefijo=""):
+    """Convierte dict anidado a flat {key: value} con puntos."""
+    planos = {}
+    for k, v in d.items():
+        clave = f"{prefijo}.{k}" if prefijo else k
+        if isinstance(v, dict):
+            planos.update(_aplanar_dict(v, clave))
+        elif isinstance(v, list):
+            for i, e in enumerate(v):
+                if isinstance(e, dict):
+                    planos.update(_aplanar_dict(e, f"{clave}[{i}]"))
+                else:
+                    planos[f"{clave}[{i}]"] = e
+        else:
+            planos[clave] = v
+    return planos
+
+
 def _extraer_items_de_lista(items_raw: list) -> list:
     salida = []
     for it in items_raw:
         if not isinstance(it, dict):
             continue
+        raw = _aplanar_dict(it)
         valor = it.get("gValorItem")
         if not isinstance(valor, dict):
             valor = {}
         resta = valor.get("gValorRestaItem")
         if not isinstance(resta, dict):
             resta = {}
+        descuento = float(resta.get("dDescItem") or 0)
         cod_int = str(it.get("dCodInt") or "").strip() or None
         codigo_barras = it.get("dGtin") or it.get("dCodBar") or None
         descripcion = it.get("dDesProSer", "")
@@ -781,6 +801,8 @@ def _extraer_items_de_lista(items_raw: list) -> list:
             "cantidad": cantidad,
             "precioUnitario": float(precio or 0),
             "subtotal": float(subtotal or 0),
+            "descuento": descuento,
+            "raw": raw,
         })
     return salida
 
