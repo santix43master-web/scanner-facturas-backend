@@ -796,6 +796,7 @@ def _extraer_items_de_lista(items_raw: list) -> list:
             subtotal = float(precio) * cantidad
         if not codigo_barras and cod_int and cod_int.isdigit() and len(cod_int) >= 10:
             codigo_barras = cod_int
+            cod_int = None
         salida.append({
             "codigo": cod_int,
             "codigoBarras": codigo_barras,
