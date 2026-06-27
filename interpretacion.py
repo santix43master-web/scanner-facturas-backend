@@ -766,7 +766,7 @@ def _extraer_items_de_lista(items_raw: list) -> list:
         if not isinstance(resta, dict):
             resta = {}
         precio = valor.get("dPUniProSer") or it.get("gPaDePrecio", {}).get("dPrcUnit") or it.get("gPaDePrecio", {}).get("dPUniProSer") or it.get("dPUniProSer") or it.get("dPreUniProSer") or it.get("dPrcUnit") or 0
-        subtotal = resta.get("dTotOpeItem") or valor.get("dTotBruOpeItem") or valor.get("dTotBruItem") or it.get("dSubTot") or 0
+        subtotal = valor.get("dTotBruOpeItem") or valor.get("dTotBruItem") or resta.get("dTotOpeItem") or it.get("dSubTot") or 0
         codigo_barras = it.get("dGtin") or it.get("dCodBar") or ""
         cod_int_raw = str(it.get("dCodInt") or "").strip()
         es_barcode = cod_int_raw.isdigit() and len(cod_int_raw) >= 8
