@@ -1,14 +1,36 @@
-import os, json, base64, shutil, traceback, uuid
+import os
+import json
+import base64
+import re
+import shutil
 from datetime import datetime
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from typing import List
+import time
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import uvicorn
-import interpretacion  # módulo con la lógica de IA, QR, SIFEN, etc.
+
+import interpretacion
+
+def _guardar_resultado(resultado):
+    try:
+        sucursal = resultado.get("sucursal") or resultado.get("nombreVendedor", "General")
+        nombre_suc = sucursal.replace(" ", "_").replace("/", "_").replace("\\", "_")
+        ruta_suc = os.path.join(interpretacion.OUTPUT_FOLDER, nombre_suc)
+        os.makedirs(ruta_suc, exist_ok=True)
+        vendedor = resultado.get("nombreVendedor", "Desconocido")
+        v_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
+        nro = resultado.get("numeroFactura", "SIN_NUM")
+        n_limpio = re.sub(r'[\\/*?:"<>|]', '', nro).strip().replace(" ", "_")[:20]
+        ts = str(int(time.time()))
+        nombre = f"{v_limpio}_{n_limpio}_{ts}.json"
+        with open(os.path.join(ruta_suc, nombre), 'w', encoding='utf-8') as f:
+            json.dump(resultado, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"[guardar] No se pudo guardar: {e}")
 
 app = FastAPI()
 
-# Permite peticiones desde cualquier origen (app móvil, dashboard web)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,92 +39,207 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class QRRequest(BaseModel):
-    qr: str
-    sucursal: str = "Sucursal 1"
+@app.get("/")
+def home():
+    return {
+        "status": "Servidor Activo",
+        "modelo": interpretacion.MODELO,
+    }
 
-class HtmlRequest(BaseModel):
-    html: str = ""
-    url: str = ""
-    de_data: dict = None
-    qr_params: dict = None
+@app.get("/status")
+def status():
+    return {
+        "status": "ok",
+        "modelo": interpretacion.MODELO,
+        "proveedor": os.environ.get("PROVEEDOR", "anthropic"),
+        "output_folder": interpretacion.OUTPUT_FOLDER,
+        "api_key": "Configurado" if os.environ.get("API_KEY") else "No configurado",
+        "gemini_api_key": "Configurado" if os.environ.get("GEMINI_API_KEY") else "No configurado",
+        "openai_api_key": "Configurado" if os.environ.get("OPENAI_API_KEY") else "No configurado",
+    }
 
-class GuardarRequest(BaseModel):
-    sucursal: str = "Sucursal 1"
-
-# Endpoint principal de procesamiento por IA (fotos de facturas)
 @app.post("/procesar")
-async def procesar(
-    factura: list[UploadFile] = File(...),
-    sucursal: str = Form("Sucursal 1"),
-):
+async def procesar(factura: List[UploadFile] = File(...), sucursal: str = Form(None)):
     try:
-        imagenes = []
-        for f in factura:
-            contenido = await f.read()
-            b64 = base64.b64encode(contenido).decode("utf-8")
-            imagenes.append(b64)
-        resultado = interpretacion.procesar_factura_con_ia(imagenes, sucursal)
+        imagenes_b64 = []
+        for i, f in enumerate(factura):
+            img_bytes = await f.read()
+            b64 = base64.b64encode(img_bytes).decode("utf-8")
+            imagenes_b64.append(b64)
+        resultado = interpretacion.extraer_datos_factura(imagenes_b64)
+
+        if "items" in resultado and isinstance(resultado["items"], list):
+            for item in resultado["items"]:
+                if "codigoBarras" in item:
+                    item["codigo_barras"] = item.pop("codigoBarras")
+                if "precioUnitario" in item:
+                    item["precio_unitario"] = item.pop("precioUnitario")
+
+        resultado["sucursal"] = sucursal or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
-        traceback.print_exc()
         return {"error": str(e)}
 
-# Procesa un código QR de factura electrónica (SIFEN/KUDE)
 @app.post("/procesar-qr")
-async def procesar_qr(data: QRRequest):
+def procesar_qr(data: dict):
     try:
-        resultado = interpretacion.procesar_qr(data.qr)
-        resultado["sucursal"] = data.sucursal
+        qr_content = data.get("qr", "")
+        if not qr_content:
+            return {"error": "QR vacío", "items": []}
+        resultado = interpretacion.procesar_qr(qr_content)
+
+        if "items" in resultado and isinstance(resultado["items"], list):
+            for item in resultado["items"]:
+                if "codigoBarras" in item:
+                    item["codigo_barras"] = item.pop("codigoBarras")
+                if "precioUnitario" in item:
+                    item["precio_unitario"] = item.pop("precioUnitario")
+
+        resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
-        traceback.print_exc()
-        return {"error": str(e)}
+        return {"error": str(e), "items": []}
 
-# Procesa los datos extraídos del CaptchaWebView (HTML o DE data de SIFEN)
+
 @app.post("/procesar-html-completo")
-async def procesar_html_completo(data: HtmlRequest):
+def procesar_html_completo(data: dict):
     try:
+        html = data.get("html", "")
+        url = data.get("url", "")
+        qr_params = data.get("qr_params", {})
+
+        if not html and not data.get("de_data"):
+            return {"error": "HTML vacío", "items": []}
+
         resultado = interpretacion.parsear_html_completo_de(
-            html=data.html, url=data.url,
-            qr_params=data.qr_params, de_data=data.de_data,
+            html=html, url=url, qr_params=qr_params,
+            de_data=data.get("de_data"),
         )
+
+        if "items" in resultado and isinstance(resultado["items"], list):
+            for item in resultado["items"]:
+                if "codigoBarras" in item:
+                    item["codigo_barras"] = item.pop("codigoBarras")
+                if "precioUnitario" in item:
+                    item["precio_unitario"] = item.pop("precioUnitario")
+
+        resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
+        _guardar_resultado(resultado)
         return resultado
     except Exception as e:
-        traceback.print_exc()
-        return {"error": str(e)}
+        return {"error": str(e), "items": []}
 
-# Guarda una factura en el buzón del servidor (para el dashboard)
+
 @app.post("/guardar-compartido")
-async def guardar_compartido(data: dict):
+async def guardar(datos: dict):
     try:
-        sucursal = data.get("sucursal", "Sucursal 1").replace(" ", "_")
-        if not data.get("items"):
-            return {"status": "error", "message": "sin items"}
-        ruta_suc = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal)
-        os.makedirs(ruta_suc, exist_ok=True)
-        nombre_archivo = f"{data.get('nombreVendedor', 'vacio')}_{data.get('numeroFactura', 'NN')}_{uuid.uuid4().hex[:8]}.json"
-        ruta_completa = os.path.join(ruta_suc, nombre_archivo)
-        with open(ruta_completa, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return {"status": "ok", "archivo": nombre_archivo, "ruta": ruta_completa}
+        sucursal = datos.get("sucursal", "General").strip()
+        sucursal_limpia = sucursal.replace(" ", "_").replace("/", "_").replace("\\", "_")
+
+        ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal_limpia)
+        os.makedirs(ruta_sucursal, exist_ok=True)
+
+        vendedor = datos.get("nombreVendedor", "Desconocido")
+        vendedor_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
+        nro_factura = datos.get("numeroFactura", "SIN_NUM")
+        nro_factura_limpio = re.sub(r'[\\/*?:"<>|]', '', nro_factura).strip().replace(" ", "_")[:20]
+        nombre = f"{vendedor_limpio}_{nro_factura_limpio}.json"
+        ruta_completa = os.path.join(ruta_sucursal, nombre)
+
+        with open(ruta_completa, 'w', encoding='utf-8') as f:
+            json.dump(datos, f, indent=4, ensure_ascii=False)
+
+        return {
+            "status": "ok",
+            "sucursal": sucursal_limpia,
+            "archivo": nombre,
+            "mensaje": f"Guardado en {sucursal_limpia}",
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# Busca productos por código de barras en todas las facturas guardadas
+@app.get("/listar/{sucursal}")
+async def listar(sucursal: str):
+    try:
+        ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal)
+        if not os.path.exists(ruta_sucursal):
+            return {"archivos": []}
+        archivos = [f for f in os.listdir(ruta_sucursal) if f.endswith('.json')]
+        return {"archivos": archivos}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.get("/descargar/{sucursal}/{nombre_archivo}")
+async def descargar(sucursal: str, nombre_archivo: str):
+    try:
+        posibles_nombres = [
+            sucursal,
+            sucursal.replace("_", " "),
+            "Minimarket_LF",
+            "Minimarket LF",
+            "Local_1",
+            "Local 1",
+        ]
+
+        for nombre in posibles_nombres:
+            ruta_archivo = os.path.join(interpretacion.OUTPUT_FOLDER, nombre, nombre_archivo)
+            if os.path.exists(ruta_archivo):
+                with open(ruta_archivo, 'r', encoding='utf-8') as f:
+                    datos = json.load(f)
+                os.remove(ruta_archivo)
+                return datos
+
+        return {
+            "error": "Archivo no encontrado",
+            "sucursal_intentada": sucursal,
+            "archivo": nombre_archivo,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+AUTH_FILE = os.path.join(interpretacion.OUTPUT_FOLDER, "auth_whatsapp.json")
+
+
+@app.post("/auth-guardar")
+async def auth_guardar(datos: dict):
+    try:
+        contenido = datos.get("auth", "")
+        if not contenido:
+            return {"status": "error", "message": "auth vacio"}
+        os.makedirs(interpretacion.OUTPUT_FOLDER, exist_ok=True)
+        with open(AUTH_FILE, "w", encoding="utf-8") as f:
+            json.dump({"auth": contenido}, f)
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.get("/auth-cargar")
+async def auth_cargar():
+    try:
+        if not os.path.exists(AUTH_FILE):
+            return {"status": "error", "message": "no hay auth guardado"}
+        with open(AUTH_FILE, "r", encoding="utf-8") as f:
+            datos = json.load(f)
+        return {"status": "ok", "auth": datos.get("auth", "")}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/buscar-producto/{codigo}")
 async def buscar_producto(codigo: str):
     try:
-        if not os.path.exists(interpretacion.OUTPUT_FOLDER):
-            return {"resultados": []}
         resultados = []
         for carpeta in os.listdir(interpretacion.OUTPUT_FOLDER):
-            ruta_carpeta = os.path.join(interpretacion.OUTPUT_FOLDER, carpeta)
-            if not os.path.isdir(ruta_carpeta): continue
-            for archivo in os.listdir(ruta_carpeta):
+            ruta = os.path.join(interpretacion.OUTPUT_FOLDER, carpeta)
+            if not os.path.isdir(ruta): continue
+            for archivo in os.listdir(ruta):
                 if not archivo.endswith('.json'): continue
                 try:
-                    with open(os.path.join(ruta_carpeta, archivo), 'r', encoding='utf-8') as f:
+                    with open(os.path.join(ruta, archivo), 'r', encoding='utf-8') as f:
                         datos = json.load(f)
                     items = datos.get("items", [])
                     for it in items:
@@ -123,7 +260,7 @@ async def buscar_producto(codigo: str):
     except Exception as e:
         return {"error": str(e), "resultados": []}
 
-# Obtiene el historial de facturas de una sucursal
+
 @app.get("/historial/{sucursal}")
 async def obtener_historial(sucursal: str):
     try:
@@ -150,34 +287,6 @@ async def obtener_historial(sucursal: str):
     except Exception as e:
         return {"error": str(e), "facturas": []}
 
-# Elimina una factura del servidor por ID o nombre de archivo
-@app.post("/api/eliminar")
-async def eliminar_factura(datos: dict):
-    try:
-        factura_id = datos.get("id", "").strip()
-        sucursal = datos.get("sucursal", "").strip()
-        archivo = datos.get("archivo", "").strip()
-
-        if not factura_id and not archivo:
-            return {"status": "error", "message": "Faltan datos"}
-
-        nombre_archivo = archivo if archivo else f"{factura_id}.json"
-
-        # Busca en la sucursal especificada o en todas
-        if sucursal:
-            candidatos = [sucursal, sucursal.replace("_", " ")]
-        else:
-            candidatos = os.listdir(interpretacion.OUTPUT_FOLDER) if os.path.exists(interpretacion.OUTPUT_FOLDER) else []
-
-        for carpeta in candidatos:
-            ruta = os.path.join(interpretacion.OUTPUT_FOLDER, carpeta, nombre_archivo)
-            if os.path.exists(ruta):
-                os.remove(ruta)
-                return {"status": "ok", "mensaje": f"Eliminado {nombre_archivo}"}
-
-        return {"status": "error", "message": "Archivo no encontrado"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
