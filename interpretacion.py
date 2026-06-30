@@ -8,7 +8,6 @@ from pathlib import Path
 from anthropic import Anthropic
 
 # ── Configuración ──────────────────────────────────────────────
-# Modelo de IA para procesar facturas (Claude de Anthropic)
 MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-7")
 
 INPUT_FOLDER  = r"C:\Users\Santiago\Desktop\Todo de Santiago\trabajo de tanti\factura"
@@ -686,19 +685,6 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
         if not any(x in hdr for x in ('descripci', 'cantidad', 'precio', 'código', 'codigo', 'importe', 'subtotal')):
             continue
 
-        # Identificar columnas por el encabezado
-        col_desc = col_qty = col_price = col_sub = -1
-        hdr_cells = [c.lower() for c in rows[0]]
-        for ci, ch in enumerate(hdr_cells):
-            if col_desc < 0 and any(x in ch for x in ('descripci', 'artículo', 'articulo', 'denominaci')):
-                col_desc = ci
-            if col_qty < 0 and any(x in ch for x in ('cantidad', 'unidades', 'uds')):
-                col_qty = ci
-            if col_price < 0 and any(x in ch for x in ('precio', 'p. unit', 'p.uni', 'p.u.', 'unitario')):
-                col_price = ci
-            if col_sub < 0 and any(x in ch for x in ('subtotal', 'importe', 'total línea', 'total')):
-                col_sub = ci
-
         for row in rows[1:]:
             if len(row) < 2:
                 continue
@@ -706,52 +692,32 @@ def parsear_html_completo_de(html: str = "", url: str = "", qr_params: dict = No
             if any(x in rt for x in ('total', 'subtotal', 'iva', 'exenta', 'gravada', 'son:')):
                 continue
 
+            num_cols = []
+            for ci, cv in enumerate(row):
+                c_clean = cv.replace('.', '').replace(',', '.').strip()
+                try:
+                    val = float(c_clean)
+                    num_cols.append((ci, val))
+                except ValueError:
+                    pass
+
+            non_num = [(ci, cv) for ci, cv in enumerate(row)
+                       if ci not in {nc[0] for nc in num_cols}]
+            item_desc = max(non_num, key=lambda x: len(x[1]))[1] if non_num else row[0]
+
+            vals = [v for _, v in num_cols]
             item_qty, item_price, item_subtotal = 1, 0, 0
-            item_desc = ''
-
-            if col_desc >= 0 and col_desc < len(row):
-                item_desc = row[col_desc]
-            else:
-                non_num = []
-                for ci, cv in enumerate(row):
-                    c_clean = cv.replace('.', '').replace(',', '.').strip()
-                    try:
-                        float(c_clean)
-                    except ValueError:
-                        non_num.append((ci, cv))
-                item_desc = max(non_num, key=lambda x: len(x[1]))[1] if non_num else row[0]
-
-            if col_qty >= 0 and col_qty < len(row):
-                try:
-                    item_qty = int(float(row[col_qty].replace('.', '').replace(',', '.')))
-                except: pass
-            if col_price >= 0 and col_price < len(row):
-                try:
-                    item_price = float(row[col_price].replace('.', '').replace(',', '.'))
-                except: pass
-            if col_sub >= 0 and col_sub < len(row):
-                try:
-                    item_subtotal = float(row[col_sub].replace('.', '').replace(',', '.'))
-                except: pass
-
-            # Fallback si no se identificaron columnas numéricas por encabezado
-            if col_price < 0 and col_sub < 0 and col_qty < 0:
-                num_cols = []
-                for ci, cv in enumerate(row):
-                    c_clean = cv.replace('.', '').replace(',', '.').strip()
-                    try:
-                        val = float(c_clean)
-                        num_cols.append(val)
-                    except ValueError:
-                        pass
-                if len(num_cols) >= 3:
-                    vs = sorted(num_cols)
-                    item_qty, item_price, item_subtotal = int(vs[0]), vs[1], vs[-1]
-                elif len(num_cols) == 2:
-                    item_qty, item_subtotal = int(num_cols[0]), num_cols[1]
-                    item_price = round(item_subtotal / item_qty, 2) if item_qty else 0
-                elif len(num_cols) == 1:
-                    item_subtotal = num_cols[0]
+            if len(vals) >= 3:
+                vs = sorted(vals)
+                item_subtotal = vs[-1]
+                item_qty = vs[0]
+                item_price = vs[1]
+            elif len(vals) == 2:
+                item_qty = vals[0]
+                item_subtotal = vals[1]
+                item_price = round(item_subtotal / item_qty, 2) if item_qty else 0
+            elif len(vals) == 1:
+                item_subtotal = vals[0]
 
             if item_desc:
                 items.append({
