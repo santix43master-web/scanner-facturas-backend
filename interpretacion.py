@@ -471,6 +471,7 @@ def _parsear_html_kude(html: str) -> dict | None:
     import re
     try:
         datos = {}
+        ruc_comp = None
         # Buscar datos en tablas o etiquetas <td>, <th>, <label>
         html_plano = re.sub(r'<[^>]+>', '|', html)
         html_plano = re.sub(r'\s+', ' ', html_plano)

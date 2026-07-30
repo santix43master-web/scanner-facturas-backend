@@ -31,6 +31,9 @@ def _guardar_resultado(resultado):
 
 app = FastAPI()
 
+if not os.environ.get("API_KEY"):
+    print("⚠️  ADVERTENCIA: Variable API_KEY no configurada. El procesamiento con IA no funcionará.")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
