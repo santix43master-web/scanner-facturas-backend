@@ -8,7 +8,7 @@ from pathlib import Path
 from anthropic import Anthropic
 
 # ── Configuración ──────────────────────────────────────────────
-MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5")
+MODELO = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
 
 INPUT_FOLDER  = r"C:\Users\Santiago\Desktop\Todo de Santiago\trabajo de tanti\factura"
 OUTPUT_FOLDER = os.environ.get("OUTPUT_FOLDER", r"\\192.168.100.16\Users\public\JSON")
@@ -299,7 +299,7 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
     try:
         message = client.messages.create(
             model=MODELO,
-            max_tokens=16000,
+            max_tokens=5000,
             thinking={"type": "disabled"},
             system=[
                 {
