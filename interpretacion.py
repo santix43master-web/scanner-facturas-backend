@@ -300,6 +300,7 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
         message = client.messages.create(
             model=MODELO,
             max_tokens=16000,
+            thinking={"type": "disabled"},
             system=[
                 {
                     "type": "text",
@@ -315,7 +316,11 @@ def extraer_datos_factura(imagenes_b64: list[str]) -> dict:
             ],
         )
 
-        content = message.content[0].text.strip()
+        content = ""
+        for block in message.content:
+            if hasattr(block, "text"):
+                content = block.text.strip()
+                break
         result = extraer_json_robusto(content)
 
         if result.get("items"):
