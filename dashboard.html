@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Facturas R21</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f0f2f5; color:#333; }
+.header { background:linear-gradient(135deg,#1a1a2e,#16213e); color:white; padding:20px; text-align:center; position:sticky; top:0; z-index:100; box-shadow:0 2px 10px rgba(0,0,0,0.3); }
+.header h1 { font-size:22px; font-weight:700; }
+.header .stats { display:flex; gap:20px; justify-content:center; margin-top:10px; font-size:13px; opacity:0.8; }
+.header .stats span { background:rgba(255,255,255,0.15); padding:4px 12px; border-radius:20px; }
+.buscar { padding:12px 16px; background:white; border-bottom:1px solid #e0e0e0; display:flex; gap:8px; position:sticky; top:70px; z-index:99; }
+.buscar input { flex:1; padding:10px 14px; border:1px solid #ddd; border-radius:8px; font-size:14px; outline:none; }
+.buscar input:focus { border-color:#1a1a2e; }
+.buscar button { padding:10px 16px; background:#1a1a2e; color:white; border:none; border-radius:8px; cursor:pointer; font-size:14px; }
+.lista { padding:8px; }
+.factura-card { background:white; border-radius:12px; margin-bottom:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); transition:all 0.2s; }
+.factura-card:active { transform:scale(0.99); }
+.factura-header { padding:14px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+.factura-header .izq { flex:1; }
+.factura-header .numero { font-weight:700; font-size:15px; color:#1a1a2e; }
+.factura-header .vendedor { font-size:12px; color:#888; margin-top:2px; }
+.factura-header .der { text-align:right; }
+.factura-header .total { font-weight:700; font-size:16px; color:#e74c3c; }
+.factura-header .fecha { font-size:11px; color:#aaa; margin-top:2px; }
+.factura-header .sucursal-tag { display:inline-block; font-size:10px; background:#e8f4fd; color:#2980b9; padding:2px 8px; border-radius:10px; margin-top:4px; }
+.factura-detalles { display:none; padding:0 16px 14px; border-top:1px solid #f0f0f0; }
+.factura-detalles.abierto { display:block; }
+.detalle-row { display:flex; justify-content:space-between; padding:6px 0; font-size:13px; border-bottom:1px solid #f5f5f5; }
+.detalle-row:last-child { border-bottom:none; }
+.detalle-row .desc { flex:1; color:#555; }
+.detalle-row .cant { width:40px; text-align:center; color:#888; }
+.detalle-row .precio { width:80px; text-align:right; font-weight:600; }
+.totales { margin-top:10px; padding-top:10px; border-top:2px solid #eee; }
+.totales .linea { display:flex; justify-content:space-between; font-size:13px; padding:3px 0; }
+.totales .linea.total { font-weight:700; font-size:15px; color:#e74c3c; margin-top:4px; }
+.loading { text-align:center; padding:40px; color:#888; }
+.vacio { text-align:center; padding:60px 20px; color:#aaa; }
+.vacio .icono { font-size:48px; margin-bottom:12px; }
+.auto-refresh { display:flex; align-items:center; gap:6px; justify-content:center; margin-top:8px; font-size:12px; }
+.auto-refresh label { cursor:pointer; }
+.flecha { transition:transform 0.2s; font-size:12px; color:#aaa; }
+.flecha.abierto { transform:rotate(180deg); }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Facturas R21</h1>
+  <div class="stats">
+    <span id="stat-total">0 facturas</span>
+    <span id="stat-monto">Gs. 0</span>
+  </div>
+  <div class="auto-refresh">
+    <input type="checkbox" id="autoRefresh" checked>
+    <label for="autoRefresh">Auto-actualizar (30s)</label>
+  </div>
+</div>
+<div class="buscar">
+  <input type="text" id="busqueda" placeholder="Buscar por numero, vendedor, sucursal...">
+  <button onclick="cargar()">Buscar</button>
+</div>
+<div class="lista" id="lista">
+  <div class="loading">Cargando facturas...</div>
+</div>
+
+<script>
+const API = window.location.origin;
+let facturas = [];
+let timer = null;
+
+async function cargar() {
+  try {
+    const resp = await fetch(API + '/facturas-db?limite=500');
+    const data = await resp.json();
+    facturas = data.facturas || [];
+    renderizar();
+  } catch(e) {
+    document.getElementById('lista').innerHTML = '<div class="vacio"><div class="icono">&#9888;</div>Error de conexion</div>';
+  }
+}
+
+function renderizar() {
+  const q = document.getElementById('busqueda').value.toLowerCase();
+  let filtradas = facturas;
+  if (q) {
+    filtradas = facturas.filter(f =>
+      (f.numero || '').toLowerCase().includes(q) ||
+      (f.vendedor || '').toLowerCase().includes(q) ||
+      (f.sucursal || '').toLowerCase().includes(q)
+    );
+  }
+
+  const montoTotal = filtradas.reduce((s, f) => s + (f.total || 0), 0);
+  document.getElementById('stat-total').textContent = filtradas.length + ' facturas';
+  document.getElementById('stat-monto').textContent = 'Gs. ' + montoTotal.toLocaleString('es-PY');
+
+  if (filtradas.length === 0) {
+    document.getElementById('lista').innerHTML = '<div class="vacio"><div class="icono">&#128196;</div>No hay facturas aun</div>';
+    return;
+  }
+
+  document.getElementById('lista').innerHTML = filtradas.map(f => `
+    <div class="factura-card" id="card-${f.id}">
+      <div class="factura-header" onclick="toggle(${f.id})">
+        <div class="izq">
+          <div class="numero">#${f.numero || 'S/N'}</div>
+          <div class="vendedor">${f.vendedor || 'Sin vendedor'}</div>
+          ${f.sucursal ? '<span class="sucursal-tag">' + f.sucursal + '</span>' : ''}
+        </div>
+        <div class="der">
+          <div class="total">Gs. ${(f.total || 0).toLocaleString('es-PY')}</div>
+          <div class="fecha">${f.fecha || ''}</div>
+          <span class="flecha" id="flecha-${f.id}">&#9660;</span>
+        </div>
+      </div>
+      <div class="factura-detalles" id="det-${f.id}">
+        <div class="loading">Cargando items...</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function toggle(id) {
+  const det = document.getElementById('det-' + id);
+  const flecha = document.getElementById('flecha-' + id);
+  if (det.classList.contains('abierto')) {
+    det.classList.remove('abierto');
+    flecha.classList.remove('abierto');
+    return;
+  }
+  det.classList.add('abierto');
+  flecha.classList.add('abierto');
+
+  try {
+    const resp = await fetch(API + '/factura-db/' + id);
+    const data = await resp.json();
+    if (data.error) {
+      det.innerHTML = '<div style="color:red;padding:10px;">' + data.error + '</div>';
+      return;
+    }
+    let html = '';
+    if (data.ruc) html += '<div class="detalle-row"><span class="desc">RUC</span><span class="precio">' + data.ruc + '</span></div>';
+    if (data.timbrado) html += '<div class="detalle-row"><span class="desc">Timbrado</span><span class="precio">' + data.timbrado + '</span></div>';
+    (data.items || []).forEach(it => {
+      html += `<div class="detalle-row">
+        <span class="desc">${it.descripcion || 'Sin desc'}</span>
+        <span class="cant">${it.cantidad || 0}</span>
+        <span class="precio">Gs. ${(it.precio_total || 0).toLocaleString('es-PY')}</span>
+      </div>`;
+    });
+    html += '<div class="totales">';
+    if (data.total_exentas > 0) html += '<div class="linea"><span>Exentas</span><span>Gs. ' + Number(data.total_exentas).toLocaleString('es-PY') + '</span></div>';
+    if (data.total_iva5 > 0) html += '<div class="linea"><span>IVA 5%</span><span>Gs. ' + Number(data.total_iva5).toLocaleString('es-PY') + '</span></div>';
+    if (data.total_iva10 > 0) html += '<div class="linea"><span>IVA 10%</span><span>Gs. ' + Number(data.total_iva10).toLocaleString('es-PY') + '</span></div>';
+    html += '<div class="linea total"><span>TOTAL</span><span>Gs. ' + Number(data.total_general).toLocaleString('es-PY') + '</span></div>';
+    html += '</div>';
+    det.innerHTML = html;
+  } catch(e) {
+    det.innerHTML = '<div style="color:red;padding:10px;">Error cargando items</div>';
+  }
+}
+
+document.getElementById('busqueda').addEventListener('input', renderizar);
+
+cargar();
+timer = setInterval(() => {
+  if (document.getElementById('autoRefresh').checked) cargar();
+}, 30000);
+</script>
+</body>
+</html>

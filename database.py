@@ -154,4 +154,49 @@ def listar_facturas(sucursal=None, limite=100):
     finally:
         conn.close()
 
+def obtener_factura(factura_id):
+    conn = _get_conn()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, numero, sucursal, vendedor, ruc, timbrado,
+                fecha_emision, total_exentas, total_iva5, total_iva10,
+                total_general, qr_content, raw, creado_en
+            FROM facturas WHERE id = %s
+        """, (factura_id,))
+        r = cur.fetchone()
+        if not r:
+            return None
+
+        cur.execute("""
+            SELECT codigo, codigo_barras, descripcion, cantidad,
+                precio_unitario, precio_total, tipo_iva
+            FROM items WHERE factura_id = %s
+        """, (factura_id,))
+        items = [
+            {
+                "codigo": i[0], "codigo_barras": i[1], "descripcion": i[2],
+                "cantidad": float(i[3]), "precio_unitario": float(i[4]),
+                "precio_total": float(i[5]), "tipo_iva": i[6],
+            }
+            for i in cur.fetchall()
+        ]
+        cur.close()
+
+        return {
+            "id": r[0], "numero": r[1], "sucursal": r[2], "vendedor": r[3],
+            "ruc": r[4], "timbrado": r[5], "fecha": r[6],
+            "total_exentas": float(r[7]), "total_iva5": float(r[8]),
+            "total_iva10": float(r[9]), "total_general": float(r[10]),
+            "qr_content": r[11], "raw": r[12], "creado_en": str(r[13]),
+            "items": items,
+        }
+    except Exception as e:
+        print(f"[db] Error obteniendo factura: {e}")
+        return None
+    finally:
+        conn.close()
+
 inicializar_db()

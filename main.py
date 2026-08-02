@@ -272,9 +272,25 @@ async def buscar_producto(codigo: str):
 
 
 @app.get("/facturas-db")
-def facturas_db(sucursal: str = None):
-    facturas = database.listar_facturas(sucursal)
+def facturas_db(sucursal: str = None, limite: int = 100):
+    facturas = database.listar_facturas(sucursal, limite)
     return {"facturas": facturas}
+
+
+@app.get("/factura-db/{factura_id}")
+def factura_detalle(factura_id: int):
+    factura = database.obtener_factura(factura_id)
+    if not factura:
+        return {"error": "Factura no encontrada"}
+    return factura
+
+
+@app.get("/dashboard")
+def dashboard():
+    from fastapi.responses import HTMLResponse
+    ruta = os.path.join(os.path.dirname(__file__), "dashboard.html")
+    with open(ruta, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
 
 
 @app.get("/historial/{sucursal}")
