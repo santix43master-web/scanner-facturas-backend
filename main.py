@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 import interpretacion
+import database
 
 def _guardar_resultado(resultado):
     try:
@@ -59,6 +60,7 @@ def status():
         "api_key": "Configurado" if os.environ.get("API_KEY") else "No configurado",
         "gemini_api_key": "Configurado" if os.environ.get("GEMINI_API_KEY") else "No configurado",
         "openai_api_key": "Configurado" if os.environ.get("OPENAI_API_KEY") else "No configurado",
+        "postgresql": "Conectado" if os.environ.get("DATABASE_URL") else "No configurado",
     }
 
 @app.post("/procesar")
@@ -80,6 +82,7 @@ async def procesar(factura: List[UploadFile] = File(...), sucursal: str = Form(N
 
         resultado["sucursal"] = sucursal or resultado.get("nombreVendedor", "General")
         _guardar_resultado(resultado)
+        database.guardar_factura(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e)}
@@ -101,6 +104,7 @@ def procesar_qr(data: dict):
 
         resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
         _guardar_resultado(resultado)
+        database.guardar_factura(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e), "items": []}
@@ -130,6 +134,7 @@ def procesar_html_completo(data: dict):
 
         resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
         _guardar_resultado(resultado)
+        database.guardar_factura(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e), "items": []}
@@ -154,11 +159,13 @@ async def guardar(datos: dict):
         with open(ruta_completa, 'w', encoding='utf-8') as f:
             json.dump(datos, f, indent=4, ensure_ascii=False)
 
+        database.guardar_factura(datos)
+
         return {
             "status": "ok",
             "sucursal": sucursal_limpia,
             "archivo": nombre,
-            "mensaje": f"Guardado en {sucursal_limpia}",
+            "mensaje": f"Guardado en {sucursal_limpia} + PostgreSQL",
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -262,6 +269,12 @@ async def buscar_producto(codigo: str):
         return {"resultados": resultados}
     except Exception as e:
         return {"error": str(e), "resultados": []}
+
+
+@app.get("/facturas-db")
+def facturas_db(sucursal: str = None):
+    facturas = database.listar_facturas(sucursal)
+    return {"facturas": facturas}
 
 
 @app.get("/historial/{sucursal}")
