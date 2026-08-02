@@ -371,9 +371,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
             <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.primary }]} onPress={enviarARed} disabled={cargando} activeOpacity={0.85}>
               <Text style={styles.actionBtnText}>ENVIAR</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.accent }]} onPress={enviarACarpetaAction} disabled={cargando} activeOpacity={0.85}>
-              <Text style={styles.actionBtnText}>CARPETA</Text>
-            </TouchableOpacity>
           </View>
         </View>
       )}
