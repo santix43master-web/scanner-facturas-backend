@@ -156,17 +156,30 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
     } catch (error) { setCaptchaCargando(false); Alert.alert("Error captcha", "No se pudieron extraer los datos. Intentá de nuevo."); }
   };
 
-  // Guarda la factura en el buzón del servidor (Render)
+  // Guarda la factura: intenta .16 local, siempre PostgreSQL en Render
   const enviarARed = async () => {
     if (!datosFactura) { Alert.alert("Sin datos", "No hay factura para enviar"); return; }
     if (noDobleTap()) return;
     try {
       setCargando(true);
+      // 1) Intentar guardar en .16 local
+      let localOk = false;
+      try {
+        await guardarEnCarpeta(datosFactura, sucursalActual);
+        localOk = true;
+      } catch {
+        // PC apagada o sin red local
+      }
+      // 2) Siempre guardar en PostgreSQL (Render)
       await guardarEnServidor(datosFactura, sucursalActual, urlServidor);
-      Alert.alert("Enviado", `Factura guardada en buzón de ${sucursalActual}`);
+      if (localOk) {
+        Alert.alert("Enviado", `Guardado en .16 y PostgreSQL (${sucursalActual})`);
+      } else {
+        Alert.alert("Enviado a PostgreSQL", `La PC local no está disponible.\nLa factura se guardó en PostgreSQL nomas.`);
+      }
       setFotos([]); setDatosFactura(null);
     } catch (error) {
-      Alert.alert("Error de envío", `No se pudo guardar en el servidor.\n${error.message}`);
+      Alert.alert("Error de envío", `No se pudo guardar.\n${error.message}`);
     } finally { setCargando(false); }
   };
 

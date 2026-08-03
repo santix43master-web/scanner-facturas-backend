@@ -144,10 +144,13 @@ async function toggle(id) {
     if (data.ruc) html += '<div class="detalle-row"><span class="desc">RUC</span><span class="precio">' + data.ruc + '</span></div>';
     if (data.timbrado) html += '<div class="detalle-row"><span class="desc">Timbrado</span><span class="precio">' + data.timbrado + '</span></div>';
     (data.items || []).forEach(it => {
+      const pu = it.precio_unitario || 0;
+      const pt = it.precio_total || 0;
+      const cant = it.cantidad || 1;
       html += `<div class="detalle-row">
         <span class="desc">${it.descripcion || 'Sin desc'}</span>
-        <span class="cant">${it.cantidad || 0}</span>
-        <span class="precio">Gs. ${(it.precio_total || 0).toLocaleString('es-PY')}</span>
+        <span class="cant">${cant} x ${pu.toLocaleString('es-PY')}</span>
+        <span class="precio">Gs. ${pt.toLocaleString('es-PY')}</span>
       </div>`;
     });
     html += '<div class="totales">';

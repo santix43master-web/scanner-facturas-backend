@@ -13,10 +13,32 @@ import uvicorn
 import interpretacion
 import database
 
+CARPETA_COMPARTIDA = os.environ.get("CARPETA_COMPARTIDA", "")
+
 def _guardar_resultado(resultado):
     try:
         sucursal = resultado.get("sucursal") or resultado.get("nombreVendedor", "General")
         nombre_suc = sucursal.replace(" ", "_").replace("/", "_").replace("\\", "_")
+
+        # Intentar guardar en carpeta compartida de red (.16)
+        if CARPETA_COMPARTIDA:
+            try:
+                ruta_red = os.path.join(CARPETA_COMPARTIDA, nombre_suc)
+                os.makedirs(ruta_red, exist_ok=True)
+                vendedor = resultado.get("nombreVendedor", "Desconocido")
+                v_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
+                nro = resultado.get("numeroFactura", "SIN_NUM")
+                n_limpio = re.sub(r'[\\/*?:"<>|]', '', nro).strip().replace(" ", "_")[:20]
+                ts = str(int(time.time()))
+                nombre = f"{v_limpio}_{n_limpio}_{ts}.json"
+                with open(os.path.join(ruta_red, nombre), 'w', encoding='utf-8') as f:
+                    json.dump(resultado, f, indent=4, ensure_ascii=False)
+                print(f"[guardar] Guardado en red: {ruta_red}/{nombre}")
+                return
+            except Exception as e:
+                print(f"[guardar] No se pudo guardar en red: {e}")
+
+        # Fallback: guardar en OUTPUT_FOLDER local
         ruta_suc = os.path.join(interpretacion.OUTPUT_FOLDER, nombre_suc)
         os.makedirs(ruta_suc, exist_ok=True)
         vendedor = resultado.get("nombreVendedor", "Desconocido")
@@ -146,26 +168,47 @@ async def guardar(datos: dict):
         sucursal = datos.get("sucursal", "General").strip()
         sucursal_limpia = sucursal.replace(" ", "_").replace("/", "_").replace("\\", "_")
 
-        ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal_limpia)
-        os.makedirs(ruta_sucursal, exist_ok=True)
+        guardado_red = False
 
-        vendedor = datos.get("nombreVendedor", "Desconocido")
-        vendedor_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
-        nro_factura = datos.get("numeroFactura", "SIN_NUM")
-        nro_factura_limpio = re.sub(r'[\\/*?:"<>|]', '', nro_factura).strip().replace(" ", "_")[:20]
-        nombre = f"{vendedor_limpio}_{nro_factura_limpio}.json"
-        ruta_completa = os.path.join(ruta_sucursal, nombre)
+        # Intentar guardar en carpeta compartida de red (.16)
+        if CARPETA_COMPARTIDA:
+            try:
+                ruta_red = os.path.join(CARPETA_COMPARTIDA, sucursal_limpia)
+                os.makedirs(ruta_red, exist_ok=True)
+                vendedor = datos.get("nombreVendedor", "Desconocido")
+                vendedor_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
+                nro_factura = datos.get("numeroFactura", "SIN_NUM")
+                nro_factura_limpio = re.sub(r'[\\/*?:"<>|]', '', nro_factura).strip().replace(" ", "_")[:20]
+                nombre = f"{vendedor_limpio}_{nro_factura_limpio}.json"
+                ruta_completa = os.path.join(ruta_red, nombre)
+                with open(ruta_completa, 'w', encoding='utf-8') as f:
+                    json.dump(datos, f, indent=4, ensure_ascii=False)
+                guardado_red = True
+            except Exception as e:
+                print(f"[guardar-compartido] No se pudo guardar en red: {e}")
 
-        with open(ruta_completa, 'w', encoding='utf-8') as f:
-            json.dump(datos, f, indent=4, ensure_ascii=False)
+        # Fallback: guardar en OUTPUT_FOLDER
+        if not guardado_red:
+            ruta_sucursal = os.path.join(interpretacion.OUTPUT_FOLDER, sucursal_limpia)
+            os.makedirs(ruta_sucursal, exist_ok=True)
+            vendedor = datos.get("nombreVendedor", "Desconocido")
+            vendedor_limpio = re.sub(r'[\\/*?:"<>|]', '', vendedor).strip().replace(" ", "_")[:40]
+            nro_factura = datos.get("numeroFactura", "SIN_NUM")
+            nro_factura_limpio = re.sub(r'[\\/*?:"<>|]', '', nro_factura).strip().replace(" ", "_")[:20]
+            nombre = f"{vendedor_limpio}_{nro_factura_limpio}.json"
+            ruta_completa = os.path.join(ruta_sucursal, nombre)
+            with open(ruta_completa, 'w', encoding='utf-8') as f:
+                json.dump(datos, f, indent=4, ensure_ascii=False)
 
+        # Siempre guardar en PostgreSQL
         database.guardar_factura(datos)
 
+        destino = ".16 + PostgreSQL" if guardado_red else "PostgreSQL"
         return {
             "status": "ok",
             "sucursal": sucursal_limpia,
             "archivo": nombre,
-            "mensaje": f"Guardado en {sucursal_limpia} + PostgreSQL",
+            "mensaje": f"Guardado en {destino}",
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}

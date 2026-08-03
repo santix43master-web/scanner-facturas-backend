@@ -100,10 +100,10 @@ def guardar_factura(datos):
                     it.get("codigo"),
                     it.get("codigo_barras") or it.get("codigoBarras"),
                     it.get("descripcion"),
-                    it.get("cantidad", 0),
-                    it.get("precio_unitario") or it.get("precioUnitario", 0),
-                    it.get("precioTotal", 0),
-                    it.get("tipoIva"),
+                    it.get("cantidad", 1),
+                    it.get("precio_unitario") or it.get("precioUnitario") or it.get("subtotal", 0) / max(it.get("cantidad", 1), 1) if it.get("subtotal") else (it.get("precio_unitario") or it.get("precioUnitario", 0)),
+                    it.get("precio_total") or it.get("precioTotal") or it.get("subtotal", 0),
+                    it.get("tipo_iva") or it.get("tipoIva"),
                 )
                 for it in items
             ])
