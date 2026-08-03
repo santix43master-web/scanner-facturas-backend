@@ -90,6 +90,13 @@ def guardar_factura(datos):
 
         items = datos.get("items", [])
         if items:
+            def _val(it, keys, default=0):
+                for k in keys:
+                    v = it.get(k)
+                    if v is not None and v != "":
+                        return v
+                return default
+
             execute_values(cur, """
                 INSERT INTO items (factura_id, codigo, codigo_barras, descripcion,
                     cantidad, precio_unitario, precio_total, tipo_iva)
@@ -97,13 +104,13 @@ def guardar_factura(datos):
             """, [
                 (
                     factura_id,
-                    it.get("codigo"),
-                    it.get("codigo_barras") or it.get("codigoBarras"),
-                    it.get("descripcion"),
-                    it.get("cantidad", 1),
-                    it.get("precio_unitario") or it.get("precioUnitario") or it.get("subtotal", 0) / max(it.get("cantidad", 1), 1) if it.get("subtotal") else (it.get("precio_unitario") or it.get("precioUnitario", 0)),
-                    it.get("precio_total") or it.get("precioTotal") or it.get("subtotal", 0),
-                    it.get("tipo_iva") or it.get("tipoIva"),
+                    _val(it, ["codigo"]),
+                    _val(it, ["codigo_barras", "codigoBarras"], ""),
+                    _val(it, ["descripcion"], ""),
+                    _val(it, ["cantidad"], 1),
+                    _val(it, ["precio_unitario", "precioUnitario"]),
+                    _val(it, ["precio_total", "precioTotal", "subtotal"]),
+                    _val(it, ["tipo_iva", "tipoIva"], ""),
                 )
                 for it in items
             ])

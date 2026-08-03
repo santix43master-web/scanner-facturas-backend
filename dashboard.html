@@ -2,67 +2,231 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Facturas R21</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+:root {
+  --primary: #6C5CE7;
+  --primary-light: #A29BFE;
+  --primary-dark: #5A4BD1;
+  --accent: #00CEC9;
+  --danger: #FF6B6B;
+  --success: #00B894;
+  --warning: #FDCB6E;
+  --bg: #0F0F1A;
+  --surface: #1A1A2E;
+  --surface2: #222240;
+  --card: #16213E;
+  --text: #E8E8F0;
+  --text2: #A0A0C0;
+  --text3: #6060A0;
+  --border: #2A2A50;
+  --glow: rgba(108,92,231,0.3);
+}
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f0f2f5; color:#333; }
-.header { background:linear-gradient(135deg,#1a1a2e,#16213e); color:white; padding:20px; text-align:center; position:sticky; top:0; z-index:100; box-shadow:0 2px 10px rgba(0,0,0,0.3); }
-.header h1 { font-size:22px; font-weight:700; }
-.header .stats { display:flex; gap:20px; justify-content:center; margin-top:10px; font-size:13px; opacity:0.8; }
-.header .stats span { background:rgba(255,255,255,0.15); padding:4px 12px; border-radius:20px; }
-.buscar { padding:12px 16px; background:white; border-bottom:1px solid #e0e0e0; display:flex; gap:8px; position:sticky; top:70px; z-index:99; }
-.buscar input { flex:1; padding:10px 14px; border:1px solid #ddd; border-radius:8px; font-size:14px; outline:none; }
-.buscar input:focus { border-color:#1a1a2e; }
-.buscar button { padding:10px 16px; background:#1a1a2e; color:white; border:none; border-radius:8px; cursor:pointer; font-size:14px; }
-.lista { padding:8px; }
-.factura-card { background:white; border-radius:12px; margin-bottom:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); transition:all 0.2s; }
-.factura-card:active { transform:scale(0.99); }
-.factura-header { padding:14px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
-.factura-header .izq { flex:1; }
-.factura-header .numero { font-weight:700; font-size:15px; color:#1a1a2e; }
-.factura-header .vendedor { font-size:12px; color:#888; margin-top:2px; }
-.factura-header .der { text-align:right; }
-.factura-header .total { font-weight:700; font-size:16px; color:#e74c3c; }
-.factura-header .fecha { font-size:11px; color:#aaa; margin-top:2px; }
-.factura-header .sucursal-tag { display:inline-block; font-size:10px; background:#e8f4fd; color:#2980b9; padding:2px 8px; border-radius:10px; margin-top:4px; }
-.factura-detalles { display:none; padding:0 16px 14px; border-top:1px solid #f0f0f0; }
-.factura-detalles.abierto { display:block; }
-.detalle-row { display:flex; justify-content:space-between; padding:6px 0; font-size:13px; border-bottom:1px solid #f5f5f5; }
-.detalle-row:last-child { border-bottom:none; }
-.detalle-row .desc { flex:1; color:#555; }
-.detalle-row .cant { width:40px; text-align:center; color:#888; }
-.detalle-row .precio { width:80px; text-align:right; font-weight:600; }
-.totales { margin-top:10px; padding-top:10px; border-top:2px solid #eee; }
-.totales .linea { display:flex; justify-content:space-between; font-size:13px; padding:3px 0; }
-.totales .linea.total { font-weight:700; font-size:15px; color:#e74c3c; margin-top:4px; }
-.loading { text-align:center; padding:40px; color:#888; }
-.vacio { text-align:center; padding:60px 20px; color:#aaa; }
-.vacio .icono { font-size:48px; margin-bottom:12px; }
-.auto-refresh { display:flex; align-items:center; gap:6px; justify-content:center; margin-top:8px; font-size:12px; }
+body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+.header {
+  background:linear-gradient(135deg,var(--surface) 0%,var(--card) 100%);
+  padding:24px 20px 18px;
+  position:sticky; top:0; z-index:100;
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px);
+}
+.header-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.header h1 { font-size:20px; font-weight:800; letter-spacing:-0.5px; }
+.header h1 span { color:var(--primary); }
+.header-badge { background:var(--primary); color:white; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; }
+.stats { display:flex; gap:10px; }
+.stat-card {
+  flex:1; background:var(--surface2); border-radius:14px; padding:14px;
+  border:1px solid var(--border); text-align:center;
+}
+.stat-card .label { font-size:10px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:1px; }
+.stat-card .value { font-size:20px; font-weight:800; margin-top:4px; color:var(--text); }
+.stat-card .value.green { color:var(--success); }
+.stat-card .value.purple { color:var(--primary-light); }
+
+.buscar {
+  padding:12px 16px; position:sticky; top:110px; z-index:99;
+  background:rgba(15,15,26,0.9); backdrop-filter:blur(20px);
+}
+.buscar-inner {
+  display:flex; gap:8px; background:var(--surface); border-radius:14px;
+  padding:4px; border:1px solid var(--border);
+}
+.buscar input {
+  flex:1; padding:12px 16px; background:transparent; border:none;
+  color:var(--text); font-size:14px; font-family:inherit; outline:none;
+}
+.buscar input::placeholder { color:var(--text3); }
+.buscar button {
+  padding:10px 20px; background:var(--primary); color:white; border:none;
+  border-radius:10px; cursor:pointer; font-size:13px; font-weight:700;
+  font-family:inherit; transition:all 0.2s;
+}
+.buscar button:active { transform:scale(0.95); background:var(--primary-dark); }
+
+.lista { padding:8px 12px 100px; }
+
+.factura-card {
+  background:var(--card); border-radius:16px; margin-bottom:10px;
+  border:1px solid var(--border); overflow:hidden;
+  transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+  box-shadow:0 4px 20px rgba(0,0,0,0.2);
+}
+.factura-card:hover { border-color:var(--primary); box-shadow:0 4px 30px var(--glow); }
+.factura-card:active { transform:scale(0.98); }
+
+.factura-header {
+  padding:16px 18px; display:flex; justify-content:space-between;
+  align-items:center; cursor:pointer; gap:12px;
+}
+.factura-header .izq { flex:1; min-width:0; }
+.factura-header .numero {
+  font-weight:800; font-size:16px; color:var(--text);
+  display:flex; align-items:center; gap:8px;
+}
+.factura-header .numero .hash { color:var(--primary); font-weight:800; }
+.factura-header .vendedor { font-size:12px; color:var(--text2); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.factura-header .der { text-align:right; flex-shrink:0; }
+.factura-header .total { font-weight:800; font-size:17px; color:var(--accent); }
+.factura-header .fecha { font-size:11px; color:var(--text3); margin-top:2px; }
+
+.sucursal-tag {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:10px; font-weight:600;
+  background:rgba(108,92,231,0.15); color:var(--primary-light);
+  padding:3px 10px; border-radius:20px; margin-top:6px;
+  border:1px solid rgba(108,92,231,0.2);
+}
+.flecha {
+  display:inline-block; transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  font-size:10px; color:var(--text3); margin-left:4px;
+}
+.flecha.abierto { transform:rotate(180deg); color:var(--primary); }
+
+.factura-detalles {
+  max-height:0; overflow:hidden; transition:max-height 0.4s cubic-bezier(0.4,0,0.2,1);
+  border-top:0 solid var(--border);
+}
+.factura-detalles.abierto { max-height:2000px; border-top-width:1px; }
+
+.detalle-content { padding:14px 18px; }
+.detalle-meta { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.meta-chip {
+  font-size:11px; font-weight:600; padding:5px 12px; border-radius:8px;
+  background:var(--surface2); color:var(--text2); border:1px solid var(--border);
+}
+.meta-chip strong { color:var(--text); }
+
+.items-header {
+  font-size:11px; font-weight:700; color:var(--text3);
+  text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;
+  padding-bottom:8px; border-bottom:1px solid var(--border);
+}
+
+.item-row {
+  display:flex; align-items:center; padding:10px 0;
+  border-bottom:1px solid rgba(42,42,80,0.5); gap:12px;
+}
+.item-row:last-child { border-bottom:none; }
+.item-num {
+  width:24px; height:24px; border-radius:8px; display:flex;
+  align-items:center; justify-content:center; font-size:11px;
+  font-weight:700; background:var(--primary); color:white; flex-shrink:0;
+}
+.item-info { flex:1; min-width:0; }
+.item-desc { font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.item-sub { font-size:11px; color:var(--text3); margin-top:2px; }
+.item-precio { font-size:14px; font-weight:700; color:var(--accent); flex-shrink:0; }
+
+.totales-box {
+  background:var(--surface2); border-radius:12px; padding:14px;
+  margin-top:14px; border:1px solid var(--border);
+}
+.totales-line {
+  display:flex; justify-content:space-between; font-size:12px;
+  padding:4px 0; color:var(--text2);
+}
+.totales-line.total-line {
+  font-size:16px; font-weight:800; color:var(--text);
+  padding-top:8px; margin-top:6px; border-top:1px solid var(--border);
+}
+.totales-line.total-line .monto { color:var(--accent); }
+
+.loading { text-align:center; padding:50px 20px; color:var(--text3); font-size:14px; }
+.loading .spinner {
+  width:32px; height:32px; border:3px solid var(--border);
+  border-top-color:var(--primary); border-radius:50%;
+  animation:spin 0.8s linear infinite; margin:0 auto 12px;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.vacio { text-align:center; padding:80px 20px; }
+.vacio .icono { font-size:56px; margin-bottom:16px; opacity:0.5; }
+.vacio .msg { color:var(--text3); font-size:14px; font-weight:500; }
+
+.auto-refresh {
+  display:flex; align-items:center; gap:8px; justify-content:center;
+  margin-top:12px; font-size:11px; color:var(--text3);
+}
+.auto-refresh input[type=checkbox] {
+  appearance:none; width:36px; height:20px; background:var(--surface2);
+  border-radius:10px; position:relative; cursor:pointer; transition:background 0.3s;
+  border:1px solid var(--border);
+}
+.auto-refresh input[type=checkbox]:checked { background:var(--primary); border-color:var(--primary); }
+.auto-refresh input[type=checkbox]::after {
+  content:''; position:absolute; top:2px; left:2px; width:14px; height:14px;
+  background:white; border-radius:50%; transition:transform 0.3s;
+}
+.auto-refresh input[type=checkbox]:checked::after { transform:translateX(16px); }
 .auto-refresh label { cursor:pointer; }
-.flecha { transition:transform 0.2s; font-size:12px; color:#aaa; }
-.flecha.abierto { transform:rotate(180deg); }
+
+.empty-state { text-align:center; padding:80px 20px; }
+.empty-state .icon { font-size:64px; margin-bottom:16px; }
+.empty-state h3 { font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px; }
+.empty-state p { font-size:13px; color:var(--text3); }
+
+@keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+.factura-card { animation:fadeIn 0.3s ease-out; }
 </style>
 </head>
 <body>
+
 <div class="header">
-  <h1>Facturas R21</h1>
+  <div class="header-top">
+    <h1><span>Facturas</span> R21</h1>
+    <span class="header-badge" id="headerBadge">LIVE</span>
+  </div>
   <div class="stats">
-    <span id="stat-total">0 facturas</span>
-    <span id="stat-monto">Gs. 0</span>
+    <div class="stat-card">
+      <div class="label">Facturas</div>
+      <div class="value purple" id="stat-total">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total General</div>
+      <div class="value green" id="stat-monto">Gs. 0</div>
+    </div>
   </div>
   <div class="auto-refresh">
     <input type="checkbox" id="autoRefresh" checked>
-    <label for="autoRefresh">Auto-actualizar (30s)</label>
+    <label for="autoRefresh">Auto-actualizar</label>
   </div>
 </div>
+
 <div class="buscar">
-  <input type="text" id="busqueda" placeholder="Buscar por numero, vendedor, sucursal...">
-  <button onclick="cargar()">Buscar</button>
+  <div class="buscar-inner">
+    <input type="text" id="busqueda" placeholder="Buscar factura, vendedor, sucursal...">
+    <button onclick="cargar()">Buscar</button>
+  </div>
 </div>
+
 <div class="lista" id="lista">
-  <div class="loading">Cargando facturas...</div>
+  <div class="loading"><div class="spinner"></div>Cargando facturas...</div>
 </div>
 
 <script>
@@ -71,13 +235,20 @@ let facturas = [];
 let timer = null;
 
 async function cargar() {
+  const badge = document.getElementById('headerBadge');
+  badge.textContent = '...';
+  badge.style.background = 'var(--text3)';
   try {
     const resp = await fetch(API + '/facturas-db?limite=500');
     const data = await resp.json();
     facturas = data.facturas || [];
     renderizar();
+    badge.textContent = 'LIVE';
+    badge.style.background = 'var(--success)';
   } catch(e) {
-    document.getElementById('lista').innerHTML = '<div class="vacio"><div class="icono">&#9888;</div>Error de conexion</div>';
+    document.getElementById('lista').innerHTML = '<div class="empty-state"><div class="icon">&#9888;</div><h3>Sin conexion</h3><p>No se pudo conectar al servidor</p></div>';
+    badge.textContent = 'OFF';
+    badge.style.background = 'var(--danger)';
   }
 }
 
@@ -93,19 +264,19 @@ function renderizar() {
   }
 
   const montoTotal = filtradas.reduce((s, f) => s + (f.total || 0), 0);
-  document.getElementById('stat-total').textContent = filtradas.length + ' facturas';
+  document.getElementById('stat-total').textContent = filtradas.length;
   document.getElementById('stat-monto').textContent = 'Gs. ' + montoTotal.toLocaleString('es-PY');
 
   if (filtradas.length === 0) {
-    document.getElementById('lista').innerHTML = '<div class="vacio"><div class="icono">&#128196;</div>No hay facturas aun</div>';
+    document.getElementById('lista').innerHTML = '<div class="empty-state"><div class="icon">&#128196;</div><h3>Sin facturas</h3><p>Escanea una factura para que aparezca aqui</p></div>';
     return;
   }
 
-  document.getElementById('lista').innerHTML = filtradas.map(f => `
-    <div class="factura-card" id="card-${f.id}">
+  document.getElementById('lista').innerHTML = filtradas.map((f, i) => `
+    <div class="factura-card" id="card-${f.id}" style="animation-delay:${i * 0.03}s">
       <div class="factura-header" onclick="toggle(${f.id})">
         <div class="izq">
-          <div class="numero">#${f.numero || 'S/N'}</div>
+          <div class="numero"><span class="hash">#</span>${f.numero || 'S/N'}</div>
           <div class="vendedor">${f.vendedor || 'Sin vendedor'}</div>
           ${f.sucursal ? '<span class="sucursal-tag">' + f.sucursal + '</span>' : ''}
         </div>
@@ -116,7 +287,9 @@ function renderizar() {
         </div>
       </div>
       <div class="factura-detalles" id="det-${f.id}">
-        <div class="loading">Cargando items...</div>
+        <div class="detalle-content">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
       </div>
     </div>
   `).join('');
@@ -137,31 +310,49 @@ async function toggle(id) {
     const resp = await fetch(API + '/factura-db/' + id);
     const data = await resp.json();
     if (data.error) {
-      det.innerHTML = '<div style="color:red;padding:10px;">' + data.error + '</div>';
+      det.innerHTML = '<div class="detalle-content" style="color:var(--danger)">' + data.error + '</div>';
       return;
     }
-    let html = '';
-    if (data.ruc) html += '<div class="detalle-row"><span class="desc">RUC</span><span class="precio">' + data.ruc + '</span></div>';
-    if (data.timbrado) html += '<div class="detalle-row"><span class="desc">Timbrado</span><span class="precio">' + data.timbrado + '</span></div>';
-    (data.items || []).forEach(it => {
-      const pu = it.precio_unitario || 0;
-      const pt = it.precio_total || 0;
-      const cant = it.cantidad || 1;
-      html += `<div class="detalle-row">
-        <span class="desc">${it.descripcion || 'Sin desc'}</span>
-        <span class="cant">${cant} x ${pu.toLocaleString('es-PY')}</span>
-        <span class="precio">Gs. ${pt.toLocaleString('es-PY')}</span>
-      </div>`;
-    });
-    html += '<div class="totales">';
-    if (data.total_exentas > 0) html += '<div class="linea"><span>Exentas</span><span>Gs. ' + Number(data.total_exentas).toLocaleString('es-PY') + '</span></div>';
-    if (data.total_iva5 > 0) html += '<div class="linea"><span>IVA 5%</span><span>Gs. ' + Number(data.total_iva5).toLocaleString('es-PY') + '</span></div>';
-    if (data.total_iva10 > 0) html += '<div class="linea"><span>IVA 10%</span><span>Gs. ' + Number(data.total_iva10).toLocaleString('es-PY') + '</span></div>';
-    html += '<div class="linea total"><span>TOTAL</span><span>Gs. ' + Number(data.total_general).toLocaleString('es-PY') + '</span></div>';
+
+    let html = '<div class="detalle-content">';
+
+    // Meta chips
+    html += '<div class="detalle-meta">';
+    if (data.ruc) html += '<span class="meta-chip">RUC: <strong>' + data.ruc + '</strong></span>';
+    if (data.timbrado) html += '<span class="meta-chip">Timbrado: <strong>' + data.timbrado + '</strong></span>';
+    if (data.vendedor) html += '<span class="meta-chip">Vendedor: <strong>' + data.vendedor + '</strong></span>';
     html += '</div>';
+
+    // Items
+    const items = data.items || [];
+    if (items.length > 0) {
+      html += '<div class="items-header">Articulos (' + items.length + ')</div>';
+      items.forEach((it, i) => {
+        const pu = it.precio_unitario || 0;
+        const pt = it.precio_total || 0;
+        const cant = it.cantidad || 1;
+        html += `<div class="item-row">
+          <div class="item-num">${i + 1}</div>
+          <div class="item-info">
+            <div class="item-desc">${it.descripcion || 'Sin descripcion'}</div>
+            <div class="item-sub">${cant} x Gs. ${pu.toLocaleString('es-PY')}</div>
+          </div>
+          <div class="item-precio">Gs. ${pt.toLocaleString('es-PY')}</div>
+        </div>`;
+      });
+    }
+
+    // Totales
+    html += '<div class="totales-box">';
+    if (data.total_exentas > 0) html += '<div class="totales-line"><span>Exentas</span><span>Gs. ' + Number(data.total_exentas).toLocaleString('es-PY') + '</span></div>';
+    if (data.total_iva5 > 0) html += '<div class="totales-line"><span>IVA 5%</span><span>Gs. ' + Number(data.total_iva5).toLocaleString('es-PY') + '</span></div>';
+    if (data.total_iva10 > 0) html += '<div class="totales-line"><span>IVA 10%</span><span>Gs. ' + Number(data.total_iva10).toLocaleString('es-PY') + '</span></div>';
+    html += '<div class="totales-line total-line"><span>TOTAL</span><span class="monto">Gs. ' + Number(data.total_general).toLocaleString('es-PY') + '</span></div>';
+    html += '</div></div>';
+
     det.innerHTML = html;
   } catch(e) {
-    det.innerHTML = '<div style="color:red;padding:10px;">Error cargando items</div>';
+    det.innerHTML = '<div class="detalle-content" style="color:var(--danger)">Error cargando items</div>';
   }
 }
 
