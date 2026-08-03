@@ -336,6 +336,12 @@ def dashboard():
         return HTMLResponse(content=f.read())
 
 
+@app.post("/limpiar-db")
+def limpiar_db():
+    ok = database.limpiar_db()
+    return {"status": "ok" if ok else "error", "mensaje": "Base limpia" if ok else "Error limpiando"}
+
+
 @app.get("/historial/{sucursal}")
 async def obtener_historial(sucursal: str):
     try:

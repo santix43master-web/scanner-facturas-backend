@@ -206,4 +206,25 @@ def obtener_factura(factura_id):
     finally:
         conn.close()
 
+def limpiar_db():
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM items")
+        cur.execute("DELETE FROM facturas")
+        cur.execute("ALTER SEQUENCE facturas_id_seq RESTART WITH 1")
+        cur.execute("ALTER SEQUENCE items_id_seq RESTART WITH 1")
+        conn.commit()
+        cur.close()
+        print("[db] Base limpia OK")
+        return True
+    except Exception as e:
+        print(f"[db] Error limpiando: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
 inicializar_db()
