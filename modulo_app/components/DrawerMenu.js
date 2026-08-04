@@ -19,6 +19,7 @@ export default function DrawerMenu({
   const [ngrokInput, setNgrokInput] = useState('');
   const [ngrokSaved, setNgrokSaved] = useState(false);
   const [ngrokDesbloqueado, setNgrokDesbloqueado] = useState(false);
+  const [ngrokPass, setNgrokPass] = useState('');
 
   useEffect(() => { cargarNgrokUrl().then(u => { if (u) setNgrokInput(u); }); }, []);
 
@@ -29,19 +30,14 @@ export default function DrawerMenu({
     setTimeout(() => setNgrokSaved(false), 2000);
   };
 
-  const pedirPasswordNgrok = () => {
-    Alert.prompt(
-      'Contraseña',
-      'Ingresá la contraseña para configurar la dirección',
-      (text) => {
-        if (esPasswordValida(text)) {
-          setNgrokDesbloqueado(true);
-        } else {
-          Alert.alert('Incorrecta', 'Contraseña incorrecta');
-        }
-      },
-      'secure-text'
-    );
+  const desbloquearNgrok = () => {
+    if (esPasswordValida(ngrokPass)) {
+      setNgrokDesbloqueado(true);
+      setNgrokPass('');
+    } else {
+      Alert.alert('Incorrecta', 'Contraseña incorrecta');
+      setNgrokPass('');
+    }
   };
 
   // Convierte YYYY-MM-DD a DD/MM/YYYY para mostrar
@@ -214,28 +210,40 @@ export default function DrawerMenu({
         </View>
 
         {/* Configuración ngrok - protegido con contraseña */}
-        <TouchableOpacity
-          style={{ marginBottom: 12, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface, alignItems: 'center' }}
-          onPress={ngrokDesbloqueado ? null : pedirPasswordNgrok}
-        >
-          <Text style={{ fontSize: 11, fontWeight: '700', color: ngrokDesbloqueado ? theme.success : theme.textMuted, letterSpacing: 1 }}>
+        <View style={{ marginBottom: 16, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: ngrokDesbloqueado ? theme.success : theme.border, backgroundColor: theme.surface }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: ngrokDesbloqueado ? theme.success : theme.textMuted, letterSpacing: 1, marginBottom: 8 }}>
             {ngrokDesbloqueado ? 'NGROK (Backend Local)' : '🔒 Configurar dirección'}
           </Text>
-        </TouchableOpacity>
-        {ngrokDesbloqueado && (
-          <View style={{ marginBottom: 16, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: theme.success, backgroundColor: theme.surface }}>
-            <TextInput
-              style={[styles.search, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
-              placeholder="https://xxxx.ngrok-free.app"
-              placeholderTextColor={theme.textMuted}
-              value={ngrokInput}
-              onChangeText={setNgrokInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: ngrokSaved ? theme.success : theme.primary, width: '100%', alignItems: 'center' }]} onPress={guardarNgrok}>
-              <Text style={styles.accionText}>{ngrokSaved ? 'Guardado!' : 'Guardar URL'}</Text>
-            </TouchableOpacity>
+          {!ngrokDesbloqueado ? (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                style={[styles.search, { flex: 1, borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
+                placeholder="Contraseña"
+                placeholderTextColor={theme.textMuted}
+                value={ngrokPass}
+                onChangeText={setNgrokPass}
+                secureTextEntry
+              />
+              <TouchableOpacity style={[styles.accionBtn, { backgroundColor: theme.primary, paddingHorizontal: 16 }]} onPress={desbloquearNgrok}>
+                <Text style={styles.accionText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <TextInput
+                style={[styles.search, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
+                placeholder="https://xxxx.ngrok-free.app"
+                placeholderTextColor={theme.textMuted}
+                value={ngrokInput}
+                onChangeText={setNgrokInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity style={[styles.accionBtn, { backgroundColor: ngrokSaved ? theme.success : theme.primary, width: '100%', alignItems: 'center' }]} onPress={guardarNgrok}>
+                <Text style={styles.accionText}>{ngrokSaved ? 'Guardado!' : 'Guardar URL'}</Text>
+              </TouchableOpacity>
+            </>
+          )}
           </View>
         )}
                       ))

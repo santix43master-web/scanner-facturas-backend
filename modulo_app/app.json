@@ -20,8 +20,7 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0D1B2A"
       },
-      "package": "com.josemeza.r21facturas",
-      "usesCleartextTraffic": true
+      "package": "com.josemeza.r21facturas"
     },
     "web": {
       "favicon": "./assets/icon.png"
