@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, Image, ActivityIndicator, Alert,
   ScrollView, Vibration, Modal, StyleSheet,
@@ -10,6 +10,7 @@ import { useTheme } from '../utils/ThemeContext';
 import { actualizarPrecios } from '../PriceTracker';
 import { comprimirImagen } from '../utils/image';
 import { procesarFactura, procesarQr, procesarHtmlCompleto, guardarEnServidor, guardarEnCarpeta, buscarProducto } from '../utils/api';
+import { cargarNgrokUrl } from '../utils/storage';
 import QrScanner from '../components/QrScanner';
 import CaptchaWebView from '../components/CaptchaWebView';
 import { generarPDF } from '../components/PDFGenerator';
@@ -41,6 +42,9 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
   const qrScaneado = useRef(false);  // evita escaneos repetidos
   const qrContentRef = useRef('');   // guarda el contenido del QR para el captcha
   const noDobleTap = useDobleTap(3000); // protege botones de doble tap
+  const [ngrokUrl, setNgrokUrl] = useState(null);
+
+  useEffect(() => { cargarNgrokUrl().then(u => setNgrokUrl(u)); }, []);
 
   // Abre la cámara para tomar una foto de la factura
   const tomarFoto = async () => {
@@ -165,7 +169,7 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
       // 1) Intentar guardar en .16 local
       let localOk = false;
       try {
-        await guardarEnCarpeta(datosFactura, sucursalActual);
+        await guardarEnCarpeta(datosFactura, sucursalActual, ngrokUrl);
         localOk = true;
       } catch {
         // PC apagada o sin red local

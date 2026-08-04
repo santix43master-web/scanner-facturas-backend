@@ -1,5 +1,6 @@
 // URL por defecto del servidor backend (Render)
 const DEFAULT_URL = "https://scanner-facturas-backend.onrender.com";
+const LOCAL_DEFAULT = "http://192.168.100.100:10000";
 
 // Función con retry automático (reintenta 2 veces si falla)
 async function fetchConRetry(url, options = {}, reintentos = 2) {
@@ -75,17 +76,18 @@ export async function guardarEnServidor(datosFactura, sucursalActual, urlServido
   });
 }
 
-// Guarda la factura en el servidor local de la red (192.168.100.100)
-export async function guardarEnCarpeta(datosFactura, sucursalActual) {
+// Guarda la factura en el servidor local de la red
+export async function guardarEnCarpeta(datosFactura, sucursalActual, localUrl) {
   const datosConSucursal = {
     ...datosFactura,
     sucursal: sucursalActual,
     fechaEnvio: new Date().toISOString(),
   };
+  const url = localUrl || LOCAL_DEFAULT;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch(`http://192.168.100.100:10000/guardar-compartido`, {
+    const res = await fetch(`${url}/guardar-compartido`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(datosConSucursal),
