@@ -104,7 +104,6 @@ async def procesar(factura: List[UploadFile] = File(...), sucursal: str = Form(N
 
         resultado["sucursal"] = sucursal or resultado.get("nombreVendedor", "General")
         _guardar_resultado(resultado)
-        database.guardar_factura(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e)}
@@ -126,7 +125,6 @@ def procesar_qr(data: dict):
 
         resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
         _guardar_resultado(resultado)
-        database.guardar_factura(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e), "items": []}
@@ -156,7 +154,6 @@ def procesar_html_completo(data: dict):
 
         resultado["sucursal"] = data.get("sucursal") or resultado.get("nombreVendedor", "General")
         _guardar_resultado(resultado)
-        database.guardar_factura(resultado)
         return resultado
     except Exception as e:
         return {"error": str(e), "items": []}
