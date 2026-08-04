@@ -1,6 +1,6 @@
 // URL por defecto del servidor backend (Render)
 const DEFAULT_URL = "https://scanner-facturas-backend.onrender.com";
-const LOCAL_DEFAULT = "http://192.168.100.100:10000";
+const LOCAL_DEFAULT = "https://snooze-chafe-bullwhip.ngrok-free.dev";
 
 // Función con retry automático (reintenta 2 veces si falla)
 async function fetchConRetry(url, options = {}, reintentos = 2) {
