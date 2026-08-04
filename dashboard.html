@@ -3,366 +3,230 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Facturas R21 | Interfaz Avanzada Optimizada</title>
+<title>Facturas R21</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg-deep: #010205;
-  --surface-dark: #080b14;
-  --surface-light: #111827;
-  
-  --neon-cyan: #00f3ff;
-  --neon-cyan-dim: rgba(0, 243, 255, 0.15);
-  --neon-purple: #bc13fe;
-  --neon-purple-dim: rgba(188, 19, 254, 0.15);
-  --neon-green: #00ff66;
-  --neon-red: #ff2a6d;
-  
-  --border-subtle: #1a2333;
-  
-  --text-main: #e0f8ff;
-  --text-muted: #6b8a9e;
-  
-  --font-ui: 'Space Grotesk', sans-serif;
-  --font-display: 'Rajdhani', sans-serif;
-  --font-mono: 'Space Mono', monospace;
+  --primary: #6C5CE7;
+  --primary-light: #A29BFE;
+  --primary-dark: #5A4BD1;
+  --accent: #00CEC9;
+  --danger: #FF6B6B;
+  --success: #00B894;
+  --warning: #FDCB6E;
+  --bg: #0F0F1A;
+  --surface: #1A1A2E;
+  --surface2: #222240;
+  --card: #16213E;
+  --text: #E8E8F0;
+  --text2: #A0A0C0;
+  --text3: #6060A0;
+  --border: #2A2A50;
+  --glow: rgba(108,92,231,0.3);
 }
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body { 
-  font-family: var(--font-ui); 
-  background-color: var(--bg-deep); 
-  color: var(--text-main); 
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-.bg-grid {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: -1;
-  background-image: 
-    linear-gradient(var(--border-subtle) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
-  background-size: 40px 40px;
-  transform: translateZ(0);
-  opacity: 0.6;
-}
-
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-deep); }
-::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--neon-cyan); }
-
-.app-container {
-  max-width: 800px;
-  margin: 0 auto;
-  position: relative;
-}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
 
 .header {
-  background: var(--surface-dark);
-  padding: 24px 20px 24px;
-  position: sticky; 
-  top: 0; 
-  z-index: 100;
-  border-bottom: 1px solid var(--neon-cyan);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+  background:linear-gradient(135deg,var(--surface) 0%,var(--card) 100%);
+  padding:24px 20px 18px;
+  position:sticky; top:0; z-index:100;
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px);
 }
-
-.header-top { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin-bottom: 20px; 
-}
-
-.header h1 { 
-  font-family: var(--font-display);
-  font-size: 28px; 
-  font-weight: 700; 
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
-.header h1 span { color: var(--neon-cyan); }
-
-.header-badge { 
-  background: rgba(0, 255, 102, 0.1); 
-  color: var(--neon-green); 
-  border: 1px solid var(--neon-green);
-  font-size: 12px; 
-  font-family: var(--font-mono);
-  font-weight: 700; 
-  padding: 4px 12px; 
-  border-radius: 4px; 
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.badge-dot {
-  width: 6px; height: 6px;
-  background: var(--neon-green);
-  border-radius: 50%;
-  animation: pulseOpacity 1.5s ease-in-out infinite;
-}
-
-.stats { display: flex; gap: 16px; }
+.header-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.header h1 { font-size:20px; font-weight:800; letter-spacing:-0.5px; }
+.header h1 span { color:var(--primary); }
+.header-badge { background:var(--primary); color:white; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; }
+.stats { display:flex; gap:10px; }
 .stat-card {
-  flex: 1; 
-  background: var(--surface-light); 
-  border-radius: 4px; 
-  padding: 16px;
-  border: 1px solid var(--border-subtle); 
-  border-left: 3px solid var(--neon-cyan);
+  flex:1; background:var(--surface2); border-radius:14px; padding:14px;
+  border:1px solid var(--border); text-align:center;
 }
-.stat-card:nth-child(2) { border-left-color: var(--neon-purple); }
-
-.stat-card .label { 
-  font-size: 11px; 
-  font-family: var(--font-mono);
-  color: var(--text-muted); 
-  text-transform: uppercase; 
-  letter-spacing: 1.5px; 
-}
-.stat-card .value { 
-  font-family: var(--font-display);
-  font-size: 26px; 
-  font-weight: 700; 
-  margin-top: 8px; 
-  color: var(--text-main); 
-}
-.stat-card .value.cyan { color: var(--neon-cyan); }
-.stat-card .value.purple { color: var(--neon-purple); }
+.stat-card .label { font-size:10px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:1px; }
+.stat-card .value { font-size:20px; font-weight:800; margin-top:4px; color:var(--text); }
+.stat-card .value.green { color:var(--success); }
+.stat-card .value.purple { color:var(--primary-light); }
 
 .buscar {
-  padding: 20px 20px 10px; 
-  position: sticky; 
-  top: 135px; 
-  z-index: 99;
-  background: var(--bg-deep);
-  border-bottom: 1px solid var(--border-subtle);
+  padding:12px 16px; position:sticky; top:110px; z-index:99;
+  background:rgba(15,15,26,0.9); backdrop-filter:blur(20px);
 }
 .buscar-inner {
-  display: flex; gap: 8px; 
-  background: var(--surface-light); 
-  border-radius: 4px;
-  padding: 6px; 
-  border: 1px solid var(--border-subtle);
+  display:flex; gap:8px; background:var(--surface); border-radius:14px;
+  padding:4px; border:1px solid var(--border);
 }
 .buscar input {
-  flex: 1; padding: 12px 16px; background: transparent; border: none;
-  color: var(--neon-cyan); font-size: 15px; font-family: var(--font-mono); outline: none;
+  flex:1; padding:12px 16px; background:transparent; border:none;
+  color:var(--text); font-size:14px; font-family:inherit; outline:none;
 }
-.buscar input::placeholder { color: var(--text-muted); }
+.buscar input::placeholder { color:var(--text3); }
 .buscar button {
-  padding: 10px 24px; 
-  background: var(--surface-dark); 
-  color: var(--neon-cyan); 
-  border: 1px solid var(--neon-cyan);
-  border-radius: 2px; cursor: pointer; 
-  font-size: 14px; font-weight: 700; font-family: var(--font-display);
-  letter-spacing: 1px; text-transform: uppercase;
-  transition: background-color 0.2s, color 0.2s;
+  padding:10px 20px; background:var(--primary); color:white; border:none;
+  border-radius:10px; cursor:pointer; font-size:13px; font-weight:700;
+  font-family:inherit; transition:all 0.2s;
 }
-.buscar button:hover { 
-  background: var(--neon-cyan); 
-  color: var(--bg-deep);
-}
+.buscar button:active { transform:scale(0.95); background:var(--primary-dark); }
 
-.lista { padding: 10px 20px 100px; display: flex; flex-direction: column; gap: 12px; }
+.lista { padding:8px 12px 100px; }
 
 .factura-card {
-  background: var(--surface-light); 
-  border-radius: 4px; 
-  border: 1px solid var(--border-subtle); 
-  position: relative;
-  transition: transform 0.2s, border-color 0.2s;
-  content-visibility: auto; 
-  contain-intrinsic-size: 80px; 
+  background:var(--card); border-radius:16px; margin-bottom:10px;
+  border:1px solid var(--border); overflow:hidden;
+  transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+  box-shadow:0 4px 20px rgba(0,0,0,0.2);
 }
-.factura-card::before {
-  content: ''; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 4px;
-  background: var(--text-muted); border-radius: 4px 0 0 4px; transition: background-color 0.2s;
-}
-.factura-card:hover { 
-  border-color: var(--neon-cyan); 
-  transform: translateX(4px);
-}
-.factura-card:hover::before { background: var(--neon-cyan); }
-.factura-card.abierto::before { background: var(--neon-purple); }
-.factura-card.abierto { border-color: var(--neon-purple); }
+.factura-card:hover { border-color:var(--primary); box-shadow:0 4px 30px var(--glow); }
+.factura-card:active { transform:scale(0.98); }
 
 .factura-header {
-  padding: 16px 20px; display: flex; justify-content: space-between;
-  align-items: center; cursor: pointer; gap: 12px;
+  padding:16px 18px; display:flex; justify-content:space-between;
+  align-items:center; cursor:pointer; gap:12px;
 }
-.factura-header .izq { flex: 1; min-width: 0; }
+.factura-header .izq { flex:1; min-width:0; }
 .factura-header .numero {
-  font-family: var(--font-mono); font-size: 15px; color: var(--text-main);
-  display: flex; align-items: center; gap: 8px; font-weight: 700;
+  font-weight:800; font-size:16px; color:var(--text);
+  display:flex; align-items:center; gap:8px;
 }
-.factura-header .numero .hash { color: var(--neon-purple); font-weight: bold; }
-.factura-header .vendedor { 
-  font-size: 13px; color: var(--text-muted); margin-top: 4px; 
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-}
-.factura-header .der { text-align: right; flex-shrink: 0; }
-.factura-header .total { 
-  font-family: var(--font-mono); font-weight: 700; font-size: 16px; color: var(--neon-cyan); 
-}
-.factura-header .fecha { font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); margin-top: 4px; }
+.factura-header .numero .hash { color:var(--primary); font-weight:800; }
+.factura-header .vendedor { font-size:12px; color:var(--text2); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.factura-header .der { text-align:right; flex-shrink:0; }
+.factura-header .total { font-weight:800; font-size:17px; color:var(--accent); }
+.factura-header .fecha { font-size:11px; color:var(--text3); margin-top:2px; }
 
 .sucursal-tag {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 10px; font-family: var(--font-mono); font-weight: 700;
-  background: var(--surface-dark); color: #d473ff;
-  padding: 2px 8px; border-radius: 2px; margin-top: 8px;
-  border: 1px solid var(--neon-purple-dim);
-  text-transform: uppercase;
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:10px; font-weight:600;
+  background:rgba(108,92,231,0.15); color:var(--primary-light);
+  padding:3px 10px; border-radius:20px; margin-top:6px;
+  border:1px solid rgba(108,92,231,0.2);
 }
-
 .flecha {
-  display: inline-block; transition: transform 0.3s;
-  font-size: 10px; color: var(--text-muted); margin-left: 10px;
+  display:inline-block; transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  font-size:10px; color:var(--text3); margin-left:4px;
 }
-.factura-card.abierto .flecha { transform: rotate(180deg); color: var(--neon-purple); }
+.flecha.abierto { transform:rotate(180deg); color:var(--primary); }
 
 .factura-detalles {
-  display: none;
-  background: var(--surface-dark); 
-  border-top: 1px solid var(--border-subtle);
+  max-height:0; overflow:hidden; transition:max-height 0.4s cubic-bezier(0.4,0,0.2,1);
+  border-top:0 solid var(--border);
 }
-.factura-detalles.abierto { display: block; }
+.factura-detalles.abierto { max-height:2000px; border-top-width:1px; }
 
-.detalle-content { padding: 20px; }
-
-.detalle-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.detalle-content { padding:14px 18px; }
+.detalle-meta { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 .meta-chip {
-  font-size: 11px; font-family: var(--font-mono); padding: 4px 8px;
-  background: var(--surface-light); color: var(--text-muted); border: 1px solid var(--border-subtle);
+  font-size:11px; font-weight:600; padding:5px 12px; border-radius:8px;
+  background:var(--surface2); color:var(--text2); border:1px solid var(--border);
 }
-.meta-chip strong { color: var(--neon-cyan); font-weight: normal; }
+.meta-chip strong { color:var(--text); }
 
 .items-header {
-  font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--text-muted);
-  text-transform: uppercase; margin-bottom: 12px;
-  padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);
-  display: flex; justify-content: space-between;
+  font-size:11px; font-weight:700; color:var(--text3);
+  text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;
+  padding-bottom:8px; border-bottom:1px solid var(--border);
 }
 
 .item-row {
-  display: flex; align-items: flex-start; padding: 10px 0;
-  border-bottom: 1px solid var(--border-subtle); gap: 12px;
+  display:flex; align-items:center; padding:10px 0;
+  border-bottom:1px solid rgba(42,42,80,0.5); gap:12px;
 }
-.item-row:last-child { border-bottom: none; }
+.item-row:last-child { border-bottom:none; }
 .item-num {
-  width: 24px; height: 24px; border-radius: 2px; display: flex;
-  align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px;
-  background: var(--surface-light); color: var(--text-muted); flex-shrink: 0;
-  border: 1px solid var(--border-subtle);
+  width:24px; height:24px; border-radius:8px; display:flex;
+  align-items:center; justify-content:center; font-size:11px;
+  font-weight:700; background:var(--primary); color:white; flex-shrink:0;
 }
-.item-info { flex: 1; min-width: 0; }
-.item-desc { font-size: 13px; color: var(--text-main); margin-bottom: 4px; }
-.item-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
-.item-precio { font-family: var(--font-mono); font-size: 13px; color: var(--neon-cyan); flex-shrink: 0; text-align: right; }
+.item-info { flex:1; min-width:0; }
+.item-desc { font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.item-sub { font-size:11px; color:var(--text3); margin-top:2px; }
+.item-precio { font-size:14px; font-weight:700; color:var(--accent); flex-shrink:0; }
 
 .totales-box {
-  background: var(--surface-light); border-radius: 4px; padding: 16px;
-  margin-top: 16px; border: 1px solid var(--border-subtle);
+  background:var(--surface2); border-radius:12px; padding:14px;
+  margin-top:14px; border:1px solid var(--border);
 }
 .totales-line {
-  display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 12px;
-  padding: 4px 0; color: var(--text-muted);
+  display:flex; justify-content:space-between; font-size:12px;
+  padding:4px 0; color:var(--text2);
 }
 .totales-line.total-line {
-  font-size: 16px; font-family: var(--font-display); font-weight: 700; color: var(--text-main);
-  padding-top: 10px; margin-top: 6px; border-top: 1px solid var(--neon-cyan-dim);
+  font-size:16px; font-weight:800; color:var(--text);
+  padding-top:8px; margin-top:6px; border-top:1px solid var(--border);
 }
-.totales-line.total-line .monto { color: var(--neon-cyan); }
+.totales-line.total-line .monto { color:var(--accent); }
 
-.loading { text-align: center; padding: 40px 20px; color: var(--neon-cyan); font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; }
-.spinner {
-  width: 30px; height: 30px; border: 2px solid var(--surface-light);
-  border-top-color: var(--neon-cyan); border-radius: 50%;
-  animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+.loading { text-align:center; padding:50px 20px; color:var(--text3); font-size:14px; }
+.loading .spinner {
+  width:32px; height:32px; border:3px solid var(--border);
+  border-top-color:var(--primary); border-radius:50%;
+  animation:spin 0.8s linear infinite; margin:0 auto 12px;
 }
+@keyframes spin { to { transform:rotate(360deg); } }
 
-.empty-state { text-align: center; padding: 60px 20px; background: var(--surface-light); border: 1px solid var(--border-subtle); }
-.empty-state h3 { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--neon-red); margin-bottom: 8px; }
-.empty-state p { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.vacio { text-align:center; padding:80px 20px; }
+.vacio .icono { font-size:56px; margin-bottom:16px; opacity:0.5; }
+.vacio .msg { color:var(--text3); font-size:14px; font-weight:500; }
 
 .auto-refresh {
-  display: flex; align-items: center; gap: 8px; justify-content: center;
-  margin-top: 12px; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
-  text-transform: uppercase;
+  display:flex; align-items:center; gap:8px; justify-content:center;
+  margin-top:12px; font-size:11px; color:var(--text3);
 }
 .auto-refresh input[type=checkbox] {
-  appearance: none; width: 32px; height: 16px; background: var(--surface-light);
-  border-radius: 8px; position: relative; cursor: pointer;
-  border: 1px solid var(--border-subtle); transition: background-color 0.2s;
+  appearance:none; width:36px; height:20px; background:var(--surface2);
+  border-radius:10px; position:relative; cursor:pointer; transition:background 0.3s;
+  border:1px solid var(--border);
 }
-.auto-refresh input[type=checkbox]:checked { background: var(--neon-cyan); border-color: var(--neon-cyan); }
+.auto-refresh input[type=checkbox]:checked { background:var(--primary); border-color:var(--primary); }
 .auto-refresh input[type=checkbox]::after {
-  content: ''; position: absolute; top: 1px; left: 1px; width: 12px; height: 12px;
-  background: var(--bg-deep); border-radius: 50%; transition: transform 0.2s;
+  content:''; position:absolute; top:2px; left:2px; width:14px; height:14px;
+  background:white; border-radius:50%; transition:transform 0.3s;
 }
-.auto-refresh input[type=checkbox]:checked::after { transform: translateX(16px); }
-.auto-refresh label { cursor: pointer; }
+.auto-refresh input[type=checkbox]:checked::after { transform:translateX(16px); }
+.auto-refresh label { cursor:pointer; }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulseOpacity { 
-  0%, 100% { opacity: 1; } 
-  50% { opacity: 0.3; } 
-}
+.empty-state { text-align:center; padding:80px 20px; }
+.empty-state .icon { font-size:64px; margin-bottom:16px; }
+.empty-state h3 { font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px; }
+.empty-state p { font-size:13px; color:var(--text3); }
+
+@keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+.factura-card { animation:fadeIn 0.3s ease-out; }
 </style>
 </head>
 <body>
 
-<div class="bg-grid"></div>
-
-<div class="app-container">
-  <div class="header">
-    <div class="header-top">
-      <h1><span>Facturas</span>_SYS</h1>
-      <div class="header-badge" id="headerBadge">
-        <div class="badge-dot" id="badgeDot"></div>
-        <span id="badgeText">SYNCING</span>
-      </div>
+<div class="header">
+  <div class="header-top">
+    <h1><span>Facturas</span> R21</h1>
+    <span class="header-badge" id="headerBadge">LIVE</span>
+  </div>
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">Facturas</div>
+      <div class="value purple" id="stat-total">0</div>
     </div>
-    <div class="stats">
-      <div class="stat-card">
-        <div class="label">Registros</div>
-        <div class="value cyan" id="stat-total">--</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">Volumen Total</div>
-        <div class="value purple" id="stat-monto">Gs. 0</div>
-      </div>
-    </div>
-    <div class="auto-refresh">
-      <input type="checkbox" id="autoRefresh" checked>
-      <label for="autoRefresh">Auto-Sync Uplink</label>
+    <div class="stat-card">
+      <div class="label">Total General</div>
+      <div class="value green" id="stat-monto">Gs. 0</div>
     </div>
   </div>
-
-  <div class="buscar">
-    <div class="buscar-inner">
-      <input type="text" id="busqueda" placeholder="ID, AGENTE, SECTOR...">
-      <button onclick="cargar()">Analizar</button>
-    </div>
+  <div class="auto-refresh">
+    <input type="checkbox" id="autoRefresh" checked>
+    <label for="autoRefresh">Auto-actualizar</label>
   </div>
+</div>
 
-  <div class="lista" id="lista">
-    <div class="loading">
-      <div class="spinner"></div>
-      Estableciendo enlace seguro...
-    </div>
+<div class="buscar">
+  <div class="buscar-inner">
+    <input type="text" id="busqueda" placeholder="Buscar factura, vendedor, sucursal...">
+    <button onclick="cargar()">Buscar</button>
   </div>
+</div>
+
+<div class="lista" id="lista">
+  <div class="loading"><div class="spinner"></div>Cargando facturas...</div>
 </div>
 
 <script>
@@ -371,36 +235,20 @@ let facturas = [];
 let timer = null;
 
 async function cargar() {
-  actualizarBadge('loading');
+  const badge = document.getElementById('headerBadge');
+  badge.textContent = '...';
+  badge.style.background = 'var(--text3)';
   try {
     const resp = await fetch(API + '/facturas-db?limite=500');
     const data = await resp.json();
     facturas = data.facturas || [];
-    actualizarBadge('live');
     renderizar();
+    badge.textContent = 'LIVE';
+    badge.style.background = 'var(--success)';
   } catch(e) {
-    document.getElementById('lista').innerHTML = '<div class="empty-state"><h3>OFFLINE</h3><p>No se pudo conectar al servidor.</p></div>';
-    actualizarBadge('offline');
-  }
-}
-
-function actualizarBadge(estado) {
-  const text = document.getElementById('badgeText');
-  const dot = document.getElementById('badgeDot');
-  const badge = document.getElementById('headerBadge');
-  
-  if(estado === 'loading') {
-    text.textContent = 'SYNC...';
-    badge.style.borderColor = 'var(--text-muted)'; badge.style.color = 'var(--text-muted)';
-    dot.style.background = 'var(--text-muted)'; dot.style.animation = 'none';
-  } else if (estado === 'live') {
-    text.textContent = 'EN LINEA';
-    badge.style.borderColor = 'var(--neon-green)'; badge.style.color = 'var(--neon-green)';
-    dot.style.background = 'var(--neon-green)'; dot.style.animation = 'pulseOpacity 1.5s infinite';
-  } else {
-    text.textContent = 'OFFLINE';
-    badge.style.borderColor = 'var(--neon-red)'; badge.style.color = 'var(--neon-red)';
-    dot.style.background = 'var(--neon-red)'; dot.style.animation = 'none';
+    document.getElementById('lista').innerHTML = '<div class="empty-state"><div class="icon">&#9888;</div><h3>Sin conexion</h3><p>No se pudo conectar al servidor</p></div>';
+    badge.textContent = 'OFF';
+    badge.style.background = 'var(--danger)';
   }
 }
 
@@ -408,115 +256,103 @@ function renderizar() {
   const q = document.getElementById('busqueda').value.toLowerCase();
   let filtradas = facturas;
   if (q) {
-    filtradas = facturas.filter(f => 
-      (f.numero && f.numero.toLowerCase().includes(q)) ||
-      (f.vendedor && f.vendedor.toLowerCase().includes(q)) ||
-      (f.sucursal && f.sucursal.toLowerCase().includes(q))
+    filtradas = facturas.filter(f =>
+      (f.numero || '').toLowerCase().includes(q) ||
+      (f.vendedor || '').toLowerCase().includes(q) ||
+      (f.sucursal || '').toLowerCase().includes(q)
     );
   }
 
-  let montoTotal = 0;
-  for(let i=0; i<filtradas.length; i++) montoTotal += (filtradas[i].total || 0);
-  
-  document.getElementById('stat-total').textContent = filtradas.length.toString().padStart(3, '0');
+  const montoTotal = filtradas.reduce((s, f) => s + (f.total || 0), 0);
+  document.getElementById('stat-total').textContent = filtradas.length;
   document.getElementById('stat-monto').textContent = 'Gs. ' + montoTotal.toLocaleString('es-PY');
 
-  const contenedor = document.getElementById('lista');
-
   if (filtradas.length === 0) {
-    contenedor.innerHTML = '<div class="empty-state"><h3>VACIO</h3><p>Sin coincidencias en la red.</p></div>';
+    document.getElementById('lista').innerHTML = '<div class="empty-state"><div class="icon">&#128196;</div><h3>Sin facturas</h3><p>Escanea una factura para que aparezca aqui</p></div>';
     return;
   }
 
-  let html = '';
-  for(let i=0; i<filtradas.length; i++) {
-    const f = filtradas[i];
-    html += `
-      <div class="factura-card" id="card-${f.id}">
-        <div class="factura-header" onclick="toggle(${f.id})">
-          <div class="izq">
-            <div class="numero"><span class="hash">[#]</span> ${f.numero || 'S/N'}</div>
-            <div class="vendedor">OP: ${f.vendedor || 'NO_IDENTIFICADO'}</div>
-            ${f.sucursal ? '<span class="sucursal-tag">' + f.sucursal + '</span>' : ''}
-          </div>
-          <div class="der">
-            <div class="total">Gs. ${(f.total || 0).toLocaleString('es-PY')}</div>
-            <div class="fecha">${f.fecha || ''}</div>
-            <span class="flecha" id="flecha-${f.id}">&#9660;</span>
-          </div>
+  document.getElementById('lista').innerHTML = filtradas.map((f, i) => `
+    <div class="factura-card" id="card-${f.id}" style="animation-delay:${i * 0.03}s">
+      <div class="factura-header" onclick="toggle(${f.id})">
+        <div class="izq">
+          <div class="numero"><span class="hash">#</span>${f.numero || 'S/N'}</div>
+          <div class="vendedor">${f.vendedor || 'Sin vendedor'}</div>
+          ${f.sucursal ? '<span class="sucursal-tag">' + f.sucursal + '</span>' : ''}
         </div>
-        <div class="factura-detalles" id="det-${f.id}">
-          <div class="detalle-content" id="det-content-${f.id}">
-            <div class="loading"><div class="spinner"></div>Descifrando datos...</div>
-          </div>
+        <div class="der">
+          <div class="total">Gs. ${(f.total || 0).toLocaleString('es-PY')}</div>
+          <div class="fecha">${f.fecha || ''}</div>
+          <span class="flecha" id="flecha-${f.id}">&#9660;</span>
         </div>
       </div>
-    `;
-  }
-  contenedor.innerHTML = html;
+      <div class="factura-detalles" id="det-${f.id}">
+        <div class="detalle-content">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  `).join('');
 }
 
 async function toggle(id) {
-  const card = document.getElementById('card-' + id);
   const det = document.getElementById('det-' + id);
-  const content = document.getElementById('det-content-' + id);
-  
-  if (card.classList.contains('abierto')) {
-    card.classList.remove('abierto');
+  const flecha = document.getElementById('flecha-' + id);
+  if (det.classList.contains('abierto')) {
     det.classList.remove('abierto');
+    flecha.classList.remove('abierto');
     return;
   }
-  
-  const abiertos = document.querySelectorAll('.factura-card.abierto');
-  for(let i=0; i<abiertos.length; i++) {
-    abiertos[i].classList.remove('abierto');
-    abiertos[i].querySelector('.factura-detalles').classList.remove('abierto');
-  }
-
-  card.classList.add('abierto');
   det.classList.add('abierto');
+  flecha.classList.add('abierto');
 
   try {
     const resp = await fetch(API + '/factura-db/' + id);
     const data = await resp.json();
-
     if (data.error) {
-      content.innerHTML = '<div style="color:var(--neon-red); font-family:var(--font-mono); text-align:center;">ERROR: ' + data.error + '</div>';
+      det.innerHTML = '<div class="detalle-content" style="color:var(--danger)">' + data.error + '</div>';
       return;
     }
 
-    let html = '<div class="detalle-meta">';
-    if (data.ruc) html += `<span class="meta-chip">RUC: <strong>${data.ruc}</strong></span>`;
-    if (data.timbrado) html += `<span class="meta-chip">AUTH: <strong>${data.timbrado}</strong></span>`;
-    if (data.vendedor) html += `<span class="meta-chip">OP: <strong>${data.vendedor}</strong></span>`;
+    let html = '<div class="detalle-content">';
+
+    // Meta chips
+    html += '<div class="detalle-meta">';
+    if (data.ruc) html += '<span class="meta-chip">RUC: <strong>' + data.ruc + '</strong></span>';
+    if (data.timbrado) html += '<span class="meta-chip">Timbrado: <strong>' + data.timbrado + '</strong></span>';
+    if (data.vendedor) html += '<span class="meta-chip">Vendedor: <strong>' + data.vendedor + '</strong></span>';
     html += '</div>';
 
+    // Items
     const items = data.items || [];
     if (items.length > 0) {
-      html += `<div class="items-header"><span>Articulos</span><span>[${items.length}]</span></div>`;
-      for(let i=0; i<items.length; i++) {
-        const it = items[i];
+      html += '<div class="items-header">Articulos (' + items.length + ')</div>';
+      items.forEach((it, i) => {
+        const pu = it.precio_unitario || 0;
+        const pt = it.precio_total || 0;
+        const cant = it.cantidad || 1;
         html += `<div class="item-row">
-          <div class="item-num">${(i + 1).toString().padStart(2, '0')}</div>
+          <div class="item-num">${i + 1}</div>
           <div class="item-info">
-            <div class="item-desc">${it.descripcion || 'Sin datos'}</div>
-            <div class="item-sub">CANT: ${it.cantidad || 1} | UNIT: Gs. ${(it.precio_unitario || 0).toLocaleString('es-PY')}</div>
+            <div class="item-desc">${it.descripcion || 'Sin descripcion'}</div>
+            <div class="item-sub">${cant} x Gs. ${pu.toLocaleString('es-PY')}</div>
           </div>
-          <div class="item-precio">Gs. ${(it.precio_total || 0).toLocaleString('es-PY')}</div>
+          <div class="item-precio">Gs. ${pt.toLocaleString('es-PY')}</div>
         </div>`;
-      }
+      });
     }
 
+    // Totales
     html += '<div class="totales-box">';
-    if (data.total_exentas > 0) html += `<div class="totales-line"><span>EXENTO</span><span>Gs. ${Number(data.total_exentas).toLocaleString('es-PY')}</span></div>`;
-    if (data.total_iva5 > 0) html += `<div class="totales-line"><span>IVA_05</span><span>Gs. ${Number(data.total_iva5).toLocaleString('es-PY')}</span></div>`;
-    if (data.total_iva10 > 0) html += `<div class="totales-line"><span>IVA_10</span><span>Gs. ${Number(data.total_iva10).toLocaleString('es-PY')}</span></div>`;
-    html += `<div class="totales-line total-line"><span>TOTAL_NETO</span><span class="monto">Gs. ${Number(data.total_general).toLocaleString('es-PY')}</span></div>`;
-    html += '</div>';
+    if (data.total_exentas > 0) html += '<div class="totales-line"><span>Exentas</span><span>Gs. ' + Number(data.total_exentas).toLocaleString('es-PY') + '</span></div>';
+    if (data.total_iva5 > 0) html += '<div class="totales-line"><span>IVA 5%</span><span>Gs. ' + Number(data.total_iva5).toLocaleString('es-PY') + '</span></div>';
+    if (data.total_iva10 > 0) html += '<div class="totales-line"><span>IVA 10%</span><span>Gs. ' + Number(data.total_iva10).toLocaleString('es-PY') + '</span></div>';
+    html += '<div class="totales-line total-line"><span>TOTAL</span><span class="monto">Gs. ' + Number(data.total_general).toLocaleString('es-PY') + '</span></div>';
+    html += '</div></div>';
 
-    content.innerHTML = html;
+    det.innerHTML = html;
   } catch(e) {
-    content.innerHTML = '<div style="color:var(--neon-red); font-family:var(--font-mono); text-align:center;">Falla critica de enlace.</div>';
+    det.innerHTML = '<div class="detalle-content" style="color:var(--danger)">Error cargando items</div>';
   }
 }
 
