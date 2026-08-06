@@ -206,8 +206,28 @@ export default function DrawerMenu({
                       item.detalles.items.map((det, j) => (
                         <View key={j} style={styles.expRow}>
                           <Text style={[styles.expDesc, { color: theme.text }]} numberOfLines={1}>{det.descripcion || ''}</Text>
-                          <Text style={[styles.expPrecio, { color: theme.primary }]}>{(det.subtotal || 0).toLocaleString('es-PY')}</Text>
-        </View>
+                           <Text style={[styles.expPrecio, { color: theme.primary }]}>{(det.subtotal || 0).toLocaleString('es-PY')}</Text>
+                        </View>
+                      ))
+                    ) : (
+                      <Text style={[styles.expVacio, { color: theme.textMuted }]}>Sin detalles</Text>
+                    )}
+                    {item.detalles.totalGeneral && (
+                      <View style={[styles.expTotal, { borderTopColor: theme.primary }]}>
+                        <Text style={[styles.expTotalLabel, { color: theme.text }]}>Total</Text>
+                        <Text style={[styles.expTotalMonto, { color: theme.primary }]}>{(item.detalles.totalGeneral).toLocaleString('es-PY')} Gs</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.vacio, { color: theme.textMuted }]}>
+              {busqueda || fechaDesde || fechaHasta ? "Sin resultados" : "Usá el buscador o filtrá por fecha"}
+            </Text>
+          )}
+        </ScrollView>
 
         {/* Configuración ngrok - protegido con contraseña */}
         <View style={{ marginBottom: 16, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: ngrokDesbloqueado ? theme.success : theme.border, backgroundColor: theme.surface }}>
@@ -244,29 +264,8 @@ export default function DrawerMenu({
               </TouchableOpacity>
             </>
           )}
-          </View>
-        )}
-                      ))
-                    ) : (
-                      <Text style={[styles.expVacio, { color: theme.textMuted }]}>Sin detalles</Text>
-                    )}
-                    {item.detalles.totalGeneral && (
-                      <View style={[styles.expTotal, { borderTopColor: theme.primary }]}>
-                        <Text style={[styles.expTotalLabel, { color: theme.text }]}>Total</Text>
-                        <Text style={[styles.expTotalMonto, { color: theme.primary }]}>{(item.detalles.totalGeneral).toLocaleString('es-PY')} Gs</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-            ))
-          ) : (
-            // Mensaje cuando no hay resultados (filtros activos sin coincidencias)
-            <Text style={[styles.vacio, { color: theme.textMuted }]}>
-              {busqueda || fechaDesde || fechaHasta ? "Sin resultados" : "Usá el buscador o filtrá por fecha"}
-            </Text>
-          )}
-        </ScrollView>
+        </View>
+
       </View>
     </>
   );
