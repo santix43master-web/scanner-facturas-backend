@@ -62,7 +62,7 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
   // Selecciona una imagen de la galería
   const seleccionarGaleria = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.3 });
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.3 });
       if (!result.canceled && result.assets?.length > 0) {
         setFotos(prev => [...prev, result.assets[0].uri]);
         setDatosFactura(null);
