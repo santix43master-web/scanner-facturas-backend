@@ -39,6 +39,13 @@ body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color
 .header h1 { font-size:20px; font-weight:800; letter-spacing:-0.5px; }
 .header h1 span { color:var(--primary); }
 .header-badge { background:var(--primary); color:white; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; }
+.btn-danger { background:var(--danger); color:white; border:none; padding:6px 14px; border-radius:8px; cursor:pointer; font-size:11px; font-weight:700; font-family:inherit; transition:all 0.2s; }
+.btn-danger:active { transform:scale(0.95); }
+.btn-del {
+  background:none; border:none; color:var(--danger); cursor:pointer; font-size:18px;
+  padding:4px 8px; border-radius:6px; transition:all 0.2s; opacity:0.5;
+}
+.btn-del:hover { opacity:1; background:rgba(255,107,107,0.15); }
 .stats { display:flex; gap:10px; }
 .stat-card {
   flex:1; background:var(--surface2); border-radius:14px; padding:14px;
@@ -200,7 +207,10 @@ body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color
 <div class="header">
   <div class="header-top">
     <h1><span>Facturas</span> R21</h1>
-    <span class="header-badge" id="headerBadge">LIVE</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-danger" onclick="borrarTodo()">Borrar todo</button>
+      <span class="header-badge" id="headerBadge">LIVE</span>
+    </div>
   </div>
   <div class="stats">
     <div class="stat-card">
@@ -283,7 +293,10 @@ function renderizar() {
         <div class="der">
           <div class="total">Gs. ${(f.total || 0).toLocaleString('es-PY')}</div>
           <div class="fecha">${f.fecha || ''}</div>
-          <span class="flecha" id="flecha-${f.id}">&#9660;</span>
+          <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+            <button class="btn-del" onclick="event.stopPropagation();borrarFactura(${f.id},'${f.numero || ''}')" title="Borrar">&#10005;</button>
+            <span class="flecha" id="flecha-${f.id}">&#9660;</span>
+          </div>
         </div>
       </div>
       <div class="factura-detalles" id="det-${f.id}">
@@ -357,6 +370,39 @@ async function toggle(id) {
 }
 
 document.getElementById('busqueda').addEventListener('input', renderizar);
+
+async function borrarFactura(id, numero) {
+  if (!confirm('Borrar factura #' + numero + '?')) return;
+  try {
+    const resp = await fetch(API + '/facturas-db/' + id, { method: 'DELETE' });
+    const data = await resp.json();
+    if (data.status === 'ok') {
+      facturas = facturas.filter(f => f.id !== id);
+      renderizar();
+    } else {
+      alert('Error: ' + (data.mensaje || 'No se pudo borrar'));
+    }
+  } catch(e) {
+    alert('Error de conexion');
+  }
+}
+
+async function borrarTodo() {
+  if (!confirm('Borrar TODAS las facturas? Esto no se puede deshacer.')) return;
+  if (!confirm('Estas seguro? Se eliminaran todas las facturas de la base de datos.')) return;
+  try {
+    const resp = await fetch(API + '/limpiar-db');
+    const data = await resp.json();
+    if (data.status === 'ok') {
+      facturas = [];
+      renderizar();
+    } else {
+      alert('Error: ' + (data.mensaje || 'No se pudo borrar'));
+    }
+  } catch(e) {
+    alert('Error de conexion');
+  }
+}
 
 cargar();
 timer = setInterval(() => {

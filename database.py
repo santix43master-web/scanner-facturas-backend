@@ -206,6 +206,45 @@ def obtener_factura(factura_id):
     finally:
         conn.close()
 
+def eliminar_factura(factura_id):
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM items WHERE factura_id = %s", (factura_id,))
+        cur.execute("DELETE FROM facturas WHERE id = %s", (factura_id,))
+        conn.commit()
+        cur.close()
+        print(f"[db] Factura #{factura_id} eliminada OK")
+        return True
+    except Exception as e:
+        print(f"[db] Error eliminando factura: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+def eliminar_factura_por_numero(numero):
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM items WHERE factura_id IN (SELECT id FROM facturas WHERE numero = %s)", (numero,))
+        cur.execute("DELETE FROM facturas WHERE numero = %s", (numero,))
+        eliminadas = cur.rowcount
+        conn.commit()
+        cur.close()
+        print(f"[db] Factura(s) con numero '{numero}' eliminada(s): {eliminadas}")
+        return eliminadas > 0
+    except Exception as e:
+        print(f"[db] Error eliminando por numero: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
 def limpiar_db():
     conn = _get_conn()
     if not conn:

@@ -47,6 +47,9 @@ export async function guardarEnHistorial(historial, nuevaFactura, sucursalActual
 export async function eliminarDelHistorial(id, urlServidor = null) {
   const localStr = await AsyncStorage.getItem(HISTORIAL_KEY);
   const local = localStr ? JSON.parse(localStr) : [];
+  // Buscar el número de factura antes de borrar
+  const item = local.find(i => i.id === id);
+  const numero = item?.numero;
   const nuevo = local.filter(i => i.id !== id);
   await AsyncStorage.setItem(HISTORIAL_KEY, JSON.stringify(nuevo));
   // También elimina los datos completos asociados
@@ -56,13 +59,13 @@ export async function eliminarDelHistorial(id, urlServidor = null) {
     delete full[id];
     await AsyncStorage.setItem(FULL_DATA_KEY, JSON.stringify(full));
   }
-  // Sincroniza la eliminación con el servidor
-  if (urlServidor) {
+  // Sincroniza la eliminación con el servidor (PostgreSQL)
+  if (urlServidor && numero) {
     try {
       await fetch(`${urlServidor}/api/eliminar`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id}),
+        body: JSON.stringify({numero}),
       });
     } catch (e) {
       console.warn("No se pudo eliminar del servidor:", e);

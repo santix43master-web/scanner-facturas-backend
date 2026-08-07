@@ -339,6 +339,21 @@ def limpiar_db():
     return {"status": "ok" if ok else "error", "mensaje": "Base limpia" if ok else "Error limpiando"}
 
 
+@app.delete("/facturas-db/{factura_id}")
+def eliminar_factura_db(factura_id: int):
+    ok = database.eliminar_factura(factura_id)
+    return {"status": "ok" if ok else "error", "mensaje": "Factura eliminada" if ok else "Error eliminando"}
+
+
+@app.post("/api/eliminar")
+async def eliminar_por_numero(body: dict):
+    numero = body.get("numero")
+    if not numero:
+        return {"status": "error", "mensaje": "Falta numero"}
+    ok = database.eliminar_factura_por_numero(numero)
+    return {"status": "ok" if ok else "error", "mensaje": "Factura eliminada" if ok else "No encontrada"}
+
+
 @app.get("/historial/{sucursal}")
 async def obtener_historial(sucursal: str):
     try:
