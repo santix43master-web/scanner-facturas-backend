@@ -288,11 +288,29 @@ h1{color:#1a237e;margin-bottom:8px}
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     return res.end(JSON.stringify({ status: estadoConexion, qr: !!ultimoQR, bot: 'Facturas R21 WhatsApp Bot' }));
   }
+
+  if (url === '/reset-auth' && req.method === 'POST') {
+    try {
+      if (fs.existsSync(AUTH_DIR)) {
+        fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+      }
+      await supabaseGuardar('');
+      console.log('[RESET] Auth borrado. Reiniciando...');
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: true, msg: 'Auth borrado. El bot se reiniciará.' }));
+      setTimeout(() => process.exit(0), 1000);
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
 });
 server.listen(PORT, () => console.log(`✅ HTTP server on port ${PORT}`));
 
 const usuarios = {};
 const sentIds = new Set();
+let reconnectAttempts = 0;
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
@@ -939,12 +957,15 @@ async function iniciarBot() {
       console.log('✅ Bot conectado a WhatsApp');
       estadoConexion = 'conectado';
       ultimoQR = null;
+      reconnectAttempts = 0;
       guardarAuthRemoto();
     }
     if (connection === 'close') {
-      console.log('❌ Conexión cerrada, reconectando en 5s...');
+      reconnectAttempts++;
+      const delay = Math.min(5000 * reconnectAttempts, 120000);
+      console.log(`❌ Conexión cerrada, reconectando en ${delay / 1000}s... (intento ${reconnectAttempts})`);
       estadoConexion = 'desconectado';
-      setTimeout(iniciarBot, 5000);
+      setTimeout(iniciarBot, delay);
     }
   });
 }
