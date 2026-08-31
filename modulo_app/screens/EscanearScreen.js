@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, Image, ActivityIndicator, Alert,
-  ScrollView, Vibration, Modal, StyleSheet,
+  ScrollView, Modal, Vibration, StyleSheet,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
@@ -10,43 +10,23 @@ import { useTheme } from '../utils/ThemeContext';
 import { actualizarPrecios } from '../PriceTracker';
 import { comprimirImagen } from '../utils/image';
 import { procesarFactura, procesarQr, procesarHtmlCompleto, guardarEnServidor, guardarEnCarpeta, buscarProducto } from '../utils/api';
-import { cargarNgrokUrl } from '../utils/storage';
 import QrScanner from '../components/QrScanner';
 import CaptchaWebView from '../components/CaptchaWebView';
 import { generarPDF } from '../components/PDFGenerator';
 
-// Evita doble tap rápido en botones
-const useDobleTap = (cooldown = 2000) => {
-  const lastTap = useRef(0);
-  return () => {
-    const now = Date.now();
-    if (now - lastTap.current < cooldown) return true;
-    lastTap.current = now;
-    return false;
-  };
-};
-
-// Pantalla principal de escaneo: cámara, galería, QR y resultados
 export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaProcesada }) {
   const { theme } = useTheme();
-  const [fotos, setFotos] = useState([]);             // URIs de las fotos tomadas/seleccionadas
-  const [datosFactura, setDatosFactura] = useState(null); // datos devueltos por el servidor
-  const [cargando, setCargando] = useState(false);    // estado de carga general
-  const [cambiosPrecios, setCambiosPrecios] = useState([]); // cambios de precio detectados
-  const [qrActivo, setQrActivo] = useState(false);    // muestra el escáner QR
-  const [qrCargando, setQrCargando] = useState(false); // procesando QR
-  const [captchaVisible, setCaptchaVisible] = useState(false); // WebView de SIFEN
-  const [captchaCargando, setCaptchaCargando] = useState(false); // extrayendo datos del portal
-  const nivelCalidad = 'alta';
-  const [tamanoImg, setTamanoImg] = useState(null);             // tamaño de la última imagen comprimida
-  const qrScaneado = useRef(false);  // evita escaneos repetidos
-  const qrContentRef = useRef('');   // guarda el contenido del QR para el captcha
-  const noDobleTap = useDobleTap(3000); // protege botones de doble tap
-  const [ngrokUrl, setNgrokUrl] = useState(null);
+  const [fotos, setFotos] = useState([]);
+  const [datosFactura, setDatosFactura] = useState(null);
+  const [cargando, setCargando] = useState(false);
+  const [cambiosPrecios, setCambiosPrecios] = useState([]);
+  const [qrActivo, setQrActivo] = useState(false);
+  const [qrCargando, setQrCargando] = useState(false);
+  const [captchaVisible, setCaptchaVisible] = useState(false);
+  const [captchaCargando, setCaptchaCargando] = useState(false);
+  const qrScaneado = useRef(false);
+  const qrContentRef = useRef('');
 
-  useEffect(() => { cargarNgrokUrl().then(u => setNgrokUrl(u)); }, []);
-
-  // Abre la cámara para tomar una foto de la factura
   const tomarFoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') { Alert.alert("Permiso denegado", "Necesitamos acceso a la cámara"); return; }
@@ -59,10 +39,9 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
     } catch { Alert.alert('Error', 'No se pudo abrir la cámara'); }
   };
 
-  // Selecciona una imagen de la galería
   const seleccionarGaleria = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.3 });
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.3 });
       if (!result.canceled && result.assets?.length > 0) {
         setFotos(prev => [...prev, result.assets[0].uri]);
         setDatosFactura(null);
@@ -70,33 +49,13 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
     } catch { Alert.alert("Error", "No se pudo seleccionar la imagen"); }
   };
 
-  // Envía las fotos al servidor para procesar con IA
   const procesarIA = async () => {
     if (fotos.length === 0) { Alert.alert("Sin fotos", "Primero tomá o seleccioná una foto"); return; }
-    if (noDobleTap()) return;
     setCargando(true);
     setDatosFactura(null);
     try {
-      const resultados = await Promise.all(fotos.map(f => comprimirImagen(f, nivelCalidad)));
-      const fotosComprimidas = resultados.map(r => r.uri);
-      setTamanoImg(resultados[0]?.fileSizeKB || null);
-      const fotosValidas = [];
-      for (const uri of fotosComprimidas) {
-        try {
-          const info = await ImagePicker.getAssetInfoAsync(uri);
-          if (info && info.fileSize && info.fileSize > 5000) {
-            fotosValidas.push(uri);
-          }
-        } catch {
-          fotosValidas.push(uri);
-        }
-      }
-      if (fotosValidas.length === 0) {
-        Alert.alert("Imágenes inválidas", "Las fotos seleccionadas no se pudieron procesar. Intentá con otras.");
-        setCargando(false);
-        return;
-      }
-      const json = await procesarFactura(fotosValidas, sucursalActual, urlServidor);
+      const fotosComprimidas = await Promise.all(fotos.map(f => comprimirImagen(f)));
+      const json = await procesarFactura(fotosComprimidas, sucursalActual, urlServidor);
       if (json.error) { Alert.alert("Error del servidor", json.error); return; }
       setDatosFactura(json);
       const cambios = await actualizarPrecios(json);
@@ -108,7 +67,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
     } finally { setCargando(false); }
   };
 
-  // Escanea un código QR de factura electrónica
   const escanearQR = async (qrContent) => {
     setQrCargando(true);
     try {
@@ -128,7 +86,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
     } finally { setQrCargando(false); }
   };
 
-  // Busca productos por código de barras en el historial del servidor
   const escanearBarcode = async (codigo) => {
     try {
       const json = await buscarProducto(codigo, urlServidor);
@@ -142,7 +99,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
     }
   };
 
-  // Recibe los datos extraídos del CaptchaWebView de SIFEN
   const handleCaptchaDatos = async (data) => {
     setCaptchaCargando(true);
     try {
@@ -160,37 +116,20 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
     } catch (error) { setCaptchaCargando(false); Alert.alert("Error captcha", "No se pudieron extraer los datos. Intentá de nuevo."); }
   };
 
-  // Guarda la factura: intenta .16 local, siempre PostgreSQL en Render
   const enviarARed = async () => {
     if (!datosFactura) { Alert.alert("Sin datos", "No hay factura para enviar"); return; }
-    if (noDobleTap()) return;
     try {
       setCargando(true);
-      // 1) Intentar guardar en .16 local
-      let localOk = false;
-      try {
-        await guardarEnCarpeta(datosFactura, sucursalActual, ngrokUrl);
-        localOk = true;
-      } catch {
-        // PC apagada o sin red local
-      }
-      // 2) Siempre guardar en PostgreSQL (Render)
       await guardarEnServidor(datosFactura, sucursalActual, urlServidor);
-      if (localOk) {
-        Alert.alert("Enviado", `Guardado en .16 y PostgreSQL (${sucursalActual})`);
-      } else {
-        Alert.alert("Enviado a PostgreSQL", `La PC local no está disponible.\nLa factura se guardó en PostgreSQL nomas.`);
-      }
+      Alert.alert("Enviado", `Factura guardada en buzón de ${sucursalActual}`);
       setFotos([]); setDatosFactura(null);
     } catch (error) {
-      Alert.alert("Error de envío", `No se pudo guardar.\n${error.message}`);
+      Alert.alert("Error de envío", `No se pudo guardar en el servidor.\n${error.message}`);
     } finally { setCargando(false); }
   };
 
-  // Guarda la factura en la carpeta compartida (servidor local vía ngrok)
   const enviarACarpetaAction = async () => {
     if (!datosFactura) { Alert.alert("Sin datos", "No hay factura para enviar"); return; }
-    if (noDobleTap()) return;
     try {
       setCargando(true);
       await guardarEnCarpeta(datosFactura, sucursalActual);
@@ -201,10 +140,8 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
     } finally { setCargando(false); }
   };
 
-  // Genera un PDF de la factura y lo comparte
   const generarPDFAction = async () => {
     if (!datosFactura) { Alert.alert("Aviso", "Primero procesá una factura"); return; }
-    if (noDobleTap()) return;
     try {
       setCargando(true);
       const htmlContent = generarPDF(datosFactura, sucursalActual);
@@ -223,7 +160,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
 
   return (
     <>
-      {/* Menú de opciones cuando no hay fotos cargadas */}
       {fotos.length === 0 ? (
         <View style={[styles.menuContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[styles.menuTitle, { color: theme.text }]}>¿Cómo querés escanear?</Text>
@@ -245,11 +181,10 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
           </TouchableOpacity>
         </View>
       ) : (
-        /* Vista previa de las fotos tomadas */
         <View style={styles.previaWrap}>
           <View style={styles.previaTop}>
             <Text style={[styles.previaCount, { color: theme.textSecondary }]}>{fotos.length} página(s)</Text>
-            <TouchableOpacity onPress={() => { setFotos([]); setDatosFactura(null); setTamanoImg(null); }} disabled={cargando}>
+            <TouchableOpacity onPress={() => { setFotos([]); setDatosFactura(null); }} disabled={cargando}>
               <Text style={[styles.previaCancel, { color: theme.textMuted }]}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -258,7 +193,7 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
               <TouchableOpacity key={i} onPress={() => {
                 const nuevas = fotos.filter((_, idx) => idx !== i);
                 setFotos(nuevas);
-                if (nuevas.length === 0) { setDatosFactura(null); setTamanoImg(null); }
+                if (nuevas.length === 0) setDatosFactura(null);
               }}>
                 <Image source={{ uri: f }} style={[styles.previaImg, { borderColor: theme.primary }]} />
                 <View style={styles.previaDel}><Text style={styles.previaDelText}>✕</Text></View>
@@ -274,8 +209,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
               <Text style={[styles.previaAddIcon, { color: theme.textMuted }]}>+</Text>
             </TouchableOpacity>
           </ScrollView>
-
-          {/* Botón para procesar las fotos con IA */}
           <TouchableOpacity style={[styles.procesarBtn, { backgroundColor: theme.primary }]} onPress={procesarIA} disabled={cargando} activeOpacity={0.85}>
             {cargando ? (
               <ActivityIndicator size="small" color={theme.totalCardText} />
@@ -286,7 +219,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
         </View>
       )}
 
-      {/* Overlay de carga mientras se procesa */}
       {cargando && (
         <View style={[styles.loadingBox, { backgroundColor: theme.surface, borderColor: theme.primary }]}>
           <ActivityIndicator size="large" color={theme.primary} />
@@ -294,12 +226,10 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
         </View>
       )}
 
-      {/* Resultados de la factura procesada */}
       {datosFactura && (
         <View style={styles.resultadosWrap}>
           <Text style={[styles.resultTitle, { color: theme.text }]}>Factura</Text>
 
-          {/* Datos principales del emisor/receptor */}
           <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {[
               { label: 'Vendedor', val: datosFactura.nombreVendedor },
@@ -316,7 +246,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
             ))}
           </View>
 
-          {/* Total general destacado */}
           <View style={[styles.totalCard, { backgroundColor: theme.primary }]}>
             <Text style={[styles.totalLabel, { color: theme.totalCardText }]}>TOTAL GENERAL</Text>
             <Text style={[styles.totalMonto, { color: theme.totalCardText }]}>
@@ -324,7 +253,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
             </Text>
           </View>
 
-          {/* Banner de captcha cuando faltan artículos y no es QR puro */}
           {(!datosFactura.items || datosFactura.items.length === 0) && datosFactura.fuente !== "SIFEN/KUDE QR" && (
             <View style={[styles.captchaBanner, { backgroundColor: theme.warningBg, borderColor: theme.warning }]}>
               <Text style={[styles.captchaText, { color: theme.warningText }]}>
@@ -336,7 +264,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
             </View>
           )}
 
-          {/* Lista de artículos de la factura */}
           <Text style={[styles.resultTitle, { color: theme.text, marginTop: 24 }]}>
             Artículos ({datosFactura.items?.length || 0})
           </Text>
@@ -358,7 +285,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
                   </View>
                   <Text style={[styles.itemQty, { color: theme.textSecondary }]}>{it.cantidad || 1} × {Number(it.precio_unitario || 0).toLocaleString('es-PY')} Gs.</Text>
                   <Text style={[styles.itemSub, { color: theme.primary }]}>{(it.subtotal || 0).toLocaleString('es-PY')} Gs.</Text>
-                  {/* Badge de cambio de precio */}
                   {cambio && !cambio.esPrimeraVez && (
                     <View style={[styles.cambioBadge, { backgroundColor: cambio.diferencia > 0 ? theme.danger + '20' : theme.success + '20' }]}>
                       <Text style={[styles.cambioText, { color: cambio.diferencia > 0 ? theme.danger : theme.success }]}>
@@ -380,7 +306,6 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
             </View>
           )}
 
-          {/* Botones de acción: PDF, enviar a buzón, enviar a carpeta */}
           <View style={styles.actionsWrap}>
             <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.danger }]} onPress={generarPDFAction} disabled={cargando} activeOpacity={0.85}>
               <Text style={styles.actionBtnText}>PDF</Text>
@@ -388,11 +313,13 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
             <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.primary }]} onPress={enviarARed} disabled={cargando} activeOpacity={0.85}>
               <Text style={styles.actionBtnText}>ENVIAR</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.accent }]} onPress={enviarACarpetaAction} disabled={cargando} activeOpacity={0.85}>
+              <Text style={styles.actionBtnText}>CARPETA</Text>
+            </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {/* Escáner QR (cámara) superpuesto */}
       {qrActivo && (
         <QrScanner
           onQrScanned={escanearQR}
@@ -402,8 +329,7 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
         />
       )}
 
-      {/* WebView de SIFEN para resolver captcha (Modal pantalla completa) */}
-      <Modal visible={captchaVisible} animationType="slide" onRequestClose={() => setCaptchaVisible(false)}>
+      {captchaVisible && (
         <CaptchaWebView
           visible={captchaVisible}
           qrContent={qrContentRef.current}
@@ -411,7 +337,7 @@ export default function EscanearScreen({ sucursalActual, urlServidor, onFacturaP
           onCargando={captchaCargando}
           onClose={() => setCaptchaVisible(false)}
         />
-      </Modal>
+      )}
     </>
   );
 }
@@ -434,11 +360,6 @@ const styles = StyleSheet.create({
   previaDelText: { color: '#FFF', fontSize: 11, fontWeight: 'bold' },
   previaAdd: { width: 90, height: 130, borderRadius: 10, borderWidth: 2, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center' },
   previaAddIcon: { fontSize: 30 },
-  calidadWrap: { padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 12 },
-  calidadRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
-  calidadBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  calidadBtnText: { fontSize: 13, fontWeight: '700' },
-  calidadInfo: { fontSize: 11, textAlign: 'center', marginTop: 2 },
   procesarBtn: { paddingVertical: 18, borderRadius: 16, alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12 },
   procesarBtnText: { fontSize: 16, fontWeight: '800', letterSpacing: 2 },
   loadingBox: { marginTop: 24, paddingVertical: 28, paddingHorizontal: 30, borderRadius: 16, borderWidth: 1, alignItems: 'center', width: '100%' },

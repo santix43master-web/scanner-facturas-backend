@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: whatsapp-facturas-bot
+    env: docker
+    repo: https://github.com/santix43master-web/scanner-facturas-backend
+    branch: main
+    rootDir: modulo_whatsapp
+    healthCheckPath: /
+    envVars:
+      - key: BACKEND_URL
+        value: https://scanner-facturas-backend.onrender.com
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: IP_LOCAL_URL
+        value: https://snooze-chafe-bullwhip.ngrok-free.dev

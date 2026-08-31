@@ -1,87 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Linking, Platform, ActivityIndicator, Alert, StyleSheet } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Linking, StyleSheet } from 'react-native';
 import { useTheme } from '../utils/ThemeContext';
-import { guardarNgrokUrl, cargarNgrokUrl, esPasswordValida } from '../utils/storage';
 
-// Drawer lateral: historial, filtros, total acumulado y acciones
 export default function DrawerMenu({
-  visible, onClose, sucursalActual, calculoTotal, historialFiltrado, totalFacturas,
-  busqueda, onChangeBusqueda, fechaDesde, fechaHasta,
-  onChangeFechaDesde, onChangeFechaHasta,
-  onBorrarHistorial, onCambiarSucursal,
+  visible, onClose, sucursalActual, calculoTotal, historialFiltrado,
+  busqueda, onChangeBusqueda, onBorrarHistorial, onCambiarSucursal,
   onSincronizar, onThemeToggle, onEliminarFactura, onExpandirFactura,
-  sincronizando,
 }) {
   const { theme, isDark } = useTheme();
   const [itemExpandido, setItemExpandido] = useState(null);
-  const [showPicker, setShowPicker] = useState(null);
-  const [ngrokInput, setNgrokInput] = useState('');
-  const [ngrokSaved, setNgrokSaved] = useState(false);
-  const [ngrokDesbloqueado, setNgrokDesbloqueado] = useState(false);
-  const [ngrokPass, setNgrokPass] = useState('');
-
-  useEffect(() => { cargarNgrokUrl().then(u => { if (u) setNgrokInput(u); }); }, []);
-
-  const guardarNgrok = async () => {
-    const url = ngrokInput.trim();
-    await guardarNgrokUrl(url);
-    setNgrokSaved(true);
-    setTimeout(() => setNgrokSaved(false), 2000);
-  };
-
-  const desbloquearNgrok = () => {
-    if (esPasswordValida(ngrokPass)) {
-      setNgrokDesbloqueado(true);
-      setNgrokPass('');
-    } else {
-      Alert.alert('Incorrecta', 'Contraseña incorrecta');
-      setNgrokPass('');
-    }
-  };
-
-  // Convierte YYYY-MM-DD a DD/MM/YYYY para mostrar
-  const formatearFecha = (str) => {
-    if (!str) return '';
-    const partes = str.split('-');
-    if (partes.length !== 3) return str;
-    return `${partes[2]}/${partes[1]}/${partes[0]}`;
-  };
-
-  // Maneja la selección de fecha en el DateTimePicker nativo
-  const handleDateChange = (event, selectedDate) => {
-    setShowPicker(null);
-    if (event.type === 'dismissed') return;
-    const d = selectedDate || new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const fechaStr = `${yyyy}-${mm}-${dd}`;
-    if (showPicker === 'desde') onChangeFechaDesde(fechaStr);
-    else onChangeFechaHasta(fechaStr);
-  };
-
-  // Tocar un filtro activo lo limpia; tocar uno vacío abre el picker
-  const abrirPicker = (tipo) => {
-    const valor = tipo === 'desde' ? fechaDesde : fechaHasta;
-    if (valor) {
-      if (tipo === 'desde') onChangeFechaDesde('');
-      else onChangeFechaHasta('');
-      return;
-    }
-    setShowPicker(tipo);
-  };
-
-  // Convierte string YYYY-MM-DD a Date para el DateTimePicker
-  const getDateValue = (str) => {
-    if (!str) return new Date();
-    const partes = str.split('-');
-    return new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
-  };
 
   if (!visible) return null;
 
-  // Expande/contrae los detalles de una factura
   const toggleExpandir = (item) => {
     if (itemExpandido === item.id) {
       setItemExpandido(null);
@@ -93,10 +23,8 @@ export default function DrawerMenu({
 
   return (
     <>
-      {/* Capa oscura detrás del drawer */}
       <TouchableOpacity style={styles.capaOscura} onPress={onClose} activeOpacity={1} />
       <View style={[styles.drawer, { backgroundColor: theme.drawerBg }]}>
-        {/* Encabezado del drawer: tema, título, cerrar */}
         <View style={styles.drawerTop}>
           <TouchableOpacity onPress={onThemeToggle}>
             <Text style={[{ fontSize: 22 }]}>{isDark ? '☀️' : '🌙'}</Text>
@@ -107,16 +35,14 @@ export default function DrawerMenu({
           </TouchableOpacity>
         </View>
 
-        {/* Total acumulado de la sucursal */}
         <View style={[styles.resumen, { backgroundColor: theme.background, borderColor: theme.primary }]}>
           <Text style={[styles.resumenLabel, { color: theme.primary }]}>TOTAL ACUMULADO</Text>
           <Text style={[styles.resumenMonto, { color: theme.text }]}>
             {calculoTotal.toLocaleString('es-PY')} Gs.
           </Text>
-          <Text style={[styles.resumenSub, { color: theme.textMuted }]}>{totalFacturas} facturas{historialFiltrado.length !== totalFacturas ? ` (${historialFiltrado.length} filtradas)` : ''}</Text>
+          <Text style={[styles.resumenSub, { color: theme.textMuted }]}>{historialFiltrado.length} facturas</Text>
         </View>
 
-        {/* Botones de acción rápida */}
         <View style={styles.acciones}>
           <TouchableOpacity style={[styles.accionBtn, { backgroundColor: theme.danger }]} onPress={onBorrarHistorial}>
             <Text style={styles.accionText}>Borrar historial</Text>
@@ -127,16 +53,11 @@ export default function DrawerMenu({
           <TouchableOpacity style={[styles.accionBtn, { backgroundColor: theme.surface }]} onPress={() => Linking.openURL("https://wa.me/595981644728")}>
             <Text style={[styles.accionText, { color: theme.text }]}>Soporte</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.accionBtn, { backgroundColor: theme.surface }]} onPress={onSincronizar} disabled={sincronizando}>
-            {sincronizando ? (
-              <ActivityIndicator size="small" color={theme.primary} />
-            ) : (
-              <Text style={[styles.accionText, { color: theme.primary }]}>Sincronizar</Text>
-            )}
+          <TouchableOpacity style={[styles.accionBtn, { backgroundColor: theme.surface }]} onPress={onSincronizar}>
+            <Text style={[styles.accionText, { color: theme.primary }]}>Sincronizar</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Campo de búsqueda */}
         <TextInput
           style={[styles.search, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
           placeholder="Buscar factura..."
@@ -145,41 +66,6 @@ export default function DrawerMenu({
           onChangeText={onChangeBusqueda}
         />
 
-        {/* Filtros de fecha: Desde / Hasta */}
-        <View style={styles.fechaRow}>
-          <TouchableOpacity
-            style={[styles.fechaBtn, { backgroundColor: theme.background, borderColor: fechaDesde ? theme.primary : theme.border }]}
-            onPress={() => abrirPicker('desde')}
-          >
-            <Text style={[styles.fechaLabel, { color: theme.textMuted }]}>Desde</Text>
-            <Text style={[styles.fechaValor, { color: fechaDesde ? theme.text : theme.textMuted }]}>
-              {fechaDesde ? formatearFecha(fechaDesde) : 'Tocar para elegir'}
-            </Text>
-          </TouchableOpacity>
-          <Text style={[styles.fechaSep, { color: theme.textMuted }]}>→</Text>
-          <TouchableOpacity
-            style={[styles.fechaBtn, { backgroundColor: theme.background, borderColor: fechaHasta ? theme.primary : theme.border }]}
-            onPress={() => abrirPicker('hasta')}
-          >
-            <Text style={[styles.fechaLabel, { color: theme.textMuted }]}>Hasta</Text>
-            <Text style={[styles.fechaValor, { color: fechaHasta ? theme.text : theme.textMuted }]}>
-              {fechaHasta ? formatearFecha(fechaHasta) : 'Tocar para elegir'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* DateTimePicker nativo (Android/iOS) */}
-        {showPicker && (
-          <DateTimePicker
-            value={getDateValue(showPicker === 'desde' ? fechaDesde : fechaHasta)}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={handleDateChange}
-            themeVariant={isDark ? 'dark' : 'light'}
-          />
-        )}
-
-        {/* Lista scrolleable de facturas filtradas */}
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           {historialFiltrado.length > 0 ? (
             historialFiltrado.map((item) => (
@@ -193,20 +79,18 @@ export default function DrawerMenu({
                     <Text style={[styles.itemMonto, { color: theme.primary }]}>
                       {Number(item.monto).toLocaleString('es-PY')}
                     </Text>
-                    {/* Botón para eliminar esta factura individual */}
                     <TouchableOpacity style={styles.itemDel} onPress={() => { if (onEliminarFactura) onEliminarFactura(item.id); }}>
                       <Text style={[styles.itemDelIcon, { color: theme.danger }]}>✕</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
-                {/* Detalles expandidos de la factura (artículos) */}
                 {itemExpandido === item.id && item.detalles && (
                   <View style={[styles.expandido, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     {item.detalles.items && item.detalles.items.length > 0 ? (
                       item.detalles.items.map((det, j) => (
                         <View key={j} style={styles.expRow}>
                           <Text style={[styles.expDesc, { color: theme.text }]} numberOfLines={1}>{det.descripcion || ''}</Text>
-                           <Text style={[styles.expPrecio, { color: theme.primary }]}>{(det.subtotal || 0).toLocaleString('es-PY')}</Text>
+                          <Text style={[styles.expPrecio, { color: theme.primary }]}>{(det.subtotal || 0).toLocaleString('es-PY')}</Text>
                         </View>
                       ))
                     ) : (
@@ -224,48 +108,10 @@ export default function DrawerMenu({
             ))
           ) : (
             <Text style={[styles.vacio, { color: theme.textMuted }]}>
-              {busqueda || fechaDesde || fechaHasta ? "Sin resultados" : "Usá el buscador o filtrá por fecha"}
+              {busqueda ? "Sin resultados" : "Sin facturas registradas"}
             </Text>
           )}
         </ScrollView>
-
-        {/* Configuración ngrok - protegido con contraseña */}
-        <View style={{ marginBottom: 16, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: ngrokDesbloqueado ? theme.success : theme.border, backgroundColor: theme.surface }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: ngrokDesbloqueado ? theme.success : theme.textMuted, letterSpacing: 1, marginBottom: 8 }}>
-            {ngrokDesbloqueado ? 'NGROK (Backend Local)' : '🔒 Configurar dirección'}
-          </Text>
-          {!ngrokDesbloqueado ? (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TextInput
-                style={[styles.search, { flex: 1, borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
-                placeholder="Contraseña"
-                placeholderTextColor={theme.textMuted}
-                value={ngrokPass}
-                onChangeText={setNgrokPass}
-                secureTextEntry
-              />
-              <TouchableOpacity style={[styles.accionBtn, { backgroundColor: theme.primary, paddingHorizontal: 16 }]} onPress={desbloquearNgrok}>
-                <Text style={styles.accionText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <TextInput
-                style={[styles.search, { borderColor: theme.border, color: theme.text, backgroundColor: theme.background }]}
-                placeholder="https://xxxx.ngrok-free.app"
-                placeholderTextColor={theme.textMuted}
-                value={ngrokInput}
-                onChangeText={setNgrokInput}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity style={[styles.accionBtn, { backgroundColor: ngrokSaved ? theme.success : theme.primary, width: '100%', alignItems: 'center' }]} onPress={guardarNgrok}>
-                <Text style={styles.accionText}>{ngrokSaved ? 'Guardado!' : 'Guardar URL'}</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-
       </View>
     </>
   );
@@ -284,12 +130,7 @@ const styles = StyleSheet.create({
   acciones: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   accionBtn: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 4 },
   accionText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
-  search: { borderWidth: 1, padding: 12, borderRadius: 12, fontSize: 14, marginBottom: 10 },
-  fechaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
-  fechaBtn: { flex: 1, borderWidth: 1, borderRadius: 12, padding: 10, alignItems: 'center' },
-  fechaLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 2 },
-  fechaValor: { fontSize: 13, fontWeight: '600' },
-  fechaSep: { fontSize: 16, fontWeight: '600' },
+  search: { borderWidth: 1, padding: 12, borderRadius: 12, fontSize: 14, marginBottom: 16 },
   scroll: { maxHeight: 320 },
   item: { paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, borderLeftWidth: 3, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4 },
   itemInfo: { flex: 1 },
